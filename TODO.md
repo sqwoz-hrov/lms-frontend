@@ -1,1 +1,2 @@
-- https://ui.shadcn.com/blocks/sidebar#sidebar-09 - для встреч
+- [ ] https://ui.shadcn.com/blocks/sidebar#sidebar-09 - для встреч
+- [ ] Auth component (button + two modals for email & OTP)

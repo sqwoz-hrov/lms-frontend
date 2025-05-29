@@ -1,21 +1,20 @@
-import * as React from "react"
+import * as React from "react";
 import {
   BookOpen,
-  Bot,
+  Calendar,
+  CloudUpload,
   Command,
-  Frame,
-  LifeBuoy,
-  Map,
-  PieChart,
-  Send,
+  GitBranchPlus,
+  Landmark,
+  MailWarning,
   Settings2,
   SquareTerminal,
-} from "lucide-react"
+} from "lucide-react";
 
-import { NavMain } from "@/components/nav-main"
-import { NavProjects } from "@/components/nav-projects"
-import { NavSecondary } from "@/components/nav-secondary"
-import { NavUser } from "@/components/nav-user"
+import { NavMain } from "@/components/nav-main";
+import { NavProjects } from "@/components/nav-projects";
+import { NavSecondary } from "@/components/nav-secondary";
+import { NavUser } from "@/components/nav-user";
 import {
   Sidebar,
   SidebarContent,
@@ -24,7 +23,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-} from "@/components/ui/sidebar"
+} from "@/components/ui/sidebar";
 
 const data = {
   user: {
@@ -34,121 +33,116 @@ const data = {
   },
   navMain: [
     {
-      title: "Playground",
+      title: "Отклики",
       url: "#",
       icon: SquareTerminal,
       isActive: true,
       items: [
         {
-          title: "History",
+          title: "Все отклики",
           url: "#",
         },
         {
-          title: "Starred",
+          // TODO: логично что у админов и учеников разные ссылки))
+          title: "Ждут моего ответа",
           url: "#",
         },
         {
-          title: "Settings",
+          title: "Слитые",
           url: "#",
         },
       ],
     },
     {
-      title: "Models",
+      title: "Мои задания",
       url: "#",
-      icon: Bot,
+      icon: GitBranchPlus,
       items: [
         {
-          title: "Genesis",
+          title: "Учебный проект",
           url: "#",
         },
         {
-          title: "Explorer",
-          url: "#",
-        },
-        {
-          title: "Quantum",
+          title: "Задания",
           url: "#",
         },
       ],
     },
     {
-      title: "Documentation",
+      title: "Мои материалы",
       url: "#",
-      icon: BookOpen,
+      icon: Landmark,
       items: [
         {
-          title: "Introduction",
+          title: "Все",
           url: "#",
+          icon: BookOpen,
         },
         {
-          title: "Get Started",
+          title: "Новые",
           url: "#",
-        },
-        {
-          title: "Tutorials",
-          url: "#",
-        },
-        {
-          title: "Changelog",
-          url: "#",
+          icon: MailWarning,
         },
       ],
     },
     {
-      title: "Settings",
+      // TODO: admin rights
+      title: "Менеджмент учеников",
       url: "#",
       icon: Settings2,
       items: [
         {
-          title: "General",
+          title: "Договоры и ученики",
           url: "#",
         },
         {
-          title: "Team",
+          title: "Проверка заданий",
           url: "#",
         },
         {
-          title: "Billing",
+          title: "Проверка откликов",
           url: "#",
         },
         {
-          title: "Limits",
+          title: "Журнал",
+          url: "#",
+        },
+      ],
+    },
+    {
+      // TODO: admin rights
+      title: "Менеджмент контента",
+      url: "#",
+      icon: BookOpen,
+      items: [
+        {
+          title: "Добавить материал",
           url: "#",
         },
       ],
     },
   ],
-  navSecondary: [
-    {
-      title: "Support",
-      url: "#",
-      icon: LifeBuoy,
-    },
-    {
-      title: "Feedback",
-      url: "#",
-      icon: Send,
-    },
-  ],
+  navSecondary: [],
   projects: [
     {
-      name: "Design Engineering",
+      name: "Созвоны",
       url: "#",
-      icon: Frame,
+      icon: Calendar,
     },
     {
-      name: "Sales & Marketing",
+      // TODO: studentj rights
+      name: "Загрузить запись",
       url: "#",
-      icon: PieChart,
+      icon: CloudUpload,
     },
     {
-      name: "Travel",
+      // TODO: admin rights
+      name: "Загрузить фидбек",
       url: "#",
-      icon: Map,
+      icon: CloudUpload,
     },
   ],
-}
+};
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   return (
@@ -179,5 +173,5 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <NavUser user={data.user} />
       </SidebarFooter>
     </Sidebar>
-  )
+  );
 }
