@@ -5,10 +5,10 @@ import path from "node:path";
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react(), tailwind()],
-  resolve: {
-    alias: {
-      "@": path.resolve(__dirname, "./src"),
-    },
-  },
+	plugins: [react(), tailwind()],
+	resolve: {
+		alias: {
+			"@": path.resolve(__dirname, "./src"),
+		},
+	},
 });

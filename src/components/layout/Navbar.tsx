@@ -1,18 +1,47 @@
-import React from 'react';
+import { Link, useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { useCurrentUser } from "../../hooks/useCurrentUser";
 
-const Navbar = () => {
-  return (
-    <nav className="bg-blue-600 text-white p-4">
-      <div className="container mx-auto flex justify-between items-center">
-        <h1 className="text-xl font-bold">LMS Platform</h1>
-        <div className="space-x-4">
-          <a href="/" className="hover:text-blue-200">Dashboard</a>
-          <a href="/courses" className="hover:text-blue-200">Courses</a>
-          <a href="/profile" className="hover:text-blue-200">Profile</a>
-        </div>
-      </div>
-    </nav>
-  );
-};
+export function Navbar() {
+	const navigate = useNavigate();
+	const token = localStorage.getItem("token");
+	const { data: me, isLoading } = useCurrentUser();
 
-export default Navbar;
+	const handleLogout = () => {
+		localStorage.removeItem("token");
+		navigate("/login");
+	};
+
+	return (
+		<nav className="flex items-center gap-4 p-4 border-b">
+			{token && (
+				<>
+					<Link to="/subjects">
+						<Button variant="ghost">Темы</Button>
+					</Link>
+					<Link to="/materials">
+						<Button variant="ghost">Материалы</Button>
+					</Link>
+					<Link to="/tasks">
+						<Button variant="ghost">Задачи</Button>
+					</Link>
+					<Link to="/hr-connections">
+						<Button variant="ghost">Отклики</Button>
+					</Link>
+
+					{/* Показываем ссылку только для админов */}
+					{!isLoading && me?.role === "admin" && (
+						<Link to="/users">
+							<Button variant="ghost">Пользователи</Button>
+						</Link>
+					)}
+
+					{/* logout уводим вправо */}
+					<Button variant="outline" onClick={handleLogout} className="ml-auto">
+						Выйти
+					</Button>
+				</>
+			)}
+		</nav>
+	);
+}
