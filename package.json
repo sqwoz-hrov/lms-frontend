@@ -5,10 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "stage": "vite --config vite.config.stage.ts",
+    "build": "vite build --config vite.config.prod.ts",
     "lint": "eslint .",
-    "lint:fix": "eslint . --fix",
-    "preview": "vite preview"
+    "lint:fix": "eslint . --fix"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

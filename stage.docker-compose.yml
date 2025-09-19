@@ -1,0 +1,39 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: dev
+    container_name: react_vite_dev
+    restart: unless-stopped
+    volumes:
+      - .:/app:cached
+      - node_modules:/app/node_modules
+    environment:
+      - NODE_ENV=development
+      - DEV_PORT=${DEV_PORT:-5173}
+      - HMR_PROTOCOL=wss
+      - HMR_HOST=${DOMAIN}
+      - HMR_CLIENT_PORT=${DEV_HMR_CLIENT_PORT:-443}
+      - CHOKIDAR_USEPOLLING=true
+      - WATCHPACK_POLLING=true
+    command: ["npm","run","dev","--","--host","0.0.0.0","--port","${DEV_PORT:-5173}"]
+    networks:
+      - traefik_public
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.app.rule=Host(`${DOMAIN}`)"
+      - "traefik.http.routers.app.entrypoints=websecure"
+      - "traefik.http.routers.app.tls=true"
+      - "traefik.http.routers.app.tls.certresolver=${TRAEFIK_CERT_RESOLVER}"
+      - "traefik.http.services.app.loadbalancer.server.port=${DEV_PORT:-5173}"
+      - "traefik.docker.network=traefik_public"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    
+volumes:
+  node_modules:
+
+networks:
+  traefik_public:
+    external: true
