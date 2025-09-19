@@ -10,7 +10,7 @@ services:
       - traefik_public
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.app.rule=Host(`${DOMAIN}`)"
+      - "traefik.http.routers.app.rule=Host(sqwoz-hrov.ru) && PathPrefix(/lms)"
       - "traefik.http.routers.app.entrypoints=websecure"
       - "traefik.http.routers.app.tls=true"
       - "traefik.http.routers.app.tls.certresolver=${TRAEFIK_CERT_RESOLVER}"
@@ -18,6 +18,8 @@ services:
       - "traefik.docker.network=traefik_public"
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    env_file:
+      - .env
 
 networks:
   traefik_public:

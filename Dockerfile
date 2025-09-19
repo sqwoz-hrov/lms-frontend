@@ -15,7 +15,7 @@ ENV NODE_ENV=development
 COPY --from=deps /app /app
 EXPOSE 5173
 # Хост обязателен в докере
-CMD ["npm","run","dev","--","--host","0.0.0.0","--port","5173"]
+CMD ["npm","run","stage","--","--host","0.0.0.0","--port","5173"]
 
 # ---------- build (vite build) ----------
 FROM node:22-alpine AS build
