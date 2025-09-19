@@ -3,11 +3,13 @@ import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { EmailStep } from "@/components/auth/EmailStep";
 import { OtpStep } from "@/components/auth/OtpStep";
+import { useNavigate } from "react-router-dom";
 
 export function LoginPage() {
 	const { askOtp, finishOtp } = useAuth();
 	const [step, setStep] = useState<"email" | "otp">("email");
 	const [email, setEmail] = useState("");
+	const navigate = useNavigate();
 
 	async function handleEmailSubmit(email: string) {
 		await askOtp(email);
@@ -18,7 +20,7 @@ export function LoginPage() {
 	async function handleOtpSubmit(otp: string) {
 		await finishOtp(email, Number(otp));
 		// после успешного логина можно редиректнуть на главную
-		window.location.href = "/materials";
+		navigate("/materials");
 	}
 
 	return (
