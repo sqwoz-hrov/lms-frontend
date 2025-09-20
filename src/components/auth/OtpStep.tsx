@@ -9,7 +9,7 @@ export function OtpStep({ email, onSubmitOtp }: { email: string; onSubmitOtp: (o
 	return (
 		<form onSubmit={handleSubmit(d => onSubmitOtp(d.otp))} className="space-y-4 max-w-sm mx-auto">
 			<p className="text-sm text-gray-600">
-				На <span className="font-medium">{email}</span> был отправлен код
+				На <span className="font-medium">ваш телеграм</span> был отправлен код
 			</p>
 			<Input type="text" placeholder="Введите код" {...register("otp", { required: "Введите код из письма" })} />
 			<Button type="submit" disabled={formState.isSubmitting} className="w-full">
