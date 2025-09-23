@@ -3,6 +3,7 @@
 @plugin "@tailwindcss/typography";
 @import "tw-animate-css";
 
+
 /* ===== Tailwind v4 tokens (даёт утилиты вида bg-primary, text-muted-foreground, etc.) */
 @theme {
   --color-background: hsl(var(--background));
