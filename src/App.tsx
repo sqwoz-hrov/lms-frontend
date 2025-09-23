@@ -1,6 +1,5 @@
 import { BrowserRouter } from "react-router-dom";
 import { QueryClientProvider } from "@tanstack/react-query";
-import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { queryClient } from "@/lib/queryClient";
 import { AppRoutes } from "@/router/routes";
 
@@ -10,7 +9,6 @@ export function App() {
 			<BrowserRouter basename={import.meta.env.VITE_FRONTEND_URL_PREFIX as string}>
 				<AppRoutes />
 			</BrowserRouter>
-			<ReactQueryDevtools initialIsOpen={false} />
 		</QueryClientProvider>
 	);
 }
