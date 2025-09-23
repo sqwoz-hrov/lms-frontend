@@ -5,9 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useQuery } from "@tanstack/react-query";
 import { FileQuestion, FileText, Video } from "lucide-react";
 import { useMemo } from "react";
-import ReactMarkdown from "react-markdown";
 import { useNavigate, useParams } from "react-router-dom";
-import remarkGfm from "remark-gfm";
+import { MarkdownRenderer } from "../../components/markdown/MarkdownRenderer";
 import { useAuth } from "../../hooks/useAuth";
 
 export function ViewMaterial() {
@@ -104,7 +103,7 @@ export function ViewMaterial() {
 				<CardContent>
 					{material.markdown_content ? (
 						<article className="prose max-w-none prose-headings:scroll-mt-24">
-							<ReactMarkdown remarkPlugins={[remarkGfm]}>{material.markdown_content}</ReactMarkdown>
+							<MarkdownRenderer markdown={material.markdown_content} mode="full" />
 						</article>
 					) : (
 						<div className="text-sm text-muted-foreground">

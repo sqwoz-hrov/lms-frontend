@@ -1,0 +1,22 @@
+/* src/styles/markdown.css */
+
+/* Фон для многострочных код-блоков */
+.prose pre {
+  background: var(--tw-prose-pre-bg) !important;
+}
+
+/* Сам <code> не должен перекрашивать фон поверх pre */
+.prose pre > code.hljs {
+  background: transparent !important;
+}
+
+/* Некоторые темы дают background-span'ам — убираем */
+.prose pre code.hljs span {
+  background: transparent !important;
+}
+
+/* На всякий случай — общий сброс для hljs внутри prose */
+.prose .hljs {
+  /* Цвет текста берёт сама тема; фон — наш */
+  background: transparent !important;
+}
