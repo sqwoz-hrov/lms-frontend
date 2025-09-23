@@ -1,18 +1,18 @@
-import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { useForm } from "react-hook-form";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { TasksApi, type TaskStatus } from "@/api/tasksApi";
 import { AuthApi, type UserResponse } from "@/api/usersApi";
-import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useMemo, useState } from "react";
+import { useForm } from "react-hook-form";
+import { useNavigate } from "react-router-dom";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
+import { useAuth } from "../../hooks/useAuth";
 
 // —— Form Types ——
 interface FormData {
@@ -28,7 +28,7 @@ interface FormData {
 export function CreateTaskPage() {
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
-	const { data: me, isLoading: meLoading } = useCurrentUser();
+	const { user: me, loading: meLoading } = useAuth();
 	const isAdmin = !!me && (me as any).role === "admin";
 
 	const [serverError, setServerError] = useState<string | null>(null);

@@ -1,19 +1,19 @@
-import { useMemo } from "react";
-import { useNavigate, useParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
 import { MaterialsApi, type MaterialResponseDto } from "@/api/materialsApi";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useQuery } from "@tanstack/react-query";
+import { FileQuestion, FileText, Video } from "lucide-react";
+import { useMemo } from "react";
 import ReactMarkdown from "react-markdown";
+import { useNavigate, useParams } from "react-router-dom";
 import remarkGfm from "remark-gfm";
-import { FileText, Video, FileQuestion } from "lucide-react";
+import { useAuth } from "../../hooks/useAuth";
 
 export function ViewMaterial() {
 	const { id } = useParams<{ id: string }>();
 	const navigate = useNavigate();
-	const { data: user } = useCurrentUser();
+	const { user } = useAuth();
 	const isAdmin = !!user && (user as any).role === "admin";
 
 	const {

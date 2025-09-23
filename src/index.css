@@ -1,5 +1,7 @@
 /* src/index.css */
 @import "tailwindcss";
+@plugin "@tailwindcss/typography";
+@import "tw-animate-css";
 
 /* ===== Tailwind v4 tokens (даёт утилиты вида bg-primary, text-muted-foreground, etc.) */
 @theme {
@@ -112,9 +114,25 @@
   }
 }
 
-/* (Необязательно) Чуть улучшить focus/selection/scrollbar — приятнее для dialog/select/input */
 @layer utilities {
   .focus-ring {
     @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
   }
+}
+
+/* Стили превью: более плотные интервалы и line-clamp абзацев */
+.prose-preview p {
+  margin-top: 0.25rem;
+  margin-bottom: 0.25rem;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;       /* до 3 строк на абзац */
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Список в превью тоже компактнее */
+.prose-preview ul,
+.prose-preview ol {
+  margin-top: 0.25rem;
+  margin-bottom: 0.25rem;
 }

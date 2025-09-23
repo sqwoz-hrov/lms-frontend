@@ -90,20 +90,26 @@ export function TaskViewerDrawer({ taskId, onClose }: TaskViewerDrawerProps) {
 	const priority = watch("priority");
 	const status = watch("status");
 
-	// ===== Loading state: простой "jira-подобный" лоадер на месте шапки
+	// ===== Loading state
 	if (loadingTask || !task) {
 		return (
-			<div className="w-full">
+			// 1) Высота на весь вьюпорт внутри дроуэра + внутренний скролл
+			<div className="flex h-[100dvh] flex-col overscroll-contain">
+				{/* sticky header */}
 				<div className="sticky top-0 z-20 border-b bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
 					<div className="mx-auto max-w-6xl px-4 py-3 flex items-center gap-3 text-sm">
 						<Loader2 className="size-4 animate-spin" />
 						Загрузка задачи…
 					</div>
 				</div>
-				<div className="mx-auto max-w-6xl px-4 py-6">
-					<Card>
-						<CardContent className="p-6 text-sm text-muted-foreground">Данные задачи загружаются…</CardContent>
-					</Card>
+
+				{/* прокручиваемая область */}
+				<div className="flex-1 overflow-y-auto">
+					<div className="mx-auto max-w-6xl px-4 py-6">
+						<Card>
+							<CardContent className="p-6 text-sm text-muted-foreground">Данные задачи загружаются…</CardContent>
+						</Card>
+					</div>
 				</div>
 			</div>
 		);
@@ -111,8 +117,9 @@ export function TaskViewerDrawer({ taskId, onClose }: TaskViewerDrawerProps) {
 
 	// ===== Jira-like layout
 	return (
-		<div className="w-full">
-			{/* Sticky header like Jira */}
+		// 2) Та же конструкция в обычном состоянии
+		<div className="flex h-[100dvh] flex-col overscroll-contain">
+			{/* Sticky header */}
 			<div className="sticky top-0 z-20 border-b bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
 				<div className="mx-auto max-w-6xl px-4 py-3">
 					<TaskHeader
@@ -131,43 +138,39 @@ export function TaskViewerDrawer({ taskId, onClose }: TaskViewerDrawerProps) {
 				</div>
 			</div>
 
-			{/* Main content area */}
-			<div className="mx-auto max-w-6xl px-4 py-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
-				{/* Left: description/markdown (2/3 width on desktop) */}
-				<div className="lg:col-span-8 space-y-6">
-					<Card>
-						<CardContent className="p-0">
-							<TaskMarkdown isEdit={isEdit} register={register} markdown={task.markdown_content} />
-						</CardContent>
-					</Card>
+			{/* Прокручиваемая центральная зона */}
+			<div className="flex-1 overflow-y-auto">
+				<div className="mx-auto max-w-6xl px-4 py-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+					{/* Left: описание */}
+					<div className="lg:col-span-8 space-y-6">
+						<Card>
+							<CardContent className="p-0">
+								<TaskMarkdown isEdit={isEdit} register={register} markdown={task.markdown_content} />
+							</CardContent>
+						</Card>
+					</div>
 
-					{/* (опционально) сюда можно позже добавить вкладки "Активность / Комментарии / История" */}
-					{/* <Card>
-            <CardContent className="p-0">
-              <IssueActivityTabs issueId={task.id} />
-            </CardContent>
-          </Card> */}
-				</div>
-
-				{/* Right: properties sidebar (1/3 width on desktop) */}
-				<div className="lg:col-span-4 space-y-6">
-					<Card>
-						<CardContent className="p-4">
-							<TaskProperties
-								task={task}
-								isEdit={isEdit}
-								register={register}
-								setValue={setValue}
-								status={status}
-								priority={priority ?? task.priority}
-								onStatusChange={s => changeStatusMutation.mutate({ id: task.id, status: s })}
-								statusPending={changeStatusMutation.isPending}
-							/>
-						</CardContent>
-					</Card>
+					{/* Right: свойства */}
+					<div className="lg:col-span-4 space-y-6">
+						<Card>
+							<CardContent className="p-4">
+								<TaskProperties
+									task={task}
+									isEdit={isEdit}
+									register={register}
+									setValue={setValue}
+									status={status}
+									priority={priority ?? task.priority}
+									onStatusChange={s => changeStatusMutation.mutate({ id: task.id, status: s })}
+									statusPending={changeStatusMutation.isPending}
+								/>
+							</CardContent>
+						</Card>
+					</div>
 				</div>
 			</div>
 
+			{/* Модалка удаления как была */}
 			<ConfirmDeleteDialog
 				open={confirmOpen}
 				onOpenChange={setConfirmOpen}

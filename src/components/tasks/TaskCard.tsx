@@ -1,13 +1,12 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import type { TaskResponseDto } from "@/api/tasksApi";
 import type { UserResponse } from "@/api/usersApi";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import { GripVertical } from "lucide-react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 import * as React from "react";
+import { MarkdownRenderer } from "../markdown/MarkdownRenderer";
 
 type Props = {
 	task: TaskResponseDto;
@@ -70,9 +69,7 @@ export function TaskCard({ task, usersById, onOpen }: Props) {
 			{/* Рендер Markdown */}
 			{task.markdown_content ? (
 				<CardContent className="p-3 pt-2">
-					<article className="prose max-w-none prose-headings:scroll-mt-24 text-sm">
-						<ReactMarkdown remarkPlugins={[remarkGfm]}>{task.markdown_content}</ReactMarkdown>
-					</article>
+					<MarkdownRenderer markdown={task.markdown_content} mode="preview" />
 				</CardContent>
 			) : (
 				<CardContent className="p-3 pt-2">

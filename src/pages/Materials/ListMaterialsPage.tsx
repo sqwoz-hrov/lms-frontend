@@ -1,10 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { MaterialsApi, type MaterialResponseDto } from "@/api/materialsApi";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -12,8 +9,11 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { MoreVertical, FileText, Video, FileQuestion } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { FileQuestion, FileText, MoreVertical, Video } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { useAuth } from "../../hooks/useAuth";
 
 export function ListMaterialsPage() {
 	const navigate = useNavigate();
@@ -34,7 +34,7 @@ export function ListMaterialsPage() {
 		setParams(next, { replace: true });
 	}, [tab]);
 
-	const { data: user } = useCurrentUser();
+	const { user } = useAuth();
 	const isAdmin = !!user && (user as any).role === "admin";
 
 	// Build query params for API

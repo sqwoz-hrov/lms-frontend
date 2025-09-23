@@ -1,9 +1,9 @@
-import { useQuery } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
 import { SubjectsApi, type SubjectResponseDto } from "@/api/subjectsApi";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useQuery } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../../hooks/useAuth";
 
 export function ListSubjectsPage() {
 	const navigate = useNavigate();
@@ -21,7 +21,7 @@ export function ListSubjectsPage() {
 	});
 
 	// Current user (to check role)
-	const { data: user, isLoading: userLoading } = useCurrentUser();
+	const { user, loading: userLoading } = useAuth();
 	const isAdmin = !!user && (user as any).role === "admin"; // adjust typing if you have User type
 
 	const handleAdd = () => navigate("/subjects/new");

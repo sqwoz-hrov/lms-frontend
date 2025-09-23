@@ -1,16 +1,15 @@
 // src/components/hr/feedback/FeedbackSection.tsx
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Loader2, Plus, Pencil, Trash2 } from "lucide-react";
 import { FeedbackApi, type BaseFeedbackDto } from "@/api/feedbackApi";
 import type { BaseHrConnectionDto } from "@/api/hrConnectionsApi";
-import { usePermissions } from "@/hooks/usePermissions";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
-import { useState } from "react";
-import { FeedbackEditorDialog } from "./FeedbackEditorDialog";
 import { getInterviews, type BaseInterviewDto, type InterviewType } from "@/api/interviewsApi";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { usePermissions } from "@/hooks/usePermissions";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Loader2, Pencil, Plus, Trash2 } from "lucide-react";
+import { useState } from "react";
+import { MarkdownRenderer } from "../markdown/MarkdownRenderer";
+import { FeedbackEditorDialog } from "./FeedbackEditorDialog";
 
 const TYPE_LABEL: Record<InterviewType, string> = {
 	screening: "Screening",
@@ -26,7 +25,6 @@ export function FeedbackSection({ hrConnection }: { hrConnection: BaseHrConnecti
 	const canSee = canSeeFeedback();
 	const canCrud = canCRUDFeedback();
 
-	// Композитный запрос: все интервью + фидбек по каждому интервью
 	const q = useQuery({
 		queryKey: ["feedback-by-connection", hrConnection.id],
 		queryFn: async () => {
@@ -97,7 +95,7 @@ export function FeedbackSection({ hrConnection }: { hrConnection: BaseHrConnecti
 											<div className="mb-2 text-xs text-muted-foreground">Этап: {TYPE_LABEL[iv.type]}</div>
 											{fb.markdown_content ? (
 												<article className="prose max-w-none prose-headings:scroll-mt-24 text-sm">
-													<ReactMarkdown remarkPlugins={[remarkGfm]}>{fb.markdown_content}</ReactMarkdown>
+													<MarkdownRenderer markdown={fb.markdown_content} mode="full" />
 												</article>
 											) : (
 												<div className="text-xs text-muted-foreground">Пустой фидбек.</div>

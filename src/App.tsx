@@ -7,7 +7,7 @@ import { AppRoutes } from "@/router/routes";
 export function App() {
 	return (
 		<QueryClientProvider client={queryClient}>
-			<BrowserRouter basename="/lms">
+			<BrowserRouter basename={import.meta.env.VITE_FRONTEND_URL_PREFIX as string}>
 				<AppRoutes />
 			</BrowserRouter>
 			<ReactQueryDevtools initialIsOpen={false} />

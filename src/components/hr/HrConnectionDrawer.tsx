@@ -35,8 +35,10 @@ export function HrConnectionDrawer({ open, onOpenChange, conn }: HrConnectionDra
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent className="sm:max-w-[1000px] p-0 gap-0 overflow-hidden">
-				<div className="border-b p-4">
+			{/* ключевые изменения: max-h и flex layout */}
+			<DialogContent className="sm:max-w-[1000px] p-0 gap-0 overflow-hidden max-h-[90vh] flex flex-col">
+				{/* хедер фиксированной высоты */}
+				<div className="border-b p-4 shrink-0">
 					<HrConnectionHeader
 						conn={conn}
 						onEdit={() => setEditOpen(true)}
@@ -47,8 +49,9 @@ export function HrConnectionDrawer({ open, onOpenChange, conn }: HrConnectionDra
 					/>
 				</div>
 
-				<Tabs defaultValue="general" className="w-full">
-					<div className="px-4 pt-3">
+				{/* Tabs растягиваются на оставшееся место */}
+				<Tabs defaultValue="general" className="w-full flex-1 min-h-0 flex flex-col">
+					<div className="px-4 pt-3 shrink-0">
 						<TabsList>
 							<TabsTrigger value="general">Общее</TabsTrigger>
 							<TabsTrigger value="interviews">Интервью</TabsTrigger>
@@ -56,6 +59,7 @@ export function HrConnectionDrawer({ open, onOpenChange, conn }: HrConnectionDra
 						</TabsList>
 					</div>
 
+					{/* general можно оставить как есть */}
 					<TabsContent value="general" className="p-4">
 						<div className="grid gap-2 text-sm">
 							<div>
@@ -76,11 +80,11 @@ export function HrConnectionDrawer({ open, onOpenChange, conn }: HrConnectionDra
 						</div>
 					</TabsContent>
 
-					<TabsContent value="interviews" className="p-4">
+					<TabsContent value="interviews" className="p-4 flex-1 min-h-0 overflow-y-auto">
 						<InterviewsSection hrConnection={conn} />
 					</TabsContent>
 
-					<TabsContent value="feedback" className="p-4">
+					<TabsContent value="feedback" className="p-4 flex-1 min-h-0 overflow-y-auto">
 						<FeedbackSection hrConnection={conn} />
 					</TabsContent>
 				</Tabs>

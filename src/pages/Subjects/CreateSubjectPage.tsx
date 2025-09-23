@@ -1,13 +1,13 @@
-import { useForm } from "react-hook-form";
-import { useNavigate } from "react-router-dom";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { SubjectsApi } from "@/api/subjectsApi";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../../hooks/useAuth";
 
 // --- Types ---
 interface FormData {
@@ -18,7 +18,7 @@ interface FormData {
 export function CreateSubjectPage() {
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
-	const { data: user, isLoading: userLoading } = useCurrentUser();
+	const { user, loading: userLoading } = useAuth();
 	const isAdmin = !!user && (user as any).role === "admin";
 
 	const [serverError, setServerError] = useState<string | null>(null);

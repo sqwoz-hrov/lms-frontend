@@ -1,45 +1,58 @@
-import { Link, useNavigate } from "react-router-dom";
+// src/components/layout/Navbar.tsx
 import { Button } from "@/components/ui/button";
-import { useCurrentUser } from "../../hooks/useCurrentUser";
+import { useAuth } from "@/hooks/useAuth";
+import { Loader2 } from "lucide-react";
+import { useState } from "react";
+import { NavLink, useNavigate } from "react-router-dom";
+
+const linkCls = ({ isActive }: { isActive: boolean }) =>
+	`px-3 py-2 rounded-md ${isActive ? "bg-muted font-medium" : "hover:bg-muted"}`;
 
 export function Navbar() {
 	const navigate = useNavigate();
-	const token = localStorage.getItem("token");
-	const { data: me, isLoading } = useCurrentUser();
+	const { user, isAuthenticated, loading, logout } = useAuth();
+	const [pending, setPending] = useState(false);
 
-	const handleLogout = () => {
-		localStorage.removeItem("token");
-		navigate("/login");
+	const handleLogout = async () => {
+		try {
+			setPending(true);
+			await logout(); // серверный /users/logout, кук-ориентированный
+		} finally {
+			setPending(false);
+			navigate("/login", { replace: true });
+		}
 	};
 
 	return (
-		<nav className="flex items-center gap-4 p-4 border-b">
-			{token && (
+		<nav className="flex items-center gap-2 p-4 border-b">
+			{isAuthenticated && (
 				<>
-					<Link to="/subjects">
-						<Button variant="ghost">Темы</Button>
-					</Link>
-					<Link to="/materials">
-						<Button variant="ghost">Материалы</Button>
-					</Link>
-					<Link to="/tasks">
-						<Button variant="ghost">Задачи</Button>
-					</Link>
-					<Link to="/hr-connections">
-						<Button variant="ghost">Отклики</Button>
-					</Link>
-
-					{/* Показываем ссылку только для админов */}
-					{!isLoading && me?.role === "admin" && (
-						<Link to="/users">
-							<Button variant="ghost">Пользователи</Button>
-						</Link>
+					<NavLink to="/subjects" className={linkCls}>
+						Темы
+					</NavLink>
+					<NavLink to="/materials" className={linkCls}>
+						Материалы
+					</NavLink>
+					<NavLink to="/tasks" className={linkCls}>
+						Задачи
+					</NavLink>
+					<NavLink to="/hr-connections" className={linkCls}>
+						Отклики
+					</NavLink>
+					{/* только админам */}
+					{!loading && user?.role === "admin" && (
+						<NavLink to="/users" className={linkCls}>
+							Пользователи
+						</NavLink>
 					)}
 
-					{/* logout уводим вправо */}
-					<Button variant="outline" onClick={handleLogout} className="ml-auto">
-						Выйти
-					</Button>
+					<div className="ml-auto flex items-center gap-3">
+						{!loading && user && <span className="text-sm text-muted-foreground">{user.name}</span>}
+						<Button variant="outline" onClick={handleLogout} disabled={pending}>
+							{pending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+							Выйти
+						</Button>
+					</div>
 				</>
 			)}
 		</nav>

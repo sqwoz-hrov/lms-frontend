@@ -1,25 +1,25 @@
 import { type TaskResponseDto, TasksApi } from "@/api/tasksApi";
 import { getUsers, type UserResponse } from "@/api/usersApi";
-import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { Button } from "@/components/ui/button";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
 
 import { FiltersBar } from "@/components/tasks/FiltersBar";
 import { KanbanBoard } from "@/components/tasks/KanbanBoard";
-import { type LocalTaskStatus, type StatusMap } from "@/components/tasks/constants";
-import { useUsersById } from "@/hooks/useUsersById";
-import { loadStatusMap, saveStatusMap } from "@/components/tasks/kanbanState";
-import type { DragEndEvent } from "@dnd-kit/core";
 import { TaskViewerDrawer } from "@/components/tasks/TaskViewerDrawer";
+import { type LocalTaskStatus, type StatusMap } from "@/components/tasks/constants";
+import { loadStatusMap, saveStatusMap } from "@/components/tasks/kanbanState";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { useUsersById } from "@/hooks/useUsersById";
+import type { DragEndEvent } from "@dnd-kit/core";
+import { useAuth } from "../../hooks/useAuth";
 
 export function ListTasksPage() {
 	const navigate = useNavigate();
 	const [params, setParams] = useSearchParams();
 
-	const { data: me } = useCurrentUser();
+	const { user: me } = useAuth();
 	const isAdmin = !!me && (me as any).role === "admin";
 
 	// —— Filters from URL ——
@@ -141,12 +141,25 @@ export function ListTasksPage() {
 				/>
 			)}
 
-			{/* Editor dialog */}
-			<Dialog open={!!openedTaskId} onOpenChange={v => !v && closeTask()}>
-				<DialogContent className="sm:max-w-[75vw]">
+			{/* Editor sheet */}
+			<Sheet open={!!openedTaskId} onOpenChange={v => !v && closeTask()}>
+				<SheetContent
+					side="right"
+					className="
+    				  p-0
+    				  /* Снимаем ограничение max-width у шадсиита */
+    				  max-w-none sm:max-w-none lg:max-w-none
+    				  /* Ширина дроуэра: почти фулл на мобиле, ~полэкрана на десктопе */
+    				  w-[100dvw] sm:w-[85dvw] lg:w-[50dvw] 2xl:w-[46dvw]
+    				  /* Анимации как были */
+    				  data-[state=open]:animate-in data-[state=closed]:animate-out
+    				  data-[state=open]:slide-in-from-right data-[state=closed]:slide-out-to-right
+    				  data-[state=open]:duration-300 data-[state=closed]:duration-200
+    				"
+				>
 					{openedTaskId && <TaskViewerDrawer taskId={openedTaskId} onClose={closeTask} />}
-				</DialogContent>
-			</Dialog>
+				</SheetContent>
+			</Sheet>
 		</div>
 	);
 }

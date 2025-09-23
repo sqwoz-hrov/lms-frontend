@@ -1,3 +1,4 @@
+// src/components/tasks/parts/TaskProperties.tsx
 import { type TaskResponseDto, type TaskStatus, type UpdateTaskDto } from "@/api/tasksApi";
 import { type UseFormRegister, type UseFormSetValue } from "react-hook-form";
 import { Badge } from "@/components/ui/badge";
@@ -6,6 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { isoToInputDate, inputDateToIso, PRIORITY_LABEL, STATUS_LABEL } from "./helpers";
+import { useMemo } from "react";
+import { useUsers, getUserLabel } from "@/hooks/useUsers";
 
 export function TaskProperties(props: {
 	task: TaskResponseDto;
@@ -17,7 +20,33 @@ export function TaskProperties(props: {
 	onStatusChange: (s: TaskStatus) => void;
 	statusPending: boolean;
 }) {
-	const { task, isEdit, register, setValue, status, priority, onStatusChange, statusPending } = props;
+	const { task, isEdit, setValue, status, priority, onStatusChange, statusPending } = props;
+
+	// --- Users loading ---
+	const { data: users, isLoading: usersLoading } = useUsers();
+
+	// Быстрые словари для поиска по id
+	const usersById = useMemo(() => {
+		const map = new Map<string, { id: string; label: string }>();
+		(users ?? []).forEach(u => map.set(u.id, { id: u.id, label: getUserLabel({ name: u.name }) }));
+		return map;
+	}, [users]);
+
+	// Костыль: если id нет в списке — добавляем фиктивную опцию, чтобы Select умел отобразить value.
+	const ensureOption = (id?: string | null) => {
+		if (!id) return undefined;
+		const hit = usersById.get(id);
+		if (hit) return hit;
+		return { id, label: `Неизвестный пользователь (${id})` }; // временная подпись
+	};
+
+	const studentOption = ensureOption(task.student_user_id);
+	const mentorOption = ensureOption(task.mentor_user_id);
+
+	const renderUserReadable = (id?: string) => {
+		if (!id) return "—";
+		return usersById.get(id)?.label ?? `Неизвестный пользователь (${id})`;
+	};
 
 	return (
 		<section className="lg:col-span-1 space-y-5">
@@ -94,20 +123,61 @@ export function TaskProperties(props: {
 
 			{/* Student / Mentor */}
 			<div className="grid grid-cols-2 gap-4">
+				{/* Student */}
 				<div className="space-y-2">
-					<Label>Студент (user_id)</Label>
+					<Label>Студент</Label>
 					{isEdit ? (
-						<Input {...register("student_user_id")} placeholder="UUID студента" />
+						<Select
+							value={task.student_user_id || ""}
+							onValueChange={v => setValue("student_user_id", v)}
+							disabled={usersLoading}
+						>
+							<SelectTrigger>
+								<SelectValue placeholder={usersLoading ? "Загрузка..." : "Выберите студента"} />
+							</SelectTrigger>
+							<SelectContent>
+								{/* Костыль: текущий id вне списка */}
+								{studentOption && !usersById.has(studentOption.id) && (
+									<SelectItem value={studentOption.id}>{studentOption.label}</SelectItem>
+								)}
+								{(users ?? []).map(u => (
+									<SelectItem key={u.id} value={u.id}>
+										{getUserLabel({ name: u.name })}
+									</SelectItem>
+								))}
+							</SelectContent>
+						</Select>
 					) : (
-						<div className="text-sm break-all">{task.student_user_id}</div>
+						<div className="text-sm break-all">{renderUserReadable(task.student_user_id)}</div>
 					)}
 				</div>
+
+				{/* Mentor */}
 				<div className="space-y-2">
-					<Label>Ментор (user_id)</Label>
+					<Label>Ментор</Label>
 					{isEdit ? (
-						<Input {...register("mentor_user_id")} placeholder="UUID ментора" />
+						<Select
+							value={task.mentor_user_id || ""}
+							onValueChange={v => setValue("mentor_user_id", v)}
+							disabled={usersLoading}
+						>
+							<SelectTrigger>
+								<SelectValue placeholder={usersLoading ? "Загрузка..." : "Выберите ментора"} />
+							</SelectTrigger>
+							<SelectContent>
+								{/* Костыль: текущий id вне списка */}
+								{mentorOption && !usersById.has(mentorOption.id) && (
+									<SelectItem value={mentorOption.id}>{mentorOption.label}</SelectItem>
+								)}
+								{(users ?? []).map(u => (
+									<SelectItem key={u.id} value={u.id}>
+										{getUserLabel({ name: u.name })}
+									</SelectItem>
+								))}
+							</SelectContent>
+						</Select>
 					) : (
-						<div className="text-sm break-all">{task.mentor_user_id}</div>
+						<div className="text-sm break-all">{renderUserReadable(task.mentor_user_id)}</div>
 					)}
 				</div>
 			</div>

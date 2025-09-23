@@ -1,11 +1,11 @@
 // src/hooks/useHrConnectionsQuery.ts
 // Хук получения списка HR-коннектов с фильтрами из URL + автоподстановка student_user_id для обычных пользователей
 
-import { useMemo } from "react";
+import { HrConnectionsApi, type BaseHrConnectionDto, type HrStatus } from "@/api/hrConnectionsApi";
 import { useQuery } from "@tanstack/react-query";
+import { useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
-import { HrConnectionsApi, type HrStatus, type BaseHrConnectionDto } from "@/api/hrConnectionsApi";
-import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useAuth } from "./useAuth";
 
 export type HrConnectionsFilters = {
 	status?: HrStatus;
@@ -15,7 +15,7 @@ export type HrConnectionsFilters = {
 
 export function useHrConnectionsQuery() {
 	const [params, setParams] = useSearchParams();
-	const { data: me, isLoading: meLoading } = useCurrentUser();
+	const { user: me, loading: meLoading } = useAuth();
 	const isAdmin = me?.role === "admin";
 
 	const urlFilters: HrConnectionsFilters = useMemo(() => {

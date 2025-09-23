@@ -1,21 +1,22 @@
 // src/hooks/usePermissions.ts
 // Хук-обёртка вокруг чистых функций + текущего пользователя
 
-import { useCurrentUser } from "@/hooks/useCurrentUser";
 import type { BaseHrConnectionDto } from "@/api/hrConnectionsApi";
 import {
-	isAdmin as _isAdmin,
-	isOwner as _isOwner,
-	canSeeHrConnection as _canSeeHrConnection,
+	canCRUDFeedback as _canCRUDFeedback,
 	canCRUDHrConnection as _canCRUDHrConnection,
 	canCRUDInterview as _canCRUDInterview,
 	canSeeFeedback as _canSeeFeedback,
-	canCRUDFeedback as _canCRUDFeedback,
+	canSeeHrConnection as _canSeeHrConnection,
+	isAdmin as _isAdmin,
+	isOwner as _isOwner,
 	type PermissionBundle,
 } from "@/utils/permissions";
+import { UserResponse } from "../api/usersApi";
+import { useAuth } from "./useAuth";
 
-export function usePermissions(): PermissionBundle & { me: ReturnType<typeof useCurrentUser>["data"] } {
-	const { data: me } = useCurrentUser();
+export function usePermissions(): PermissionBundle & { me: UserResponse | undefined } {
+	const { user: me } = useAuth();
 
 	return {
 		me,

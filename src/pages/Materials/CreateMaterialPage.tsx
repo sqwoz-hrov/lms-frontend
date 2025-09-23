@@ -1,18 +1,18 @@
-import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
-import { useForm } from "react-hook-form";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { MaterialsApi } from "@/api/materialsApi";
 import { SubjectsApi, type SubjectResponseDto } from "@/api/subjectsApi";
-import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useMemo, useState } from "react";
+import { useForm } from "react-hook-form";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { uploadVideo } from "../../api/videosApi";
+import { useAuth } from "../../hooks/useAuth";
 
 // ----- Types -----
 interface FormData {
@@ -30,7 +30,7 @@ export function CreateMaterialPage() {
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
 	const [params] = useSearchParams();
-	const { data: user, isLoading: userLoading } = useCurrentUser();
+	const { user, loading: userLoading } = useAuth();
 	const isAdmin = !!user && (user as any).role === "admin";
 
 	const [serverError, setServerError] = useState<string | null>(null);

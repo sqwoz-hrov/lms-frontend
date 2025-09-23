@@ -1,9 +1,8 @@
 import { type UseFormRegister } from "react-hook-form";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 import type { UpdateTaskDto } from "@/api/tasksApi";
+import { MarkdownRenderer } from "../../../markdown/MarkdownRenderer";
 
 export function TaskMarkdown(props: {
 	isEdit: boolean;
@@ -13,8 +12,9 @@ export function TaskMarkdown(props: {
 	const { isEdit, register, markdown } = props;
 
 	return (
-		<section className="lg:col-span-2 space-y-3">
-			<Label>Описание (Markdown)</Label>
+		<section className="lg:col-span-2 space-y-2 px-6">
+			<Label className="block scroll-m-20 text-xl lg:text-2xl font-extrabold tracking-tight">Описание</Label>
+
 			{isEdit ? (
 				<Textarea
 					className="min-h-[280px] font-mono"
@@ -22,9 +22,7 @@ export function TaskMarkdown(props: {
 					placeholder="Опишите задачу в Markdown…"
 				/>
 			) : markdown ? (
-				<article className="prose max-w-none prose-headings:scroll-mt-24 text-sm">
-					<ReactMarkdown remarkPlugins={[remarkGfm]}>{markdown}</ReactMarkdown>
-				</article>
+				<MarkdownRenderer markdown={markdown} mode="full" />
 			) : (
 				<div className="text-xs text-muted-foreground">
 					Для этой задачи отсутствует поле <code>markdown_content</code>.

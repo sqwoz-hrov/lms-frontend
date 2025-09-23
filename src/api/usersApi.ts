@@ -1,9 +1,6 @@
 // src/api/usersApi.ts
-// Работа с пользователями по спецификации /users/* (login, signup)
-
 import apiClient from "./client";
 
-// ===== Types (из OpenAPI) =====
 export type AskLoginDto = {
 	email: string;
 };
@@ -11,10 +8,6 @@ export type AskLoginDto = {
 export type FinishLoginDto = {
 	email: string;
 	otpCode: number;
-};
-
-export type FinishLoginResponse = {
-	token: string; // JWT access token
 };
 
 export type SignupDto = {
@@ -33,58 +26,67 @@ export type UserResponse = {
 	telegram_username: string;
 };
 
-// ===== API =====
+type OkWithTtls = {
+	ok: true;
+	accessTtlMs?: number;
+	refreshTtlMs?: number;
+};
+
 const USERS = "/users";
 
-/**
- * Начинает процедуру логина: отправляет OTP на email
- * POST /users/login
- */
 export async function askLogin(data: AskLoginDto): Promise<void> {
 	await apiClient.post(`${USERS}/login`, data);
 }
 
-/**
- * Завершает логин по OTP и возвращает JWT токен
- * POST /users/login/finish
- */
-export async function finishLogin(data: FinishLoginDto): Promise<FinishLoginResponse> {
-	const res = await apiClient.post<FinishLoginResponse>(`${USERS}/login/finish`, data);
+export async function finishLogin(data: FinishLoginDto): Promise<OkWithTtls> {
+	const res = await apiClient.post<OkWithTtls>(`${USERS}/login/finish`, data, {
+		withCredentials: true,
+	});
 	return res.data;
 }
 
-/**
- * Регистрирует нового пользователя
- * POST /users/signup
- */
+export async function refresh(): Promise<OkWithTtls> {
+	const res = await apiClient.post<OkWithTtls>(`${USERS}/refresh`, undefined, {
+		withCredentials: true,
+	});
+	return res.data;
+}
+
+export async function logout(options?: { all?: boolean }): Promise<{ ok: true }> {
+	const res = await apiClient.post<{ ok: true }>(
+		`${USERS}/logout`,
+		{ all: options?.all ?? false },
+		{ withCredentials: true },
+	);
+	return res.data;
+}
+
 export async function signup(data: SignupDto): Promise<UserResponse> {
-	const res = await apiClient.post<UserResponse>(`${USERS}/signup`, data);
+	const res = await apiClient.post<UserResponse>(`${USERS}/signup`, data, {
+		withCredentials: true,
+	});
 	return res.data;
 }
 
-/**
- * Получает текущего пользователя
- * GET /users/get-me
- */
 export async function getCurrentUser(): Promise<UserResponse> {
-	const res = await apiClient.get<UserResponse>(`${USERS}/get-me`);
+	const res = await apiClient.get<UserResponse>(`${USERS}/get-me`, {
+		withCredentials: true,
+	});
 	return res.data;
 }
 
-/**
- * Получает список пользователей
- * GET /users
- * (без параметров)
- */
 export async function getUsers(): Promise<UserResponse[]> {
-	const res = await apiClient.get<UserResponse[]>(`${USERS}`);
+	const res = await apiClient.get<UserResponse[]>(`${USERS}`, {
+		withCredentials: true,
+	});
 	return res.data;
 }
 
-// Агрегатор
 export const AuthApi = {
 	askLogin,
 	finishLogin,
+	refresh,
+	logout,
 	signup,
 	getCurrentUser,
 	getUsers,

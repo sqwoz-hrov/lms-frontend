@@ -1,4 +1,4 @@
-import { RequireAdmin } from "@/components/auth/RequireAdmin";
+// src/router/routes.tsx
 import { Navbar } from "@/components/layout/Navbar";
 import { LoginPage } from "@/pages/Auth/LoginPage";
 import ListHrConnectionsPage from "@/pages/HrConnections/ListHrConnections";
@@ -11,111 +11,50 @@ import { CreateTaskPage } from "@/pages/Tasks/CreateTaskPage";
 import { ListTasksPage } from "@/pages/Tasks/ListTasksPage";
 import { CreateUserPage } from "@/pages/Users/CreateUserPage";
 import { ListUsersPage } from "@/pages/Users/ListUsersPage";
-import type { JSX } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
-
-function PrivateRoute({ children }: { children: JSX.Element }) {
-	const token = localStorage.getItem("token");
-	return token ? children : <Navigate to="/login" />;
-}
+import { ProtectedRoute } from "./components/ProtectedRoute";
+import { AdminRoute } from "./components/AdminRoute";
+import { HomeGate } from "./components/HomeGate";
+import { PublicOnly } from "./components/PublicOnly";
 
 export function AppRoutes() {
 	return (
 		<>
 			<Navbar />
 			<Routes>
-				<Route path="/login" element={<LoginPage />} />
+				{/* при заходе на "/" решаем, куда отправить */}
+				<Route path="/" element={<HomeGate />} />
 
+				{/* страница логина доступна только гостям */}
 				<Route
-					path="/materials/new"
+					path="/login"
 					element={
-						<RequireAdmin>
-							<CreateMaterialPage />
-						</RequireAdmin>
+						<PublicOnly to="/tasks">
+							<LoginPage />
+						</PublicOnly>
 					}
 				/>
 
-				<Route
-					path="/materials/:id"
-					element={
-						<PrivateRoute>
-							<ViewMaterial />
-						</PrivateRoute>
-					}
-				/>
+				{/* приватные роуты */}
+				<Route element={<ProtectedRoute />}>
+					<Route path="/materials" element={<ListMaterialsPage />} />
+					<Route path="/materials/:id" element={<ViewMaterial />} />
+					<Route path="/subjects" element={<ListSubjectsPage />} />
+					<Route path="/tasks" element={<ListTasksPage />} />
+					<Route path="/hr-connections" element={<ListHrConnectionsPage />} />
+				</Route>
 
-				<Route
-					path="/materials"
-					element={
-						<PrivateRoute>
-							<ListMaterialsPage />
-						</PrivateRoute>
-					}
-				/>
+				{/* только для админов */}
+				<Route element={<AdminRoute />}>
+					<Route path="/materials/new" element={<CreateMaterialPage />} />
+					<Route path="/subjects/new" element={<CreateSubjectPage />} />
+					<Route path="/users" element={<ListUsersPage />} />
+					<Route path="/users/new" element={<CreateUserPage />} />
+					<Route path="/tasks/new" element={<CreateTaskPage />} />
+				</Route>
 
-				<Route
-					path="/subjects"
-					element={
-						<PrivateRoute>
-							<ListSubjectsPage />
-						</PrivateRoute>
-					}
-				/>
-
-				<Route
-					path="/subjects/new"
-					element={
-						<RequireAdmin>
-							<CreateSubjectPage />
-						</RequireAdmin>
-					}
-				/>
-
-				<Route
-					path="/users"
-					element={
-						<RequireAdmin>
-							<ListUsersPage />
-						</RequireAdmin>
-					}
-				/>
-
-				<Route
-					path="/users/new"
-					element={
-						<RequireAdmin>
-							<CreateUserPage />
-						</RequireAdmin>
-					}
-				/>
-
-				<Route
-					path="/tasks"
-					element={
-						<PrivateRoute>
-							<ListTasksPage />
-						</PrivateRoute>
-					}
-				/>
-
-				<Route
-					path="/tasks/new"
-					element={
-						<RequireAdmin>
-							<CreateTaskPage />
-						</RequireAdmin>
-					}
-				/>
-
-				<Route
-					path="/hr-connections"
-					element={
-						<PrivateRoute>
-							<ListHrConnectionsPage />
-						</PrivateRoute>
-					}
-				/>
-				<Route path="*" element={<Navigate to="/login" />} />
+				{/* fallback */}
+				<Route path="*" element={<Navigate to="/" replace />} />
 			</Routes>
 		</>
 	);
