@@ -1,6 +1,7 @@
-// src/hooks/useAuth.ts
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useMemo, useState } from "react";
+import { useLocation } from "react-router-dom";
+import { isAxiosError } from "axios";
 import {
 	askLogin,
 	finishLogin,
@@ -9,6 +10,16 @@ import {
 	logout as apiLogout,
 	type UserResponse,
 } from "@/api/usersApi";
+
+let refreshInFlight: Promise<unknown> | null = null;
+function safeRefresh() {
+	if (!refreshInFlight) {
+		refreshInFlight = refreshSession().finally(() => {
+			refreshInFlight = null;
+		});
+	}
+	return refreshInFlight;
+}
 
 type UseAuthReturn = {
 	user: UserResponse | undefined;
@@ -25,6 +36,11 @@ type UseAuthReturn = {
 
 export function useAuth(): UseAuthReturn {
 	const qc = useQueryClient();
+	const location = useLocation();
+
+	// Не дергаем /get-me на публичных страницах (логин, при необходимости добавь и signup)
+	const isPublicAuthRoute = location.pathname.startsWith("/login");
+
 	const [actionLoading, setActionLoading] = useState(false);
 	const [actionError, setActionError] = useState<string | null>(null);
 
@@ -32,12 +48,17 @@ export function useAuth(): UseAuthReturn {
 		try {
 			return await getCurrentUser();
 		} catch (e) {
-			try {
-				await refreshSession();
-				return await getCurrentUser();
-			} catch {
-				throw e;
+			// Рефреш пытаемся только при 401 и делаем его с "замком"
+			if (isAxiosError(e) && e.response?.status === 401) {
+				try {
+					await safeRefresh();
+					return await getCurrentUser();
+				} catch {
+					// если рефреш не помог — пробрасываем исходную ошибку
+					throw e;
+				}
 			}
+			throw e;
 		}
 	}, []);
 
@@ -46,6 +67,12 @@ export function useAuth(): UseAuthReturn {
 		queryFn: fetchMeWithAutoRefresh,
 		staleTime: 60_000,
 		retry: false,
+		// КЛЮЧЕВОЕ: на /login запрос не запускаем
+		enabled: !isPublicAuthRoute,
+		// чтобы на фокусе окна/ре-коннекте не сыпались повторные вызовы
+		refetchOnWindowFocus: false,
+		refetchOnReconnect: false,
+		// по умолчанию при staleTime>0 refetchOnMount=false, оставим как есть
 	});
 
 	const askOtp = useCallback(async (email: string) => {
@@ -72,6 +99,7 @@ export function useAuth(): UseAuthReturn {
 					throw new Error("Некорректный одноразовый код");
 				}
 				await finishLogin({ email, otpCode });
+				// Ручной рефетч сработает даже если query был disabled на /login
 				await qc.invalidateQueries({ queryKey: ["currentUser"] });
 				await qc.refetchQueries({ queryKey: ["currentUser"] });
 			} catch (e) {
