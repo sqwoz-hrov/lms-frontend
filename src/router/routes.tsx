@@ -2,7 +2,7 @@
 import { Navbar } from "@/components/layout/Navbar";
 import { LoginPage } from "@/pages/Auth/LoginPage";
 import ListHrConnectionsPage from "@/pages/HrConnections/ListHrConnections";
-import { CreateMaterialPage } from "@/pages/Materials/CreateMaterialPage";
+import { UpsertMaterialPage } from "@/pages/Materials/MaterialUpsertPage";
 import { ListMaterialsPage } from "@/pages/Materials/ListMaterialsPage";
 import { ViewMaterial } from "@/pages/Materials/ViewMaterialPage";
 import { CreateSubjectPage } from "@/pages/Subjects/CreateSubjectPage";
@@ -46,7 +46,8 @@ export function AppRoutes() {
 
 				{/* только для админов */}
 				<Route element={<AdminRoute />}>
-					<Route path="/materials/new" element={<CreateMaterialPage />} />
+					<Route path="/materials/new" element={<UpsertMaterialPage />} />
+					<Route path="/materials/:id/edit" element={<UpsertMaterialPage />} />
 					<Route path="/subjects/new" element={<CreateSubjectPage />} />
 					<Route path="/users" element={<ListUsersPage />} />
 					<Route path="/users/new" element={<CreateUserPage />} />

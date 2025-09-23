@@ -14,6 +14,7 @@ import { FileQuestion, FileText, MoreVertical, Video } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
+import { SubjectsApi, type SubjectResponseDto } from "@/api/subjectsApi";
 
 export function ListMaterialsPage() {
 	const navigate = useNavigate();
@@ -36,6 +37,18 @@ export function ListMaterialsPage() {
 
 	const { user } = useAuth();
 	const isAdmin = !!user && (user as any).role === "admin";
+
+	const {
+		data: subject,
+		isLoading: isSubjectLoading,
+		isError: isSubjectError,
+	} = useQuery<SubjectResponseDto | null>({
+		queryKey: ["subject", subjectId],
+		enabled: !!subjectId,
+		queryFn: () => SubjectsApi.getById(subjectId!),
+		staleTime: 60_000,
+		retry: 1,
+	});
 
 	// Build query params for API
 	const listParams = useMemo(() => {
@@ -101,10 +114,39 @@ export function ListMaterialsPage() {
 			<div className="mb-6 flex flex-wrap items-center justify-between gap-3">
 				<div className="flex items-center gap-2">
 					<h1 className="text-2xl font-semibold tracking-tight">Материалы</h1>
+
 					{subjectId && (
-						<Badge variant="outline" title="Фильтр по предмету">
-							subject_id: {subjectId}
-						</Badge>
+						<>
+							{isSubjectLoading ? (
+								<Badge variant="outline" title="Загрузка темы">
+									Загрузка темы…
+								</Badge>
+							) : isSubjectError ? (
+								<Badge variant="destructive" title="Тема не найдена">
+									Тема не найдена
+								</Badge>
+							) : subject ? (
+								<Badge variant="outline" title="Фильтр по теме">
+									<span className="h-3 w-3 rounded-full border" style={{ backgroundColor: subject.color_code }} />
+									{subject.name}
+								</Badge>
+							) : (
+								<Badge variant="outline">subject_id: {subjectId}</Badge>
+							)}
+							<Button
+								variant="ghost"
+								size="sm"
+								className="ml-1"
+								onClick={() => {
+									const next = new URLSearchParams(params);
+									next.delete("subject_id");
+									setParams(next, { replace: true });
+								}}
+								title="Сбросить фильтр по теме"
+							>
+								Сбросить
+							</Button>
+						</>
 					)}
 				</div>
 
