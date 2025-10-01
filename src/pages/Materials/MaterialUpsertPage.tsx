@@ -11,8 +11,9 @@ import {
 	type UpdateMaterialDto,
 	type MaterialResponseDto,
 } from "@/api/materialsApi";
-import { uploadVideo } from "@/api/videosApi";
 import { MaterialForm, type MaterialFormValues } from "@/components/materials/MaterialForm";
+import { useRef } from "react";
+import { useResumableVideoUpload } from "@/hooks/useResumableVideoUpload";
 
 export function UpsertMaterialPage() {
 	const navigate = useNavigate();
@@ -26,6 +27,12 @@ export function UpsertMaterialPage() {
 
 	const materialId = params.id; // routes: /materials/new  |  /materials/:id/edit
 	const mode: "create" | "edit" = materialId ? "edit" : "create";
+
+	// Pipe resumable upload progress into MaterialForm's setUploadProgress
+	const setUploadProgressRef = useRef<(n: number) => void>(() => {});
+	const { start: startUpload, status: uploadStatus } = useResumableVideoUpload({
+		onProgress: ({ pct }) => setUploadProgressRef.current?.(pct),
+	});
 
 	// Subjects
 	const {
@@ -72,6 +79,9 @@ export function UpsertMaterialPage() {
 		values: MaterialFormValues,
 		{ setUploadProgress }: { setUploadProgress: (n: number) => void },
 	) {
+		// wire the form's progress setter for the hook to call
+		setUploadProgressRef.current = setUploadProgress;
+
 		if (mode === "create") {
 			const payload: CreateMaterialDto = {
 				subject_id: values.subject_id.trim(),
@@ -82,13 +92,9 @@ export function UpsertMaterialPage() {
 			if (values.type === "video") {
 				const file = values.video_file?.[0];
 				if (!file) throw new Error("Выберите видеофайл");
-				const videoUpload = await uploadVideo(file, {
-					onUploadProgress: (e: any) => {
-						if (!e.total) return;
-						setUploadProgress(Math.round((e.loaded / e.total) * 100));
-					},
-				});
-				payload.video_id = videoUpload.id;
+				// resumable upload → returns final VideoResponseDto on 201
+				const v = await startUpload(file);
+				payload.video_id = v.id;
 			} else {
 				payload.markdown_content = values.markdown_content?.trim() || undefined;
 			}
@@ -109,13 +115,8 @@ export function UpsertMaterialPage() {
 		if (values.type === "video") {
 			const file = values.video_file?.[0];
 			if (file) {
-				const videoUpload = await uploadVideo(file, {
-					onUploadProgress: (e: any) => {
-						if (!e.total) return;
-						setUploadProgress(Math.round((e.loaded / e.total) * 100));
-					},
-				});
-				payload.video_id = videoUpload.id;
+				const v = await startUpload(file);
+				payload.video_id = v.id;
 			}
 			payload.markdown_content = undefined; // keep clean
 		} else {
@@ -180,7 +181,9 @@ export function UpsertMaterialPage() {
 							subjects={subjects || []}
 							defaultSubjectId={defaultSubjectId}
 							initial={material ?? null}
-							submitting={createMut.isPending || updateMut.isPending}
+							submitting={
+								createMut.isPending || updateMut.isPending || uploadStatus === "uploading" || uploadStatus === "paused"
+							}
 							onSubmit={handleSubmit}
 						/>
 					)}

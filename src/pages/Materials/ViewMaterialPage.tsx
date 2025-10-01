@@ -1,5 +1,7 @@
+// ViewMaterial.tsx
 import { MaterialsApi, type MaterialResponseDto } from "@/api/materialsApi";
 import { SubjectsApi, type SubjectResponseDto } from "@/api/subjectsApi";
+import { GetByIdVideoResponseDto, VideosApi, type VideoResponseDto } from "@/api/videosApi"; // ⬅ добавили
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,6 +11,7 @@ import { useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { MarkdownRenderer } from "@/components/markdown/MarkdownRenderer";
 import { useAuth } from "@/hooks/useAuth";
+import { VideoPlayer } from "@/components/video/VideoPlayer"; // ⬅ добавили
 
 export function ViewMaterial() {
 	const { id } = useParams<{ id: string }>();
@@ -42,6 +45,20 @@ export function ViewMaterial() {
 		enabled: !!material?.subject_id,
 		queryFn: async () => (material?.subject_id ? SubjectsApi.getById(material.subject_id) : null),
 		staleTime: 60_000,
+	});
+
+	// ⬇ ДОБАВЛЕНО: подгружаем метаданные видео и presigned URL
+	const {
+		data: video,
+		isLoading: videoLoading,
+		isError: videoError,
+		refetch: refetchVideo,
+	} = useQuery<GetByIdVideoResponseDto | null>({
+		queryKey: ["video", material?.video_id],
+		enabled: !!material && material.type === "video" && !!material.video_id,
+		queryFn: async () => (material?.video_id ? VideosApi.getById(material.video_id) : null),
+		staleTime: 5 * 60_000, // 5 минут — presigned URL обычно живёт дольше, но это безопасно
+		retry: 1,
 	});
 
 	const icon = useMemo(() => {
@@ -121,6 +138,68 @@ export function ViewMaterial() {
 				</div>
 			</div>
 
+			{/* ⬇ БЛОК С ВИДЕО — только для материалов типа "video" */}
+			{material.type === "video" && material.video_id && (
+				<Card className="mb-6">
+					<CardHeader className="flex flex-row items-center justify-between">
+						<CardTitle className="text-base">Видео</CardTitle>
+						<div className="flex items-center gap-2">
+							{videoLoading ? (
+								<span className="text-xs text-muted-foreground">Загрузка ссылки…</span>
+							) : videoError ? (
+								<Button size="sm" variant="secondary" onClick={() => refetchVideo()}>
+									Обновить ссылку
+								</Button>
+							) : null}
+						</div>
+					</CardHeader>
+					<CardContent>
+						{/* 1) приоритет — прямой S3 presigned URL */}
+						{video?.video_url ? (
+							<VideoPlayer src={video.video_url} type={video?.mime_type ?? "video/mp4"} title={material.name} />
+						) : // 2) если presigned нет, но есть YouTube — показываем embed
+						video?.youtube_link ? (
+							<div className="aspect-video w-full overflow-hidden rounded-lg border">
+								<iframe
+									className="h-full w-full"
+									src={toYouTubeEmbed(video.youtube_link)}
+									title={material.name}
+									allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+									allowFullScreen
+								/>
+							</div>
+						) : videoLoading ? (
+							<div className="h-48 w-full rounded-lg border bg-muted animate-pulse" />
+						) : (
+							<div className="text-sm text-muted-foreground">
+								Для этого видео пока нет активной ссылки. Попробуйте{" "}
+								<button className="underline underline-offset-4" onClick={() => refetchVideo()}>
+									обновить
+								</button>
+								.
+							</div>
+						)}
+
+						{/* Техническая подсказка/отладка */}
+						<div className="mt-3 text-xs text-muted-foreground">
+							Видео ID: <code>{material.video_id}</code>
+							{video?.phase ? (
+								<>
+									{" "}
+									• Статус: <code>{video.phase}</code>
+								</>
+							) : null}
+							{video?.mime_type ? (
+								<>
+									{" "}
+									• MIME: <code>{video.mime_type}</code>
+								</>
+							) : null}
+						</div>
+					</CardContent>
+				</Card>
+			)}
+
 			<Card>
 				<CardHeader>
 					<CardTitle className="text-base">Содержание</CardTitle>
@@ -137,12 +216,6 @@ export function ViewMaterial() {
 					)}
 				</CardContent>
 			</Card>
-
-			{material.type === "video" && material.video_id && (
-				<div className="mt-6 text-sm text-muted-foreground">
-					Видео ID: <code>{material.video_id}</code>
-				</div>
-			)}
 		</div>
 	);
 }
@@ -155,5 +228,23 @@ function TypeBadge({ type }: { type: MaterialResponseDto["type"] }) {
 			return <Badge variant="secondary">Видео</Badge>;
 		default:
 			return <Badge variant="secondary">Другое</Badge>;
+	}
+}
+
+// Вспомогательное: превратить обычную YouTube-ссылку в embed
+function toYouTubeEmbed(url: string) {
+	try {
+		const u = new URL(url);
+		// поддержка youtu.be/<id> и youtube.com/watch?v=<id>
+		let id = "";
+		if (u.hostname.includes("youtu.be")) {
+			id = u.pathname.replace("/", "");
+		} else {
+			id = u.searchParams.get("v") ?? "";
+		}
+		if (!id) return url;
+		return `https://www.youtube.com/embed/${id}`;
+	} catch {
+		return url;
 	}
 }

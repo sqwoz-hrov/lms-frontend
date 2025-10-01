@@ -1,67 +1,61 @@
 // src/components/hr/interviews/InterviewsSection.tsx
 import type { BaseHrConnectionDto } from "@/api/hrConnectionsApi";
 import { InterviewApi, type BaseInterviewDto } from "@/api/interviewsApi"; // ← singular: interviewApi
-import { VideosApi, type VideoResponseDto } from "@/api/videosApi";
+import { GetByIdVideoResponseDto, VideosApi, type VideoResponseDto } from "@/api/videosApi";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { usePermissions } from "@/hooks/usePermissions";
+import { useResumableVideoUpload } from "@/hooks/useResumableVideoUpload";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Loader2, Play, Plus, Trash2 } from "lucide-react";
+import { Loader2, Pause, Play, Plus, Trash2, X } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import { InterviewFormDialog } from "./InterviewFormDialog";
+import { VideoPlayer } from "@/components/video/VideoPlayer";
 
-function extractYouTubeId(youtube_link: string | undefined): string | null {
-	if (!youtube_link) return null;
-	try {
-		const u = new URL(youtube_link);
-		if (u.hostname.includes("youtu.be")) {
-			return u.pathname.slice(1) || null;
-		}
-		if (u.hostname.includes("youtube.com")) {
-			if (u.pathname.startsWith("/watch")) return u.searchParams.get("v");
-			if (u.pathname.startsWith("/embed/")) return u.pathname.split("/")[2] ?? null;
-			if (u.pathname.startsWith("/shorts/")) return u.pathname.split("/")[2] ?? null;
-		}
-	} catch {
-		console.log("failed to extract youtube video id");
-	}
-	return null;
-}
-
-function VideoPreview({ video }: { video: VideoResponseDto }) {
-	const ytId = extractYouTubeId(video.youtube_link);
-	if (ytId) {
+function VideoPreview({ video, onRefresh }: { video: GetByIdVideoResponseDto; onRefresh?: () => void }) {
+	if (video.video_url) {
 		return (
 			<div className="w-full max-w-xl">
-				<div className="aspect-video rounded-lg overflow-hidden border">
-					<iframe
-						className="w-full h-full"
-						src={`https://www.youtube.com/embed/${ytId}`}
-						title={video.original_name}
-						allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-						allowFullScreen
-					/>
-				</div>
-				<div className="mt-2 text-xs text-muted-foreground truncate">{video.original_name}</div>
+				<VideoPlayer src={video.video_url} type={video.mime_type ?? "video/mp4"} title={video.filename ?? "Video"} />
+				<div className="mt-2 text-xs text-muted-foreground truncate">{video.filename ?? "video"}</div>
 			</div>
 		);
 	}
+
 	return (
 		<div className="flex items-center gap-2">
-			<Button asChild size="sm">
-				<a href={video.youtube_link} target="_blank" rel="noreferrer">
-					<Play className="size-4 mr-2" /> Смотреть видео
-				</a>
-			</Button>
-			<span className="text-xs text-muted-foreground truncate max-w-[320px]">{video.original_name}</span>
+			<div className="text-xs text-muted-foreground">
+				{video.phase === "processing" ? "Видео обрабатывается…" : "Ссылка на видео пока недоступна."}
+			</div>
+			{onRefresh && (
+				<Button size="sm" variant="secondary" onClick={onRefresh}>
+					Обновить ссылку
+				</Button>
+			)}
 		</div>
 	);
 }
 
 function VideoAttach({ interview, onAttached }: { interview: BaseInterviewDto; onAttached: () => void }) {
 	const fileRef = useRef<HTMLInputElement | null>(null);
-	const [progress, setProgress] = useState<number | null>(null);
-	const [busy, setBusy] = useState(false);
+
+	const {
+		start: startUpload,
+		pause: pauseUpload,
+		resume: resumeUpload,
+		cancel: cancelUpload,
+		status: uploadStatus,
+		progress: uploadProgress, // { sent, total, pct }
+		video: uploadedVideo,
+		error: uploadError,
+	} = useResumableVideoUpload();
+
+	const [updating, setUpdating] = useState(false);
+
+	const isUploading = uploadStatus === "uploading";
+	const isPaused = uploadStatus === "paused";
+	const isBusy = isUploading || isPaused || updating;
+	const pct = uploadProgress.pct;
 
 	function handlePick() {
 		fileRef.current?.click();
@@ -70,31 +64,72 @@ function VideoAttach({ interview, onAttached }: { interview: BaseInterviewDto; o
 	async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
 		const file = e.target.files?.[0];
 		if (!file) return;
-		setBusy(true);
+
 		try {
-			const uploaded = await VideosApi.upload(file, {
-				onUploadProgress: evt => {
-					if (!evt.total) return;
-					setProgress(Math.round((evt.loaded / evt.total) * 100));
-				},
-			});
-			await InterviewApi.update({ id: interview.id, video_id: uploaded.id });
+			await startUpload(file);
+			if (!uploadedVideo?.id) throw new Error(uploadError ?? "Upload did not return a video id.");
+
+			setUpdating(true);
+			await InterviewApi.update({ id: interview.id, video_id: uploadedVideo.id });
 			onAttached();
+		} catch (err) {
+			console.error(err);
 		} finally {
-			setBusy(false);
-			setProgress(null);
+			setUpdating(false);
 			if (fileRef.current) fileRef.current.value = "";
 		}
 	}
 
 	return (
 		<div className="flex items-center gap-2">
-			<input ref={fileRef} type="file" accept="video/*" className="hidden" onChange={handleFileChange} />
-			<Button variant="outline" size="sm" onClick={handlePick} disabled={busy}>
-				{busy ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Plus className="mr-2 size-4" />}{" "}
-				{interview.video_id ? "Заменить видео" : "Загрузить видео"}
-			</Button>
-			{typeof progress === "number" && <span className="text-xs text-muted-foreground">{progress}%</span>}
+			<input
+				ref={fileRef}
+				type="file"
+				accept="video/*"
+				className="hidden"
+				onChange={handleFileChange}
+				disabled={isBusy}
+			/>
+
+			{interview.video_id ? (
+				<Button variant="outline" size="sm" onClick={handlePick} disabled={isBusy}>
+					{isBusy ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Plus className="mr-2 size-4" />} Заменить видео
+				</Button>
+			) : (
+				<Button variant="outline" size="sm" onClick={handlePick} disabled={isBusy}>
+					{isBusy ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Plus className="mr-2 size-4" />} Загрузить видео
+				</Button>
+			)}
+
+			{(isUploading || isPaused) && (
+				<div className="flex items-center gap-2 text-xs text-muted-foreground">
+					<span>{pct}%</span>
+					{isUploading ? (
+						<Button type="button" size="sm" variant="ghost" onClick={pauseUpload}>
+							<Pause className="mr-1 h-3 w-3" /> Пауза
+						</Button>
+					) : (
+						<Button
+							type="button"
+							size="sm"
+							variant="ghost"
+							onClick={() => {
+								const file = fileRef.current?.files?.[0];
+								if (file) resumeUpload(file);
+							}}
+						>
+							<Play className="mr-1 h-3 w-3" /> Продолжить
+						</Button>
+					)}
+					<Button type="button" size="sm" variant="ghost" onClick={cancelUpload}>
+						<X className="mr-1 h-3 w-3" /> Отмена
+					</Button>
+				</div>
+			)}
+
+			{uploadStatus === "error" && (
+				<div className="text-xs text-red-600">Ошибка загрузки: {uploadError ?? "Неизвестная ошибка"}</div>
+			)}
 		</div>
 	);
 }
@@ -160,7 +195,7 @@ export function InterviewsSection({ hrConnection }: { hrConnection: BaseHrConnec
 										</div>
 										{video ? (
 											<div className="mt-3">
-												<VideoPreview video={video} />
+												<VideoPreview video={video} onRefresh={() => videosQ.refetch()} />
 											</div>
 										) : (
 											<div className="mt-3 text-xs text-muted-foreground">Видео не прикреплено.</div>
