@@ -1,37 +1,53 @@
 // src/components/hr/interviews/InterviewsSection.tsx
 import type { BaseHrConnectionDto } from "@/api/hrConnectionsApi";
 import { InterviewApi, type BaseInterviewDto } from "@/api/interviewsApi"; // ← singular: interviewApi
-import { GetByIdVideoResponseDto, VideosApi, type VideoResponseDto } from "@/api/videosApi";
+import { GetByIdVideoResponseDto, VideosApi } from "@/api/videosApi"; // ← тип унифицировали на GetByIdVideoResponseDto
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { VideoPlayer } from "@/components/video/VideoPlayer";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useResumableVideoUpload } from "@/hooks/useResumableVideoUpload";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader2, Pause, Play, Plus, Trash2, X } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import { InterviewFormDialog } from "./InterviewFormDialog";
-import { VideoPlayer } from "@/components/video/VideoPlayer";
+
+/** Нормализуем backend-статусы к фазам плеера */
+function toPlayerPhase(p?: string): NonNullable<React.ComponentProps<typeof VideoPlayer>["phase"]> {
+	switch (p) {
+		case "receiving":
+		case "hashing":
+		case "uploading_s3":
+		case "completed":
+		case "failed":
+			return p;
+		// На случай старого "processing"
+		case "processing":
+			return "uploading_s3";
+		default:
+			return "receiving";
+	}
+}
 
 function VideoPreview({ video, onRefresh }: { video: GetByIdVideoResponseDto; onRefresh?: () => void }) {
-	if (video.video_url) {
-		return (
-			<div className="w-full max-w-xl">
-				<VideoPlayer src={video.video_url} type={video.mime_type ?? "video/mp4"} title={video.filename ?? "Video"} />
-				<div className="mt-2 text-xs text-muted-foreground truncate">{video.filename ?? "video"}</div>
-			</div>
-		);
-	}
+	const phase = toPlayerPhase(video.phase);
 
 	return (
-		<div className="flex items-center gap-2">
-			<div className="text-xs text-muted-foreground">
-				{video.phase === "processing" ? "Видео обрабатывается…" : "Ссылка на видео пока недоступна."}
+		<div className="w-full max-w-xl">
+			<VideoPlayer
+				src={video.video_url}
+				type={video.mime_type ?? "video/mp4"}
+				title={video.filename ?? "Video"}
+				phase={phase}
+			/>
+			<div className="mt-2 flex items-center justify-between gap-2">
+				<div className="text-xs text-muted-foreground truncate">{video.filename ?? "video"}</div>
+				{onRefresh && phase !== "completed" && (
+					<Button size="sm" variant="secondary" onClick={onRefresh}>
+						Обновить
+					</Button>
+				)}
 			</div>
-			{onRefresh && (
-				<Button size="sm" variant="secondary" onClick={onRefresh}>
-					Обновить ссылку
-				</Button>
-			)}
 		</div>
 	);
 }
@@ -153,7 +169,7 @@ export function InterviewsSection({ hrConnection }: { hrConnection: BaseHrConnec
 
 	// Сопутствующая загрузка метаданных видео по присутствующим video_id
 	const videoIds = useMemo(() => (q.data?.map(i => i.video_id).filter(Boolean) as string[]) || [], [q.data]);
-	const videosQ = useQuery<{ [id: string]: VideoResponseDto }>({
+	const videosQ = useQuery<{ [id: string]: GetByIdVideoResponseDto }>({
 		queryKey: ["videos-map", { ids: videoIds }],
 		queryFn: async () => {
 			const results = await Promise.all(videoIds.map(id => VideosApi.getById(id)));
