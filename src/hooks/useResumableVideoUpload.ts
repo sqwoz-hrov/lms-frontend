@@ -8,11 +8,6 @@ type Options = {
 	onProgress?: (p: { sent: number; total: number; pct: number }) => void;
 };
 
-type ResumeStateLoose = { sessionId?: string; uploadOffset: number };
-function hasSession(v: ResumeStateLoose): v is { sessionId: string; uploadOffset: number } {
-	return typeof v.sessionId === "string" && v.sessionId.length > 0;
-}
-
 export function useResumableVideoUpload(options: Options = {}) {
 	const [status, setStatus] = useState<Status>("idle");
 	const [error, setError] = useState<string | null>(null);

@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 
 export type MaterialFormValues = {
@@ -26,8 +26,6 @@ export type MaterialFormProps = {
 	submitting?: boolean;
 	onSubmit: (values: MaterialFormValues, helpers: { setUploadProgress: (n: number) => void }) => Promise<void> | void;
 };
-
-const MAX_VIDEO_SIZE_MB = 512;
 
 export function MaterialForm(props: MaterialFormProps) {
 	const { mode, subjects, defaultSubjectId = "", initial, submitting, onSubmit } = props;
@@ -63,8 +61,6 @@ export function MaterialForm(props: MaterialFormProps) {
 	}, [initial, mode, reset]);
 
 	const type = watch("type");
-	const fileList = watch("video_file");
-	const videoFile = useMemo(() => (fileList?.length ? fileList[0] : null), [fileList]);
 
 	useEffect(() => {
 		if (type === "video") {
@@ -76,13 +72,6 @@ export function MaterialForm(props: MaterialFormProps) {
 		try {
 			setServerError(null);
 			setUploadProgress(0);
-
-			// lightweight validation here; heavy lifting in page's onSubmit
-			if (values.type === "video" && videoFile && videoFile.size > MAX_VIDEO_SIZE_MB * 1024 * 1024) {
-				setServerError(`Размер файла превышает ${MAX_VIDEO_SIZE_MB} МБ`);
-				return;
-			}
-
 			await onSubmit(values, { setUploadProgress });
 		} catch (e: any) {
 			setServerError(e?.message || "Ошибка");
@@ -162,7 +151,6 @@ export function MaterialForm(props: MaterialFormProps) {
 				<div className="space-y-2">
 					<Label htmlFor="video_file">Видеофайл</Label>
 					<Input id="video_file" type="file" accept="video/*" {...register("video_file")} />
-					<p className="text-xs text-muted-foreground">Максимум ~{MAX_VIDEO_SIZE_MB} МБ.</p>
 					{uploadProgress > 0 && uploadProgress < 100 && (
 						<div className="text-xs text-muted-foreground">Загрузка: {uploadProgress}%</div>
 					)}

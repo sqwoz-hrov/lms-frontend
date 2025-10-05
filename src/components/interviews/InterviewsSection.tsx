@@ -62,7 +62,6 @@ function VideoAttach({ interview, onAttached }: { interview: BaseInterviewDto; o
 		cancel: cancelUpload,
 		status: uploadStatus,
 		progress: uploadProgress, // { sent, total, pct }
-		video: uploadedVideo,
 		error: uploadError,
 	} = useResumableVideoUpload();
 
@@ -82,11 +81,12 @@ function VideoAttach({ interview, onAttached }: { interview: BaseInterviewDto; o
 		if (!file) return;
 
 		try {
-			await startUpload(file);
-			if (!uploadedVideo?.id) throw new Error(uploadError ?? "Upload did not return a video id.");
+			const uploaded = await startUpload(file);
+			const videoId = uploaded?.id;
+			if (!videoId) throw new Error("Upload did not return a video id");
 
 			setUpdating(true);
-			await InterviewApi.update({ id: interview.id, video_id: uploadedVideo.id });
+			await InterviewApi.update({ id: interview.id, video_id: videoId });
 			onAttached();
 		} catch (err) {
 			console.error(err);
