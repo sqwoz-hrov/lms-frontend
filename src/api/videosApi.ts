@@ -65,7 +65,7 @@ function getHeader(res: { headers: any }, name: string): string | undefined {
 
 /** Загрузка одного чанка в ОРИГИНАЛЬНЫХ координатах. */
 async function uploadChunk(args: {
-	file: Blob;
+	file: File;
 	contentRangeStart: number; // original
 	contentRangeEnd: number; // original (inclusive)
 	contentRangeTotal: number; // original total
@@ -79,7 +79,7 @@ async function uploadChunk(args: {
 	const sliceLength = slice.size;
 
 	const form = new FormData();
-	form.append("file", slice, "chunk.bin");
+	form.append("file", slice, file.name);
 
 	const headers: Record<string, string> = {
 		"Content-Type": "multipart/form-data",
