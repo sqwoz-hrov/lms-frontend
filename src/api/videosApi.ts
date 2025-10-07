@@ -85,6 +85,7 @@ async function uploadChunk(args: {
 		"Content-Type": "multipart/form-data",
 		"Content-Range": `bytes ${contentRangeStart}-${contentRangeEnd}/${contentRangeTotal}`,
 		"Upload-Chunk-Size": String(sliceLength),
+		"X-Video-Content-Type": file.type || "application/octet-stream",
 	};
 	if (sessionId) headers["Upload-Session-Id"] = sessionId;
 
