@@ -82,6 +82,13 @@ export async function getUsers(): Promise<UserResponse[]> {
 	return res.data;
 }
 
+export async function getUserById(id: string): Promise<UserResponse> {
+	const res = await apiClient.get<UserResponse>(`${USERS}/${id}`, {
+		withCredentials: true,
+	});
+	return res.data;
+}
+
 export const AuthApi = {
 	askLogin,
 	finishLogin,
@@ -90,4 +97,5 @@ export const AuthApi = {
 	signup,
 	getCurrentUser,
 	getUsers,
+	getUserById,
 };

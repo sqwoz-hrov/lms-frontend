@@ -1,10 +1,10 @@
 // src/components/hr/HrConnectionHeader.tsx
+import type { BaseHrConnectionDto } from "@/api/hrConnectionsApi";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { ExternalLink, Link2, Pencil, Trash2 } from "lucide-react";
-import type { BaseHrConnectionDto } from "@/api/hrConnectionsApi";
 import { usePermissions } from "@/hooks/usePermissions";
+import { Check, Copy, Link2, Pencil, Trash2, XCircle } from "lucide-react";
 
 import { getUsers, type UserResponse } from "@/api/usersApi";
 import { useQuery } from "@tanstack/react-query";
@@ -14,6 +14,8 @@ export type HrConnectionHeaderProps = {
 	conn: BaseHrConnectionDto;
 	onEdit?: () => void;
 	onDelete?: () => void;
+	onCopyLink?: () => void;
+	copyStatus?: "idle" | "success" | "error";
 };
 
 const STATUS_LABEL: Record<BaseHrConnectionDto["status"], string> = {
@@ -23,11 +25,16 @@ const STATUS_LABEL: Record<BaseHrConnectionDto["status"], string> = {
 	offer: "Оффер",
 };
 
-export function HrConnectionHeader({ conn, onEdit, onDelete }: HrConnectionHeaderProps) {
+export function HrConnectionHeader({
+	conn,
+	onEdit,
+	onDelete,
+	onCopyLink,
+	copyStatus = "idle",
+}: HrConnectionHeaderProps) {
 	const { isAdmin, canCRUDHrConnection } = usePermissions();
 	const canCrud = canCRUDHrConnection(conn);
 
-	// ⬇️ грузим пользователей и фильтруем студентов
 	const {
 		data: users,
 		isLoading,
@@ -60,49 +67,55 @@ export function HrConnectionHeader({ conn, onEdit, onDelete }: HrConnectionHeade
 							>
 								{STATUS_LABEL[conn.status]}
 							</Badge>
+							<Badge variant="outline">Создано: {new Date(conn.created_at).toLocaleDateString()}</Badge>
 						</div>
 
-						<div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-							{isAdmin && (
-								<div className="shrink-0">
-									<span className="font-medium text-foreground/80">Студент:</span>{" "}
-									{isLoading ? (
+						<div className="mt-3 grid gap-1 text-sm text-muted-foreground">
+							<div>
+								<span className="font-medium text-foreground/80">Студент:</span>{" "}
+								{isAdmin ? (
+									isLoading ? (
 										<span>загрузка…</span>
 									) : isError ? (
 										<span className="text-destructive">ошибка загрузки</span>
 									) : student ? (
-										<span className="inline-flex items-center gap-2">
-											<span className="text-foreground">{student.name}</span>
+										<span className="inline-flex flex-wrap items-center gap-2 text-foreground">
+											<span>{student.name}</span>
 											{student.telegram_username && (
 												<span className="text-muted-foreground">@{student.telegram_username}</span>
 											)}
-											{/* тонкий id для отладки/копирования при необходимости */}
-											<span className="text-xs text-muted-foreground/70" title={student.email}>
-												(id: {student.id})
-											</span>
 										</span>
 									) : (
-										<span className="text-muted-foreground" title={conn.student_user_id}>
-											не найден (id: {conn.student_user_id})
-										</span>
-									)}
-								</div>
-							)}
-
-							{conn.chat_link && (
-								<a
-									href={conn.chat_link}
-									target="_blank"
-									rel="noreferrer"
-									className="inline-flex items-center gap-1 text-primary hover:underline"
-								>
-									<Link2 className="size-4" /> Открыть чат <ExternalLink className="size-3" />
-								</a>
-							)}
+										<span className="text-muted-foreground">не найден</span>
+									)
+								) : (
+									<span>—</span>
+								)}
+							</div>
 						</div>
 					</div>
 
 					<div className="flex items-center gap-2 self-start">
+						{conn.chat_link && (
+							<Button size="sm" variant="outline" asChild>
+								<a href={conn.chat_link} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2">
+									<Link2 className="size-4" />
+									Открыть чат
+								</a>
+							</Button>
+						)}
+						{onCopyLink && (
+							<Button size="sm" variant="outline" onClick={onCopyLink} type="button" className="whitespace-nowrap">
+								{copyStatus === "success" ? (
+									<Check className="size-4" />
+								) : copyStatus === "error" ? (
+									<XCircle className="size-4" />
+								) : (
+									<Copy className="size-4" />
+								)}
+								{copyStatus === "success" ? "Скопировано" : copyStatus === "error" ? "Ошибка" : "Скопировать ссылку"}
+							</Button>
+						)}
 						{canCrud && (
 							<>
 								<Button size="sm" variant="outline" onClick={onEdit}>

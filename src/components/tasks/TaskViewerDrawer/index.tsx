@@ -1,6 +1,6 @@
 import { TasksApi, type TaskStatus, type UpdateTaskDto } from "@/api/tasksApi";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 
 import { Card, CardContent } from "@/components/ui/card";
@@ -11,6 +11,8 @@ import { inputDateToIso, isoToInputDate } from "./parts/helpers";
 import { TaskHeader } from "./parts/TaskHeader";
 import { TaskMarkdown } from "./parts/TaskMarkdown";
 import { TaskProperties } from "./parts/TaskProperties";
+import { useLocation } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
 
 // ===== Props =====
 export type TaskViewerDrawerProps = {
@@ -22,6 +24,11 @@ export function TaskViewerDrawer({ taskId, onClose }: TaskViewerDrawerProps) {
 	const qc = useQueryClient();
 	const [isEdit, setIsEdit] = useState(false);
 	const [confirmOpen, setConfirmOpen] = useState(false);
+	const [copyStatus, setCopyStatus] = useState<"idle" | "success" | "error">("idle");
+	const copyResetTimeout = useRef<number | null>(null);
+	const location = useLocation();
+	const { user } = useAuth();
+	const isAdmin = user?.role === "admin";
 
 	// Load task
 	const { data: task, isLoading: loadingTask } = useQuery({
@@ -90,6 +97,58 @@ export function TaskViewerDrawer({ taskId, onClose }: TaskViewerDrawerProps) {
 	const priority = watch("priority");
 	const status = watch("status");
 
+	const shareUrl = useMemo(() => {
+		if (typeof window === "undefined") return "";
+		const url = new URL(window.location.href);
+		url.searchParams.set("task_id", taskId);
+		return url.toString();
+	}, [taskId, location.key, location.pathname, location.search, location.hash]);
+
+	const handleCopyLink = useCallback(async () => {
+		if (!shareUrl) return;
+		try {
+			if (navigator?.clipboard?.writeText) {
+				await navigator.clipboard.writeText(shareUrl);
+			} else {
+				const textarea = document.createElement("textarea");
+				textarea.value = shareUrl;
+				textarea.setAttribute("readonly", "");
+				textarea.style.position = "absolute";
+				textarea.style.left = "-9999px";
+				document.body.appendChild(textarea);
+				textarea.select();
+				document.execCommand("copy");
+				document.body.removeChild(textarea);
+			}
+			setCopyStatus("success");
+			if (copyResetTimeout.current) {
+				window.clearTimeout(copyResetTimeout.current);
+			}
+			copyResetTimeout.current = window.setTimeout(() => {
+				setCopyStatus("idle");
+				copyResetTimeout.current = null;
+			}, 2000);
+		} catch {
+			setCopyStatus("error");
+			if (copyResetTimeout.current) {
+				window.clearTimeout(copyResetTimeout.current);
+			}
+			copyResetTimeout.current = window.setTimeout(() => {
+				setCopyStatus("idle");
+				copyResetTimeout.current = null;
+			}, 2000);
+		}
+	}, [shareUrl]);
+
+	useEffect(() => {
+		return () => {
+			if (copyResetTimeout.current) {
+				window.clearTimeout(copyResetTimeout.current);
+				copyResetTimeout.current = null;
+			}
+		};
+	}, []);
+
 	// ===== Loading state
 	if (loadingTask || !task) {
 		return (
@@ -134,6 +193,9 @@ export function TaskViewerDrawer({ taskId, onClose }: TaskViewerDrawerProps) {
 						}}
 						updatePending={updateMutation.isPending}
 						onDeleteClick={() => setConfirmOpen(true)}
+						onCopyLink={handleCopyLink}
+						copyStatus={copyStatus}
+						isAdmin={Boolean(isAdmin)}
 					/>
 				</div>
 			</div>

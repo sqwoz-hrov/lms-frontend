@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Calendar as CalendarIcon, Loader2, Pencil, Save, Trash2, X } from "lucide-react";
+import { Calendar as CalendarIcon, Check, Copy, Loader2, Pencil, Save, Trash2, X, XCircle } from "lucide-react";
 import { isoToInputDate, PRIORITY_LABEL, STATUS_LABEL } from "./helpers";
 
 export function TaskHeader(props: {
@@ -16,8 +16,23 @@ export function TaskHeader(props: {
 	onCancel: () => void;
 	updatePending: boolean;
 	onDeleteClick: () => void;
+	onCopyLink: () => void;
+	copyStatus: "idle" | "success" | "error";
+	isAdmin: boolean;
 }) {
-	const { task, isEdit, setIsEdit, register, onSubmit, onCancel, updatePending, onDeleteClick } = props;
+	const {
+		task,
+		isEdit,
+		setIsEdit,
+		register,
+		onSubmit,
+		onCancel,
+		updatePending,
+		onDeleteClick,
+		onCopyLink,
+		copyStatus,
+		isAdmin,
+	} = props;
 
 	return (
 		<CardHeader className="flex flex-row items-start justify-between gap-4">
@@ -54,9 +69,21 @@ export function TaskHeader(props: {
 					</>
 				) : (
 					<>
-						<Button size="sm" variant="outline" onClick={() => setIsEdit(true)}>
-							<Pencil className="size-4" /> Редактировать
+						<Button size="sm" variant="outline" onClick={onCopyLink} type="button" className="whitespace-nowrap">
+							{copyStatus === "success" ? (
+								<Check className="size-4" />
+							) : copyStatus === "error" ? (
+								<XCircle className="size-4" />
+							) : (
+								<Copy className="size-4" />
+							)}
+							{copyStatus === "success" ? "Скопировано" : copyStatus === "error" ? "Ошибка" : "Скопировать ссылку"}
 						</Button>
+						{isAdmin && (
+							<Button size="sm" variant="outline" onClick={() => setIsEdit(true)}>
+								<Pencil className="size-4" /> Редактировать
+							</Button>
+						)}
 						<Button size="sm" variant="destructive" onClick={onDeleteClick}>
 							<Trash2 className="size-4" /> Удалить
 						</Button>

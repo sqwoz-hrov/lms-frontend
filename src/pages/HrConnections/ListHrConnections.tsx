@@ -10,11 +10,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Loader2, Plus } from "lucide-react";
 
 import type { BaseHrConnectionDto, HrStatus } from "@/api/hrConnectionsApi";
+import { getUsers, type UserResponse } from "@/api/usersApi";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useHrConnectionsQuery } from "@/hooks/useHrConnectionsQuery";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { HrConnectionDrawer } from "@/components/hr/HrConnectionDrawer";
 import { HrConnectionFormDialog } from "@/components/hr/HrConnectionFormDialog";
+import { useSearchParams } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 
 // ---- Status filter helpers ----
 type StatusFilterValue = HrStatus | "all";
@@ -29,10 +32,25 @@ const STATUS_OPTIONS: { value: StatusFilterValue; label: string }[] = [
 export default function ListHrConnectionsPage() {
 	const { isAdmin } = usePermissions();
 	const { filters, setFilters, query } = useHrConnectionsQuery();
+	const [searchParams, setSearchParams] = useSearchParams();
 
-	const [selected, setSelected] = useState<BaseHrConnectionDto | null>(null);
-	const [drawerOpen, setDrawerOpen] = useState(false);
 	const [createOpen, setCreateOpen] = useState(false);
+
+	const {
+		data: users,
+		isLoading: isUsersLoading,
+		isError: isUsersError,
+	} = useQuery<UserResponse[]>({
+		queryKey: ["users"],
+		queryFn: getUsers,
+		enabled: isAdmin,
+		staleTime: 60_000,
+	});
+
+	const studentOptions = React.useMemo(() => {
+		if (!users) return [];
+		return users.filter(user => user.role === "user");
+	}, [users]);
 
 	// Локальные контролы фильтров (с дебаунсом для имени)
 	const [nameInput, setNameInput] = useState(filters.name ?? "");
@@ -48,14 +66,29 @@ export default function ListHrConnectionsPage() {
 	const data = query.data ?? [];
 	const isLoading = query.isLoading || query.isFetching;
 
+	const activeConnectionId = searchParams.get("hr_connection_id");
+	const selected = React.useMemo(() => {
+		if (!activeConnectionId) return null;
+		return data.find(conn => conn.id === activeConnectionId) ?? null;
+	}, [data, activeConnectionId]);
+	const drawerOpen = Boolean(activeConnectionId);
+
 	function resetFilters() {
 		setNameInput("");
 		setFilters({ status: undefined, name: undefined, student_user_id: isAdmin ? undefined : filters.student_user_id });
 	}
 
 	function onRowClick(conn: BaseHrConnectionDto) {
-		setSelected(conn);
-		setDrawerOpen(true);
+		const next = new URLSearchParams(searchParams);
+		next.set("hr_connection_id", conn.id);
+		setSearchParams(next);
+	}
+
+	function closeDrawer() {
+		if (!activeConnectionId) return;
+		const next = new URLSearchParams(searchParams);
+		next.delete("hr_connection_id");
+		setSearchParams(next);
 	}
 
 	return (
@@ -103,13 +136,37 @@ export default function ListHrConnectionsPage() {
 
 					{isAdmin && (
 						<div className="grid gap-2">
-							<Label htmlFor="filter-student">ID студента</Label>
-							<Input
-								id="filter-student"
-								value={filters.student_user_id ?? ""}
-								onChange={e => setFilters({ ...filters, student_user_id: e.target.value || undefined })}
-								placeholder="uuid..."
-							/>
+							<Label htmlFor="filter-student">Студент</Label>
+							<Select
+								value={filters.student_user_id ?? "all"}
+								onValueChange={value =>
+									setFilters({
+										...filters,
+										student_user_id: value === "all" ? undefined : value,
+									})
+								}
+								disabled={isUsersLoading || isUsersError}
+							>
+								<SelectTrigger id="filter-student">
+									<SelectValue placeholder={isUsersLoading ? "Загрузка..." : "Выберите студента"} />
+								</SelectTrigger>
+								<SelectContent>
+									<SelectItem value="all">Все студенты</SelectItem>
+									{filters.student_user_id &&
+										!studentOptions.some(student => student.id === filters.student_user_id) && (
+											<SelectItem value={filters.student_user_id} disabled>
+												{filters.student_user_id}
+											</SelectItem>
+										)}
+									{studentOptions.map(student => (
+										<SelectItem key={student.id} value={student.id}>
+											{student.name}
+											{student.telegram_username ? ` (@${student.telegram_username})` : ""}
+										</SelectItem>
+									))}
+								</SelectContent>
+							</Select>
+							{isUsersError && <p className="text-sm text-destructive">Не удалось загрузить список студентов</p>}
 						</div>
 					)}
 
@@ -180,7 +237,7 @@ export default function ListHrConnectionsPage() {
 			</Card>
 
 			{/* Drawer просмотра/редактирования */}
-			<HrConnectionDrawer open={drawerOpen} onOpenChange={setDrawerOpen} conn={selected} />
+			<HrConnectionDrawer open={drawerOpen} onOpenChange={v => !v && closeDrawer()} conn={selected} />
 
 			{/* Создание нового контакта */}
 			<HrConnectionFormDialog open={createOpen} onOpenChange={setCreateOpen} />

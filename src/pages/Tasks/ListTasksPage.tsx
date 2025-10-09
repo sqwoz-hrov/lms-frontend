@@ -25,6 +25,7 @@ export function ListTasksPage() {
 	// —— Filters from URL ——
 	const studentUserId = params.get("student_user_id") || undefined;
 	const mentorUserId = params.get("mentor_user_id") || undefined;
+	const activeTaskId = params.get("task_id") || null;
 
 	// —— Users ——
 	const { data: users } = useQuery<UserResponse[]>({
@@ -32,7 +33,7 @@ export function ListTasksPage() {
 		queryFn: getUsers,
 		staleTime: 60_000,
 	});
-	const usersById = useUsersById(users);
+	const usersById = useUsersById(users ?? []);
 
 	// —— Tasks ——
 	const {
@@ -108,10 +109,19 @@ export function ListTasksPage() {
 		navigate(`/tasks/new${q ? `?${q}` : ""}`);
 	}
 
-	// —— Dialog state for editor ——
-	const [openedTaskId, setOpenedTaskId] = useState<string | null>(null);
-	const openTask = (taskId: string) => setOpenedTaskId(taskId);
-	const closeTask = () => setOpenedTaskId(null);
+	// —— Dialog state for editor synced with URL ——
+	function openTask(taskId: string) {
+		if (activeTaskId === taskId) return;
+		const next = new URLSearchParams(params);
+		next.set("task_id", taskId);
+		setParams(next);
+	}
+	function closeTask() {
+		if (!activeTaskId) return;
+		const next = new URLSearchParams(params);
+		next.delete("task_id");
+		setParams(next);
+	}
 
 	return (
 		<div className="container mx-auto px-4 py-6">
@@ -122,6 +132,7 @@ export function ListTasksPage() {
 				onChangeStudent={setStudentFilter}
 				onChangeMentor={setMentorFilter}
 				isAdmin={isAdmin}
+				showStudentFilter={isAdmin}
 				onCreateTask={goCreateTask}
 			/>
 
@@ -142,7 +153,7 @@ export function ListTasksPage() {
 			)}
 
 			{/* Editor sheet */}
-			<Sheet open={!!openedTaskId} onOpenChange={v => !v && closeTask()}>
+			<Sheet open={!!activeTaskId} onOpenChange={v => !v && closeTask()}>
 				<SheetContent
 					side="right"
 					className="
@@ -157,7 +168,7 @@ export function ListTasksPage() {
     				  data-[state=open]:duration-300 data-[state=closed]:duration-200
     				"
 				>
-					{openedTaskId && <TaskViewerDrawer taskId={openedTaskId} onClose={closeTask} />}
+					{activeTaskId && <TaskViewerDrawer taskId={activeTaskId} onClose={closeTask} />}
 				</SheetContent>
 			</Sheet>
 		</div>

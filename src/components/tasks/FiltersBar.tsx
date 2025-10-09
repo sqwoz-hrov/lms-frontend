@@ -6,12 +6,13 @@ import { Plus } from "lucide-react";
 import { ALL } from "./constants";
 
 type Props = {
-	users?: UserResponse[];
+	users?: Pick<UserResponse, "id" | "name" | "role">[];
 	studentUserId?: string;
 	mentorUserId?: string;
 	onChangeStudent(v?: string): void;
 	onChangeMentor(v?: string): void;
 	isAdmin: boolean;
+	showStudentFilter: boolean;
 	onCreateTask(): void;
 };
 
@@ -22,13 +23,14 @@ export function FiltersBar({
 	onChangeStudent,
 	onChangeMentor,
 	isAdmin,
+	showStudentFilter,
 	onCreateTask,
 }: Props) {
 	return (
 		<div className="mb-4 flex flex-wrap items-center justify-between gap-3">
 			<div className="flex flex-wrap items-center gap-2">
 				<h1 className="text-2xl font-semibold tracking-tight">Доска задач</h1>
-				{studentUserId && (
+				{showStudentFilter && studentUserId && (
 					<Badge variant="outline">студент: {users?.find(u => u.id === studentUserId)?.name ?? studentUserId}</Badge>
 				)}
 				{mentorUserId && (
@@ -38,23 +40,25 @@ export function FiltersBar({
 
 			<div className="flex flex-wrap items-center gap-2">
 				{/* Student filter */}
-				<Select value={studentUserId ?? ALL} onValueChange={v => onChangeStudent(v === ALL ? undefined : v)}>
-					<SelectTrigger className="w-64">
-						<SelectValue placeholder="Все студенты" />
-					</SelectTrigger>
-					<SelectContent>
-						<SelectItem value={ALL}>Все студенты</SelectItem>
-						{(users || []).map(u => (
-							<SelectItem key={u.id} value={u.id}>
-								<div className="flex items-center gap-2">
-									<span className="h-3 w-3 rounded-full border" />
-									<span className="truncate max-w-[18rem]">{u.name}</span>
-									<span className="ml-1 text-[10px] text-muted-foreground">({u.role})</span>
-								</div>
-							</SelectItem>
-						))}
-					</SelectContent>
-				</Select>
+				{showStudentFilter && (
+					<Select value={studentUserId ?? ALL} onValueChange={v => onChangeStudent(v === ALL ? undefined : v)}>
+						<SelectTrigger className="w-64">
+							<SelectValue placeholder="Все студенты" />
+						</SelectTrigger>
+						<SelectContent>
+							<SelectItem value={ALL}>Все студенты</SelectItem>
+							{(users || []).map(u => (
+								<SelectItem key={u.id} value={u.id}>
+									<div className="flex items-center gap-2">
+										<span className="h-3 w-3 rounded-full border" />
+										<span className="truncate max-w-[18rem]">{u.name}</span>
+										<span className="ml-1 text-[10px] text-muted-foreground">({u.role})</span>
+									</div>
+								</SelectItem>
+							))}
+						</SelectContent>
+					</Select>
+				)}
 
 				{/* Mentor filter */}
 				<Select value={mentorUserId ?? ALL} onValueChange={v => onChangeMentor(v === ALL ? undefined : v)}>
@@ -63,15 +67,17 @@ export function FiltersBar({
 					</SelectTrigger>
 					<SelectContent>
 						<SelectItem value={ALL}>Все менторы</SelectItem>
-						{(users || []).map(u => (
-							<SelectItem key={u.id} value={u.id}>
-								<div className="flex items-center gap-2">
-									<span className="h-3 w-3 rounded-full border" />
-									<span className="truncate max-w-[18rem]">{u.name}</span>
-									<span className="ml-1 text-[10px] text-muted-foreground">({u.role})</span>
-								</div>
-							</SelectItem>
-						))}
+						{(users || [])
+							.filter(u => u.role === "admin")
+							.map(u => (
+								<SelectItem key={u.id} value={u.id}>
+									<div className="flex items-center gap-2">
+										<span className="h-3 w-3 rounded-full border" />
+										<span className="truncate max-w-[18rem]">{u.name}</span>
+										<span className="ml-1 text-[10px] text-muted-foreground">({u.role})</span>
+									</div>
+								</SelectItem>
+							))}
 					</SelectContent>
 				</Select>
 
