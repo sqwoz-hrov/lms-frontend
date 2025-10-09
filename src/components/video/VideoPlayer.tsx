@@ -1,9 +1,6 @@
-/* eslint-disable no-empty */
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import Hls from "hls.js";
 import { Loader2, Hash, CloudUpload, Clock, XCircle } from "lucide-react";
-import { detectKind } from "@/video_engines/detect";
-import { createEngine } from "@/video_engines/factory";
-import type { Engine, EngineKind } from "@/video_engines/types";
 
 type Props = {
 	src?: string;
@@ -21,6 +18,7 @@ type PhasePresentation = {
 	icon: ReactNode;
 };
 
+const HLS_MIME_TYPES = new Set(["application/x-mpegURL", "application/vnd.apple.mpegurl"]);
 const DEFAULT_PHASE: PlayerPhase = "receiving";
 
 const PHASE_PRESENTATION: Record<PlayerPhase, PhasePresentation> = {
@@ -52,6 +50,7 @@ const PHASE_PRESENTATION: Record<PlayerPhase, PhasePresentation> = {
 
 function mediaErrorToMessage(err?: MediaError | null): string {
 	if (!err) return "Не удалось воспроизвести видео.";
+
 	switch (err.code) {
 		case MediaError.MEDIA_ERR_ABORTED:
 			return "Воспроизведение было прервано.";
@@ -70,8 +69,7 @@ const EMPTY_ICON = <Loader2 className="h-5 w-5 animate-spin" />;
 
 export function VideoPlayer({ src, type, title, poster, phase }: Props) {
 	const videoRef = useRef<HTMLVideoElement | null>(null);
-	const engineRef = useRef<Engine | null>(null);
-	const lastInitSrcRef = useRef<string | null>(null);
+	const hlsRef = useRef<Hls | null>(null);
 
 	const [fatalError, setFatalError] = useState<string | null>(null);
 	const [isBuffering, setIsBuffering] = useState(false);
@@ -84,12 +82,20 @@ export function VideoPlayer({ src, type, title, poster, phase }: Props) {
 		return (mime ?? "").trim().toLowerCase();
 	}, [type]);
 
+	const isHlsSource = useMemo(() => {
+		if (!src) return false;
+		if (normalizedType && HLS_MIME_TYPES.has(normalizedType)) return true;
+		return src.toLowerCase().endsWith(".m3u8");
+	}, [normalizedType, src]);
+
+	const canUseHlsJs = useMemo(() => {
+		if (typeof window === "undefined") return false;
+		return isHlsSource && Hls.isSupported();
+	}, [isHlsSource]);
+
 	const isCompletedPhase = playerPhase === "completed";
 	const hasSource = Boolean(src);
 	const isReadyForPlayback = isCompletedPhase && hasSource && !fatalError;
-
-	const kind: EngineKind | null = useMemo(() => detectKind(src, normalizedType), [src, normalizedType]);
-	const isTsSource = kind === "mpegts";
 
 	const corsMode = useMemo(() => {
 		if (typeof window === "undefined") {
@@ -99,15 +105,18 @@ export function VideoPlayer({ src, type, title, poster, phase }: Props) {
 				withCredentials: false,
 			};
 		}
+
 		if (!src) {
 			return { crossOrigin: undefined, credentials: "omit" as RequestCredentials, withCredentials: false };
 		}
+
 		try {
 			const url = new URL(src, window.location.href);
 			const sameOrigin = url.origin === window.location.origin;
 			if (sameOrigin) {
 				return { crossOrigin: undefined, credentials: "same-origin" as RequestCredentials, withCredentials: true };
 			}
+
 			return { crossOrigin: "anonymous" as const, credentials: "omit" as RequestCredentials, withCredentials: false };
 		} catch {
 			return { crossOrigin: "anonymous" as const, credentials: "omit" as RequestCredentials, withCredentials: false };
@@ -125,76 +134,118 @@ export function VideoPlayer({ src, type, title, poster, phase }: Props) {
 	useEffect(() => {
 		if (!isReadyForPlayback) setIsBuffering(false);
 	}, [isReadyForPlayback]);
-
-	// Основная инициализация источника через движки
+	useEffect(() => {
+		const v = videoRef.current;
+		if (!v) return;
+		const log = (e: Event) =>
+			console.log("[video]", e.type, { readyState: v.readyState, networkState: v.networkState, error: v.error });
+		const names = [
+			"loadstart",
+			"loadedmetadata",
+			"loadeddata",
+			"canplay",
+			"canplaythrough",
+			"waiting",
+			"stalled",
+			"suspend",
+			"error",
+			"progress",
+			"seeking",
+			"seeked",
+			"ended",
+			"play",
+			"pause",
+		];
+		names.forEach(n => v.addEventListener(n, log));
+		return () => names.forEach(n => v.removeEventListener(n, log));
+	}, []);
 	useEffect(() => {
 		const video = videoRef.current;
 		if (!video) return;
 
-		// Guard от лишних переинициализаций на тот же src
-		if (isReadyForPlayback && src && lastInitSrcRef.current === src) {
-			return;
-		}
-
-		// Cleanup на входе
-		try {
-			engineRef.current?.destroy();
-		} catch {}
-		engineRef.current = null;
-		video.pause();
-		video.removeAttribute("src");
-		video.load();
-
-		if (!isReadyForPlayback || !src) return;
-
-		let cancelled = false;
-		(async () => {
-			try {
-				const resolvedKind: EngineKind = kind ?? "native";
-				const engine = createEngine(resolvedKind);
-				engineRef.current = engine;
-
-				await engine.load(video, src, {
-					credentials: corsMode.credentials,
-					withCredentials: corsMode.withCredentials,
-					crossOrigin: corsMode.crossOrigin,
-				});
-
-				if (cancelled) return;
-				setIsBuffering(true);
-				lastInitSrcRef.current = src;
-			} catch (e) {
-				if (cancelled) return;
-				console.debug(e);
-				// Спец-сообщение для MPEG-TS, если mpegts.js не смог
-				if (isTsSource) {
-					setFatalError("Этот формат (MPEG-TS) не поддерживается вашим браузером. Используйте HLS (.m3u8) или MP4.");
-				} else {
-					setFatalError(mediaErrorToMessage(video.error));
-				}
-
-				try {
-					engineRef.current?.destroy();
-				} finally {
-					engineRef.current = null;
-				}
-			}
-		})();
-
-		return () => {
-			cancelled = true;
-			try {
-				engineRef.current?.destroy();
-			} finally {
-				engineRef.current = null;
+		if (!isReadyForPlayback) {
+			if (hlsRef.current) {
+				hlsRef.current.destroy();
+				hlsRef.current = null;
 			}
 			video.pause();
 			video.removeAttribute("src");
 			video.load();
-		};
-	}, [isReadyForPlayback, src, kind, corsMode, isTsSource]);
+			return;
+		}
 
-	// События <video> для отображения буферизации/ошибок
+		if (canUseHlsJs && src) {
+			const hls = new Hls({
+				enableWorker: true,
+				debug: true, // ВРЕМЕННО: включить логи
+				maxLiveSyncPlaybackRate: 1.0,
+				// ограничим ретраи сети
+				xhrSetup: xhr => {
+					xhr.withCredentials = corsMode.withCredentials;
+				},
+				fetchSetup: (context, init = {}) => new Request(context.url, { ...init, credentials: corsMode.credentials }),
+			});
+			hlsRef.current = hls;
+
+			const handleHlsError = (_event: string, data: any) => {
+				if (!data || !data.fatal) return;
+
+				switch (data.type) {
+					case Hls.ErrorTypes.NETWORK_ERROR: {
+						hls.startLoad();
+						break;
+					}
+					case Hls.ErrorTypes.MEDIA_ERROR: {
+						hls.recoverMediaError();
+						break;
+					}
+					default: {
+						// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+						const responseCode = data?.response?.code;
+						const message =
+							typeof responseCode === "number"
+								? `Не удалось воспроизвести потоковое видео (HTTP ${responseCode}).`
+								: "Не удалось воспроизвести потоковое видео.";
+						setFatalError(message);
+						hls.destroy();
+						hlsRef.current = null;
+					}
+				}
+			};
+
+			const handleManifestParsed = () => setIsBuffering(false);
+			const handleLoadStart = () => setIsBuffering(true);
+
+			hls.on(Hls.Events.ERROR, handleHlsError);
+			hls.on(Hls.Events.MANIFEST_PARSED, handleManifestParsed);
+			hls.on(Hls.Events.FRAG_LOADING, handleLoadStart);
+
+			setIsBuffering(true);
+			hls.attachMedia(video);
+			hls.loadSource(src);
+
+			return () => {
+				hls.off(Hls.Events.ERROR, handleHlsError);
+				hls.off(Hls.Events.MANIFEST_PARSED, handleManifestParsed);
+				hls.off(Hls.Events.FRAG_LOADING, handleLoadStart);
+				hls.destroy();
+				hlsRef.current = null;
+			};
+		}
+
+		if (src) {
+			video.src = src;
+			video.load();
+			setIsBuffering(true);
+		}
+
+		return () => {
+			video.pause();
+			video.removeAttribute("src");
+			video.load();
+		};
+	}, [canUseHlsJs, corsMode, isReadyForPlayback, src]);
+
 	useEffect(() => {
 		const video = videoRef.current;
 		if (!video) return;
@@ -232,14 +283,10 @@ export function VideoPlayer({ src, type, title, poster, phase }: Props) {
 
 	const overlay = useMemo(() => {
 		if (fatalError) {
-			const tsMsg = isTsSource
-				? "Этот браузер не воспроизводит MPEG-TS напрямую. Используйте HLS (.m3u8) или MP4."
-				: fatalError;
-
 			return {
 				icon: <XCircle className="h-6 w-6 text-red-300" />,
 				title: "Не удалось воспроизвести видео",
-				desc: tsMsg,
+				desc: fatalError,
 				tone: "error" as const,
 			};
 		}
@@ -252,7 +299,7 @@ export function VideoPlayer({ src, type, title, poster, phase }: Props) {
 			};
 		}
 
-		if (playerPhase !== "completed") {
+		if (!isCompletedPhase) {
 			const presentation = PHASE_PRESENTATION[playerPhase];
 			return {
 				...presentation,
@@ -279,7 +326,7 @@ export function VideoPlayer({ src, type, title, poster, phase }: Props) {
 		}
 
 		return null;
-	}, [fatalError, hasSource, isBuffering, isReadyForPlayback, playerPhase, isTsSource]);
+	}, [fatalError, hasSource, isBuffering, isCompletedPhase, isReadyForPlayback, playerPhase]);
 
 	const overlayClasses =
 		overlay?.tone === "error"
