@@ -11,12 +11,19 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+	DropdownMenu,
+	DropdownMenuCheckboxItem,
+	DropdownMenuContent,
+	DropdownMenuLabel,
+	DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "../../hooks/useAuth";
 
 // —— Form Types ——
 interface FormData {
-	student_user_id: string;
+	student_user_ids: string[];
 	mentor_user_id: string;
 	summary: string;
 	markdown_content: string;
@@ -51,7 +58,7 @@ export function CreateTaskPage() {
 	const { register, handleSubmit, setValue, watch, formState } = useForm<FormData>({
 		mode: "onChange",
 		defaultValues: {
-			student_user_id: "",
+			student_user_ids: [],
 			mentor_user_id: "",
 			summary: "",
 			markdown_content: "",
@@ -63,17 +70,32 @@ export function CreateTaskPage() {
 
 	// Register controlled Select fields
 	useEffect(() => {
-		register("student_user_id", { required: "Выберите ученика" });
+		register("student_user_ids", {
+			validate: value => (value && value.length > 0) || "Выберите хотя бы одного ученика",
+		});
 		register("mentor_user_id", { required: "Выберите наставника" });
 		register("status", { required: true });
 	}, [register]);
 
-	const selectedStudent = watch("student_user_id");
+	const selectedStudents = watch("student_user_ids") ?? [];
 	const selectedMentor = watch("mentor_user_id");
 	const status = watch("status");
 
+	const selectedStudentUsers = useMemo(() => {
+		const ids = new Set(selectedStudents);
+		return students.filter(u => ids.has(u.id));
+	}, [students, selectedStudents]);
+
+	const studentsButtonLabel = useMemo(() => {
+		if (selectedStudentUsers.length === 0) return "Выберите учеников";
+		if (selectedStudentUsers.length <= 2) {
+			return selectedStudentUsers.map(u => u.name).join(", ");
+		}
+		return `Выбрано: ${selectedStudentUsers.length}`;
+	}, [selectedStudentUsers]);
+
 	const createMut = useMutation({
-		mutationFn: TasksApi.create,
+		mutationFn: TasksApi.createForMultipleStudents,
 		onSuccess: async () => {
 			await queryClient.invalidateQueries({ queryKey: ["tasks"] });
 			navigate("/tasks");
@@ -94,14 +116,14 @@ export function CreateTaskPage() {
 		try {
 			setServerError(null);
 			const payload = {
-				student_user_id: values.student_user_id,
+				student_user_ids: Array.from(new Set(values.student_user_ids)),
 				mentor_user_id: values.mentor_user_id,
 				summary: values.summary.trim(),
 				markdown_content: values.markdown_content.trim(),
 				deadline: toIsoFromLocal(values.deadline_local),
 				priority: Number(values.priority),
 				status: values.status,
-			} satisfies Parameters<typeof TasksApi.create>[0];
+			} satisfies Parameters<typeof TasksApi.createForMultipleStudents>[0];
 
 			await createMut.mutateAsync(payload);
 		} catch (e: any) {
@@ -143,7 +165,7 @@ export function CreateTaskPage() {
 					<form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
 						{/* Student */}
 						<div className="space-y-2">
-							<Label>Ученик</Label>
+							<Label>Ученики</Label>
 							{usersLoading ? (
 								<div className="text-sm text-muted-foreground">Загрузка пользователей…</div>
 							) : usersError ? (
@@ -154,27 +176,53 @@ export function CreateTaskPage() {
 									</Button>
 								</div>
 							) : (
-								<Select
-									value={selectedStudent}
-									onValueChange={v => setValue("student_user_id", v, { shouldValidate: true })}
-								>
-									<SelectTrigger className="w-full sm:w-96">
-										<SelectValue placeholder="Выберите ученика" />
-									</SelectTrigger>
-									<SelectContent>
-										{students.map(u => (
-											<SelectItem key={u.id} value={u.id}>
-												<div className="flex flex-col">
-													<span className="truncate max-w-[18rem]">{u.name}</span>
-													<span className="text-xs text-muted-foreground">{u.email}</span>
-												</div>
-											</SelectItem>
-										))}
-									</SelectContent>
-								</Select>
+								<>
+									<DropdownMenu>
+										<DropdownMenuTrigger asChild>
+											<Button type="button" variant="outline" className="w-full sm:w-96 justify-between">
+												<span className="truncate max-w-[18rem] text-left">{studentsButtonLabel}</span>
+												<Badge variant="secondary">{selectedStudentUsers.length}</Badge>
+											</Button>
+										</DropdownMenuTrigger>
+										<DropdownMenuContent className="w-80 max-h-64 overflow-y-auto">
+											<DropdownMenuLabel>Ученики</DropdownMenuLabel>
+											{students.map(u => (
+												<DropdownMenuCheckboxItem
+													key={u.id}
+													checked={selectedStudents.includes(u.id)}
+													onCheckedChange={checked => {
+														const isChecked = checked === true;
+														const next = isChecked
+															? Array.from(new Set([...selectedStudents, u.id]))
+															: selectedStudents.filter(id => id !== u.id);
+														setValue("student_user_ids", next, {
+															shouldValidate: true,
+															shouldDirty: true,
+															shouldTouch: true,
+														});
+													}}
+												>
+													<div className="flex flex-col">
+														<span className="truncate max-w-[18rem]">{u.name}</span>
+														<span className="text-xs text-muted-foreground">{u.email}</span>
+													</div>
+												</DropdownMenuCheckboxItem>
+											))}
+										</DropdownMenuContent>
+									</DropdownMenu>
+									{selectedStudentUsers.length > 0 && (
+										<div className="flex flex-wrap gap-2 pt-2">
+											{selectedStudentUsers.map(u => (
+												<Badge key={u.id} variant="secondary">
+													{u.name}
+												</Badge>
+											))}
+										</div>
+									)}
+								</>
 							)}
-							{formState.errors.student_user_id && (
-								<p className="text-xs text-red-600">{String(formState.errors.student_user_id.message)}</p>
+							{formState.errors.student_user_ids && (
+								<p className="text-xs text-red-600">{String(formState.errors.student_user_ids.message)}</p>
 							)}
 						</div>
 

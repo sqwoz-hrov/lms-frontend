@@ -16,6 +16,16 @@ export type CreateTaskDto = {
 	status: TaskStatus;
 };
 
+export type CreateTaskForMultipleStudentsDto = {
+	mentor_user_id: string;
+	summary: string;
+	markdown_content: string;
+	deadline: string; // ISO date-time
+	priority: number;
+	status: TaskStatus;
+	student_user_ids: string[];
+};
+
 export type TaskResponseDto = {
 	id: string;
 	student_user_id: string;
@@ -53,6 +63,7 @@ export type ChangeTaskStatusDto = {
 
 // ===== API =====
 const TASKS = "/tasks";
+const TASKS_CREATE_FOR_MULTIPLE = `${TASKS}/create-for-multiple-students`;
 
 /**
  * Создает задачу
@@ -60,6 +71,17 @@ const TASKS = "/tasks";
  */
 export async function createTask(data: CreateTaskDto): Promise<TaskResponseDto> {
 	const res = await apiClient.post<TaskResponseDto>(TASKS, data);
+	return res.data;
+}
+
+/**
+ * Создает задачи для нескольких студентов
+ * POST /tasks/create-for-multiple-students
+ */
+export async function createTasksForMultipleStudents(
+	data: CreateTaskForMultipleStudentsDto,
+): Promise<TaskResponseDto[]> {
+	const res = await apiClient.post<TaskResponseDto[]>(TASKS_CREATE_FOR_MULTIPLE, data);
 	return res.data;
 }
 
@@ -116,6 +138,7 @@ export async function getTaskById(id: string): Promise<TaskResponseDto> {
 // Удобный агрегатор
 export const TasksApi = {
 	create: createTask,
+	createForMultipleStudents: createTasksForMultipleStudents,
 	update: updateTask,
 	changeStatus: changeTaskStatus,
 	remove: deleteTask,
