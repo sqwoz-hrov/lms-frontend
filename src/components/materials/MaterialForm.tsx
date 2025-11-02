@@ -1,6 +1,7 @@
 // components/materials/MaterialForm.tsx — reusable create/edit
 import type { MaterialResponseDto } from "@/api/materialsApi";
 import type { SubjectResponseDto } from "@/api/subjectsApi";
+import { SubscriptionTierSelector } from "@/components/subscriptions/SubscriptionTierSelector";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,6 +17,7 @@ export type MaterialFormValues = {
 	markdown_content?: string;
 	// UI-only
 	video_file?: FileList;
+	subscription_tier_ids: string[];
 };
 
 export type MaterialFormProps = {
@@ -40,12 +42,14 @@ export function MaterialForm(props: MaterialFormProps) {
 			name: initial?.name ?? "",
 			type: (initial?.type as MaterialFormValues["type"]) ?? "article",
 			markdown_content: initial?.markdown_content ?? "",
+			subscription_tier_ids: initial?.subscription_tier_ids ?? [],
 		},
 	});
 
 	useEffect(() => {
 		// keep RHF and Select in sync
 		register("subject_id", { required: "Укажите предмет" });
+		register("subscription_tier_ids");
 	}, [register]);
 
 	useEffect(() => {
@@ -56,6 +60,7 @@ export function MaterialForm(props: MaterialFormProps) {
 				name: initial.name,
 				type: initial.type,
 				markdown_content: initial.markdown_content ?? "",
+				subscription_tier_ids: initial.subscription_tier_ids ?? [],
 			});
 		}
 	}, [initial, mode, reset]);
@@ -158,6 +163,13 @@ export function MaterialForm(props: MaterialFormProps) {
 			)}
 
 			{serverError && <div className="text-sm text-red-600">{serverError}</div>}
+
+			{/* subscription tiers */}
+			<SubscriptionTierSelector
+				value={watch("subscription_tier_ids")}
+				onChange={ids => setValue("subscription_tier_ids", ids, { shouldDirty: true })}
+				disabled={!!submitting}
+			/>
 
 			<div className="flex items-center gap-3">
 				<Button type="submit" disabled={!formState.isValid || !!submitting}>

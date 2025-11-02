@@ -38,6 +38,12 @@ export function ListMaterialsPage() {
 	const { user } = useAuth();
 	const isAdmin = !!user && (user as any).role === "admin";
 
+	useEffect(() => {
+		if (!isAdmin && tab !== "active") {
+			setTab("active");
+		}
+	}, [isAdmin, tab]);
+
 	const {
 		data: subject,
 		isLoading: isSubjectLoading,
@@ -151,7 +157,7 @@ export function ListMaterialsPage() {
 				</div>
 
 				<div className="flex items-center gap-2">
-					<Segmented value={tab} onChange={setTab} />
+					{isAdmin && <Segmented value={tab} onChange={setTab} />}
 					{isAdmin && (
 						<Button onClick={() => navigate(`/materials/new${subjectId ? `?subject_id=${subjectId}` : ""}`)}>
 							Добавить материал

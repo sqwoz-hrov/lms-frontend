@@ -26,6 +26,7 @@ export function ListSubjectsPage() {
 
 	const handleAdd = () => navigate("/subjects/new");
 	const handleOpen = (s: SubjectResponseDto) => navigate(`/materials?subject_id=${s.id}`);
+	const handleEdit = (s: SubjectResponseDto) => navigate(`/subjects/${s.id}/edit`);
 
 	if (subjectsLoading || userLoading) {
 		return <div className="min-h-[60vh] grid place-items-center text-muted-foreground">Загрузка…</div>;
@@ -69,16 +70,30 @@ export function ListSubjectsPage() {
 							<CardContent className="pt-0">
 								<div className="flex items-center justify-between">
 									<span className="text-xs text-muted-foreground">Нажмите чтобы открыть</span>
-									<Button
-										size="sm"
-										variant="secondary"
-										onClick={e => {
-											e.stopPropagation();
-											handleOpen(s);
-										}}
-									>
-										Открыть
-									</Button>
+									<div className="flex items-center gap-2">
+										<Button
+											size="sm"
+											variant="secondary"
+											onClick={e => {
+												e.stopPropagation();
+												handleOpen(s);
+											}}
+										>
+											Открыть
+										</Button>
+										{isAdmin && (
+											<Button
+												size="sm"
+												variant="outline"
+												onClick={e => {
+													e.stopPropagation();
+													handleEdit(s);
+												}}
+											>
+												Редактировать
+											</Button>
+										)}
+									</div>
 								</div>
 							</CardContent>
 						</Card>

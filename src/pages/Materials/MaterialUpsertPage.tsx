@@ -56,23 +56,13 @@ export function UpsertMaterialPage() {
 
 	const createMut = useMutation({
 		mutationFn: MaterialsApi.create,
-		onSuccess: async created => {
-			await qc.invalidateQueries({ queryKey: ["materials"] });
-			await qc.invalidateQueries({ queryKey: ["subjects"] });
-			const subject_id = created.subject_id || defaultSubjectId;
-			navigate(`/materials${subject_id ? `?subject_id=${subject_id}` : ""}`);
-		},
 	});
 
 	const updateMut = useMutation({
 		mutationFn: MaterialsApi.update,
-		onSuccess: async updated => {
-			await qc.invalidateQueries({ queryKey: ["materials"] });
-			await qc.invalidateQueries({ queryKey: ["material", updated.id] });
-			await qc.invalidateQueries({ queryKey: ["subjects"] });
-			const subject_id = updated.subject_id || defaultSubjectId;
-			navigate(`/materials${subject_id ? `?subject_id=${subject_id}` : ""}`);
-		},
+	});
+	const openForTiersMut = useMutation({
+		mutationFn: ({ id, tier_ids }: { id: string; tier_ids: string[] }) => MaterialsApi.openForTiers(id, { tier_ids }),
 	});
 
 	async function handleSubmit(
@@ -99,7 +89,13 @@ export function UpsertMaterialPage() {
 				payload.markdown_content = values.markdown_content?.trim() || undefined;
 			}
 
-			await createMut.mutateAsync(payload);
+			const created = await createMut.mutateAsync(payload);
+			await openForTiersMut.mutateAsync({ id: created.id, tier_ids: values.subscription_tier_ids });
+			await qc.invalidateQueries({ queryKey: ["materials"] });
+			await qc.invalidateQueries({ queryKey: ["subjects"] });
+			await qc.invalidateQueries({ queryKey: ["material", created.id] });
+			const subject_id = created.subject_id || defaultSubjectId;
+			navigate(`/materials${subject_id ? `?subject_id=${subject_id}` : ""}`);
 			return;
 		}
 
@@ -124,7 +120,13 @@ export function UpsertMaterialPage() {
 			payload.markdown_content = values.markdown_content?.trim() || "";
 		}
 
-		await updateMut.mutateAsync(payload);
+		const updated = await updateMut.mutateAsync(payload);
+		await openForTiersMut.mutateAsync({ id: updated.id, tier_ids: values.subscription_tier_ids });
+		await qc.invalidateQueries({ queryKey: ["materials"] });
+		await qc.invalidateQueries({ queryKey: ["material", updated.id] });
+		await qc.invalidateQueries({ queryKey: ["subjects"] });
+		const subject_id = updated.subject_id || defaultSubjectId;
+		navigate(`/materials${subject_id ? `?subject_id=${subject_id}` : ""}`);
 	}
 
 	if (userLoading || (mode === "edit" && materialLoading)) {
@@ -182,7 +184,11 @@ export function UpsertMaterialPage() {
 							defaultSubjectId={defaultSubjectId}
 							initial={material ?? null}
 							submitting={
-								createMut.isPending || updateMut.isPending || uploadStatus === "uploading" || uploadStatus === "paused"
+								createMut.isPending ||
+								updateMut.isPending ||
+								openForTiersMut.isPending ||
+								uploadStatus === "uploading" ||
+								uploadStatus === "paused"
 							}
 							onSubmit={handleSubmit}
 						/>

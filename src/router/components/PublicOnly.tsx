@@ -16,5 +16,10 @@ export function PublicOnly({ children, to = "/tasks" }: { children: ReactNode; t
 	}, [checkAuth, user, userLoading]);
 
 	if (userLoading) return <p className="text-center p-6">Загрузка...</p>;
-	return user ? <Navigate to={to} replace /> : <>{children}</>;
+	if (!user) {
+		return <>{children}</>;
+	}
+
+	const redirectPath = user.role === "subscriber" ? "/materials" : to;
+	return <Navigate to={redirectPath} replace />;
 }

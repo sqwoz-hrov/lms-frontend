@@ -5,6 +5,7 @@ import { isAxiosError } from "axios";
 import {
 	askLogin,
 	finishLogin,
+	finishRegistration,
 	getCurrentUser,
 	refresh as refreshSession,
 	logout as apiLogout,
@@ -25,7 +26,7 @@ type UseAuthReturn = {
 	user: UserResponse | undefined;
 	isAuthenticated: boolean;
 	askOtp: (email: string) => Promise<void>;
-	finishOtp: (email: string, otpCode: number) => Promise<void>;
+	finishOtp: (email: string, otpCode: number, options?: { flow?: "login" | "signup" }) => Promise<void>;
 	logout: (opts?: { all?: boolean }) => Promise<void>;
 	checkAuth: () => Promise<UserResponse | null>;
 	loading: boolean;
@@ -38,8 +39,8 @@ export function useAuth(): UseAuthReturn {
 	const qc = useQueryClient();
 	const location = useLocation();
 
-	// Не дергаем /get-me на публичных страницах (логин, при необходимости добавь и signup)
-	const isPublicAuthRoute = location.pathname.startsWith("/login");
+	// Не дергаем /get-me на публичных страницах (логин, signup)
+	const isPublicAuthRoute = ["/login", "/signup"].some(path => location.pathname.startsWith(path));
 
 	const [actionLoading, setActionLoading] = useState(false);
 	const [actionError, setActionError] = useState<string | null>(null);
@@ -91,19 +92,24 @@ export function useAuth(): UseAuthReturn {
 	}, []);
 
 	const finishOtp = useCallback(
-		async (email: string, otpCode: number) => {
+		async (email: string, otpCode: number, options?: { flow?: "login" | "signup" }) => {
 			try {
 				setActionLoading(true);
 				setActionError(null);
 				if (!Number.isInteger(otpCode) || otpCode < 0) {
 					throw new Error("Некорректный одноразовый код");
 				}
-				await finishLogin({ email, otpCode });
+				if (options?.flow === "signup") {
+					await finishRegistration({ email, otpCode });
+				} else {
+					await finishLogin({ email, otpCode });
+				}
 				// Ручной рефетч сработает даже если query был disabled на /login
 				await qc.invalidateQueries({ queryKey: ["currentUser"] });
 				await qc.refetchQueries({ queryKey: ["currentUser"] });
 			} catch (e) {
-				setActionError(e instanceof Error ? e.message : "Ошибка при входе");
+				const fallbackMessage = options?.flow === "signup" ? "Ошибка при завершении регистрации" : "Ошибка при входе";
+				setActionError(e instanceof Error ? e.message : fallbackMessage);
 			} finally {
 				setActionLoading(false);
 			}

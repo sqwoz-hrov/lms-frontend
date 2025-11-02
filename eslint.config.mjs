@@ -8,7 +8,8 @@ export default tseslint.config(
   {
     ignores: [
       'eslint.config.mjs',
-      '.mocharc.cjs'
+      'dist',
+      '**/dist/**'
     ],
   },
   eslint.configs.recommended,

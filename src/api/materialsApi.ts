@@ -20,6 +20,7 @@ export type MaterialResponseDto = {
 	markdown_content_id?: string;
 	markdown_content?: string;
 	is_archived: boolean;
+	subscription_tier_ids?: string[];
 };
 
 export type UpdateMaterialDto = {
@@ -32,11 +33,16 @@ export type UpdateMaterialDto = {
 	markdown_content_id?: string;
 	markdown_content?: string;
 	is_archived?: boolean;
+	subscription_tier_ids?: string[];
 };
 
 export type ArchiveMaterialDto = {
 	id: string;
 	is_archived: boolean;
+};
+
+export type OpenMaterialForTiersDto = {
+	tier_ids: string[];
 };
 
 const MATERIALS = "/materials";
@@ -53,6 +59,14 @@ export async function updateMaterial(data: UpdateMaterialDto): Promise<MaterialR
 
 export async function archiveMaterial(data: ArchiveMaterialDto): Promise<MaterialResponseDto> {
 	const res = await apiClient.put<MaterialResponseDto>(`${MATERIALS}/archive`, data);
+	return res.data;
+}
+
+export async function openMaterialForTiers(
+	id: string,
+	data: OpenMaterialForTiersDto,
+): Promise<Record<string, unknown>> {
+	const res = await apiClient.post<Record<string, unknown>>(`${MATERIALS}/${id}/open-for-tiers`, data);
 	return res.data;
 }
 
@@ -80,4 +94,5 @@ export const MaterialsApi = {
 	archive: archiveMaterial,
 	list: getMaterials,
 	getById: getMaterialById,
+	openForTiers: openMaterialForTiers,
 };

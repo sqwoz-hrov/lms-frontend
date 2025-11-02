@@ -2,11 +2,12 @@
 import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { EmailStep } from "@/components/auth/EmailStep";
-import { OtpStep } from "@/components/auth/OtpStep";
+import { OtpForm } from "@/components/auth/OtpForm";
 import { useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/button";
 
 export function LoginPage() {
-	const { askOtp, finishOtp } = useAuth();
+	const { askOtp, finishOtp, loading, error } = useAuth();
 	const [step, setStep] = useState<"email" | "otp">("email");
 	const [email, setEmail] = useState("");
 	const navigate = useNavigate();
@@ -29,8 +30,14 @@ export function LoginPage() {
 			{step === "email" ? (
 				<EmailStep onSuccess={handleEmailSubmit} />
 			) : (
-				<OtpStep email={email} onSubmitOtp={handleOtpSubmit} />
+				<OtpForm onSubmitOtp={handleOtpSubmit} errorMessage={error} disabled={loading} />
 			)}
+			<div className="mt-6 text-center space-y-2">
+				<p className="text-sm text-muted-foreground">Нет аккаунта?</p>
+				<Button type="button" variant="link" onClick={() => navigate("/signup")}>
+					Зарегистрироваться
+				</Button>
+			</div>
 		</div>
 	);
 }

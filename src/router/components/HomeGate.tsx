@@ -6,5 +6,10 @@ export function HomeGate() {
 	const { user, userLoading } = useAuth();
 
 	if (userLoading) return <p className="text-center p-6">Загрузка...</p>;
-	return user ? <Navigate to="/tasks" replace /> : <Navigate to="/login" replace />;
+	if (!user) {
+		return <Navigate to="/login" replace />;
+	}
+
+	const defaultPath = user.role === "subscriber" ? "/materials" : "/tasks";
+	return <Navigate to={defaultPath} replace />;
 }
