@@ -3,8 +3,7 @@ dist
 .git
 .gitignore
 Dockerfile*
-docker-compose*.yml
-docker/
+*docker-compose.yml
 .vscode
 .DS_Store
 .env
