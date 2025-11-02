@@ -23,8 +23,6 @@ services:
       - 'traefik.http.routers.lms-frontend.tls.certresolver=myresolver'
       - 'traefik.http.routers.lms-frontend.service=lms-frontend'
       - 'traefik.http.services.lms-frontend.loadbalancer.server.port=${DEV_PORT:-5173}'
-      - 'traefik.http.routers.lms-frontend.middlewares=lms-frontend-stripprefix@docker'
-      - 'traefik.http.middlewares.lms-frontend-stripprefix.stripprefix.prefixes=/lms'
       - 'traefik.docker.network=traefik_public'
     extra_hosts:
       - "host.docker.internal:host-gateway"
