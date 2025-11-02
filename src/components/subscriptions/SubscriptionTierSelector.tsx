@@ -86,7 +86,7 @@ export function SubscriptionTierSelector(props: SubscriptionTierSelectorProps) {
 								<div className="flex flex-1 flex-col text-sm">
 									<span className="font-medium">{tier.tier}</span>
 									<span className="text-xs text-muted-foreground">
-										{tier.price_rubles} ₽ · мощность {tier.power}
+										{tier.price_rubles} ₽ · грейд {tier.power}
 									</span>
 								</div>
 								{tier.permissions.length > 0 && (

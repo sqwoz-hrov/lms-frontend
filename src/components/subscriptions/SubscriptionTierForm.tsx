@@ -109,7 +109,7 @@ export function SubscriptionTierForm(props: SubscriptionTierFormProps) {
 				</div>
 
 				<div className="space-y-2">
-					<Label htmlFor="power">Мощность</Label>
+					<Label htmlFor="power">Грейд</Label>
 					<Input
 						id="power"
 						type="number"
@@ -117,9 +117,9 @@ export function SubscriptionTierForm(props: SubscriptionTierFormProps) {
 						step={1}
 						placeholder="1"
 						{...register("power", {
-							required: "Укажите мощность",
+							required: "Укажите грейд",
 							valueAsNumber: true,
-							validate: v => (v ?? 0) > 0 || "Мощность должна быть больше 0",
+							validate: v => (v ?? 0) > 0 || "Грейд должен быть больше 0",
 						})}
 					/>
 					{formState.errors.power && <p className="text-xs text-red-600">{String(formState.errors.power.message)}</p>}

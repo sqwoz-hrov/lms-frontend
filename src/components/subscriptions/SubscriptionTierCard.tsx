@@ -34,9 +34,7 @@ export function SubscriptionTierCard(props: SubscriptionTierCardProps) {
 			<CardHeader className="items-start gap-2">
 				<div>
 					<CardTitle className="text-lg">{tier.tier}</CardTitle>
-					<CardDescription>
-						{tier.price_rubles} ₽ / мес · мощность {tier.power}
-					</CardDescription>
+					<CardDescription>{tier.price_rubles} ₽ / мес</CardDescription>
 				</div>
 				{(isCurrent || headerAction) && (
 					<CardAction>{headerAction ?? <Badge variant="secondary">Текущий тариф</Badge>}</CardAction>
