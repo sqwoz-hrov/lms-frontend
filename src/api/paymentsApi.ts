@@ -11,9 +11,7 @@ export type CreatePaymentFormResponseDto = {
 
 const PAYMENTS_FORMS = "/payments/forms";
 
-export async function createPaymentForm(
-	data: CreatePaymentFormDto,
-): Promise<CreatePaymentFormResponseDto> {
+export async function createPaymentForm(data: CreatePaymentFormDto): Promise<CreatePaymentFormResponseDto> {
 	const res = await apiClient.post<CreatePaymentFormResponseDto>(PAYMENTS_FORMS, data);
 	return res.data;
 }

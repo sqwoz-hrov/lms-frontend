@@ -39,6 +39,9 @@ export function Navbar() {
 					<NavLink to="/materials" className={linkCls}>
 						Материалы
 					</NavLink>
+					<NavLink to="/posts" className={linkCls}>
+						Посты
+					</NavLink>
 					{user?.role !== "subscriber" && (
 						<>
 							<NavLink to="/tasks" className={linkCls}>

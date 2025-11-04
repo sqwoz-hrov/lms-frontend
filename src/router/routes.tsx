@@ -16,6 +16,8 @@ import { SubscriptionPage } from "@/pages/Subscription/SubscriptionPage";
 import { ListSubscriptionTiersPage } from "@/pages/Subscription/ListSubscriptionTiersPage";
 import { SubscriptionTierUpsertPage } from "@/pages/Subscription/SubscriptionTierUpsertPage";
 import { SettingsPage } from "@/pages/Settings/SettingsPage";
+import { PostUpsertPage } from "@/pages/Posts/PostUpsertPage";
+import { ListPostsPage } from "@/pages/Posts/ListPostsPage";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { AdminRoute } from "./components/AdminRoute";
@@ -51,6 +53,7 @@ export function AppRoutes() {
 
 				{/* приватные роуты */}
 				<Route element={<ProtectedRoute />}>
+					<Route path="/posts" element={<ListPostsPage />} />
 					<Route path="/materials" element={<ListMaterialsPage />} />
 					<Route path="/materials/:id" element={<ViewMaterial />} />
 					<Route path="/subjects" element={<ListSubjectsPage />} />
@@ -72,6 +75,8 @@ export function AppRoutes() {
 					<Route path="/materials/:id/edit" element={<UpsertMaterialPage />} />
 					<Route path="/subjects/new" element={<SubjectUpsertPage />} />
 					<Route path="/subjects/:id/edit" element={<SubjectUpsertPage />} />
+					<Route path="/posts/new" element={<PostUpsertPage />} />
+					<Route path="/posts/:id/edit" element={<PostUpsertPage />} />
 					<Route path="/users" element={<ListUsersPage />} />
 					<Route path="/users/new" element={<CreateUserPage />} />
 					<Route path="/tasks/new" element={<CreateTaskPage />} />

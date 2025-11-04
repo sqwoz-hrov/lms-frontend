@@ -1,9 +1,7 @@
 // pages/Materials/UpsertMaterialPage.tsx — page wrapper (create/edit)
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@/hooks/useAuth";
 import { SubjectsApi, type SubjectResponseDto } from "@/api/subjectsApi";
 import {
 	MaterialsApi,
@@ -14,12 +12,12 @@ import {
 import { MaterialForm, type MaterialFormValues } from "@/components/materials/MaterialForm";
 import { useRef } from "react";
 import { useResumableVideoUpload } from "@/hooks/useResumableVideoUpload";
+import { AdminOnlyPage } from "@/components/admin/AdminOnlyPage";
+import { AdminUpsertLayout } from "@/components/admin/AdminUpsertLayout";
 
 export function UpsertMaterialPage() {
 	const navigate = useNavigate();
 	const qc = useQueryClient();
-	const { user, loading: userLoading } = useAuth();
-	const isAdmin = !!user && (user as any).role === "admin";
 
 	const params = useParams();
 	const [sp] = useSearchParams();
@@ -129,72 +127,52 @@ export function UpsertMaterialPage() {
 		navigate(`/materials${subject_id ? `?subject_id=${subject_id}` : ""}`);
 	}
 
-	if (userLoading || (mode === "edit" && materialLoading)) {
-		return <div className="min-h-[60vh] grid place-items-center text-muted-foreground">Загрузка…</div>;
-	}
-	if (!isAdmin) {
-		return (
-			<div className="container mx-auto px-4 py-10">
-				<Card>
-					<CardContent className="py-10 text-center space-y-4">
-						<p className="text-sm text-muted-foreground">
-							Недостаточно прав. Только администратор может изменять материалы.
-						</p>
-						<Button variant="secondary" onClick={() => navigate(-1)}>
-							Назад
-						</Button>
-					</CardContent>
-				</Card>
-			</div>
-		);
-	}
+	const ready = mode === "edit" ? !materialLoading : true;
 
 	return (
-		<div className="container mx-auto px-4 py-6">
-			<div className="mb-6 flex items-center justify-between gap-4">
-				<h1 className="text-2xl font-semibold tracking-tight">
-					{mode === "edit" ? "Редактирование материала" : "Новый материал"}
-				</h1>
-				<Button variant="outline" onClick={() => navigate("/subjects/new")}>
-					Создать предмет
-				</Button>
-			</div>
-
-			<Card className="max-w-3xl">
-				<CardHeader>
-					<CardTitle className="text-base">{mode === "edit" ? "Обновите поля" : "Заполните поля"}</CardTitle>
-				</CardHeader>
-				<CardContent>
-					{subjectsLoading || subjectsError ? (
-						<div className="space-y-3">
-							{subjectsLoading && <div className="text-sm text-muted-foreground">Загрузка предметов…</div>}
-							{subjectsError && (
-								<div className="flex items-center gap-3">
-									<span className="text-sm text-red-600">Не удалось загрузить список предметов.</span>
-									<Button size="sm" variant="secondary" onClick={() => refetchSubjects()}>
-										Повторить
-									</Button>
-								</div>
-							)}
-						</div>
-					) : (
-						<MaterialForm
-							mode={mode}
-							subjects={subjects || []}
-							defaultSubjectId={defaultSubjectId}
-							initial={material ?? null}
-							submitting={
-								createMut.isPending ||
-								updateMut.isPending ||
-								openForTiersMut.isPending ||
-								uploadStatus === "uploading" ||
-								uploadStatus === "paused"
-							}
-							onSubmit={handleSubmit}
-						/>
-					)}
-				</CardContent>
-			</Card>
-		</div>
+		<AdminOnlyPage
+			ready={ready}
+			deniedMessage="Недостаточно прав. Только администратор может изменять материалы."
+			onBack={() => navigate(-1)}
+		>
+			<AdminUpsertLayout
+				mode={mode}
+				title={{ create: "Новый материал", edit: "Редактирование материала" }}
+				actionSlot={
+					<Button variant="outline" onClick={() => navigate("/subjects/new")}>
+						Создать предмет
+					</Button>
+				}
+			>
+				{subjectsLoading || subjectsError ? (
+					<div className="space-y-3">
+						{subjectsLoading && <div className="text-sm text-muted-foreground">Загрузка предметов…</div>}
+						{subjectsError && (
+							<div className="flex items-center gap-3">
+								<span className="text-sm text-red-600">Не удалось загрузить список предметов.</span>
+								<Button size="sm" variant="secondary" onClick={() => refetchSubjects()}>
+									Повторить
+								</Button>
+							</div>
+						)}
+					</div>
+				) : (
+					<MaterialForm
+						mode={mode}
+						subjects={subjects || []}
+						defaultSubjectId={defaultSubjectId}
+						initial={material ?? null}
+						submitting={
+							createMut.isPending ||
+							updateMut.isPending ||
+							openForTiersMut.isPending ||
+							uploadStatus === "uploading" ||
+							uploadStatus === "paused"
+						}
+						onSubmit={handleSubmit}
+					/>
+				)}
+			</AdminUpsertLayout>
+		</AdminOnlyPage>
 	);
 }
