@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 
 import { SubscriptionTiersApi, type SubscriptionTierResponseDto } from "@/api/subscriptionTiersApi";
+import { ConfirmDeletionDialog } from "@/components/common/dialogs/ConfirmDeletionDialog";
 import { SubscriptionTierCard } from "@/components/subscriptions/SubscriptionTierCard";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -12,6 +13,7 @@ export function ListSubscriptionTiersPage() {
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
 	const [removingId, setRemovingId] = useState<string | null>(null);
+	const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
 
 	const {
 		data: tiers,
@@ -31,6 +33,7 @@ export function ListSubscriptionTiersPage() {
 		},
 		onSettled: () => {
 			setRemovingId(null);
+			setDeleteTargetId(null);
 		},
 		onError: () => {
 			setRemovingId(null);
@@ -50,14 +53,9 @@ export function ListSubscriptionTiersPage() {
 		navigate(`/subscription-tiers/${id}/edit`);
 	}
 
-	async function handleDelete(id: string) {
+	function handleDelete(id: string) {
 		if (deleteMut.isPending) return;
-		const confirmed = window.confirm("Удалить подписку? Это действие нельзя отменить.");
-		if (!confirmed) return;
-		setRemovingId(id);
-		await deleteMut.mutateAsync({ id }).catch(() => {
-			/* ошибка обработана через onError */
-		});
+		setDeleteTargetId(id);
 	}
 
 	if (isLoading) {
@@ -126,6 +124,20 @@ export function ListSubscriptionTiersPage() {
 					})}
 				</div>
 			)}
+			<ConfirmDeletionDialog
+				entityName="подписку"
+				open={Boolean(deleteTargetId)}
+				onOpenChange={next => {
+					if (!next) setDeleteTargetId(null);
+				}}
+				onConfirm={async () => {
+					if (!deleteTargetId || deleteMut.isPending) return;
+					setRemovingId(deleteTargetId);
+					await deleteMut.mutateAsync({ id: deleteTargetId }).catch(() => {});
+				}}
+				pending={deleteMut.isPending}
+				description="Подписка и её настройки будут удалены без возможности восстановления."
+			/>
 		</div>
 	);
 }

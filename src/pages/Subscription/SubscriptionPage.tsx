@@ -11,11 +11,12 @@ import {
 	type YookassaPaymentMethodType,
 } from "@/api/paymentsApi";
 import { SubscriptionsApi, type DowngradeSubscriptionDto, type SubscriptionResponseDto } from "@/api/subscriptionsApi";
-import { useAuth } from "@/hooks/useAuth";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Loader2, RefreshCcw } from "lucide-react";
+import { ConfirmDeletionDialog } from "@/components/common/dialogs/ConfirmDeletionDialog";
 import { SubscriptionTierCard } from "@/components/subscriptions/SubscriptionTierCard";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { useAuth } from "@/hooks/useAuth";
+import { Loader2, RefreshCcw } from "lucide-react";
 
 const paymentMethodTypeLabels: Record<YookassaPaymentMethodType, string> = {
 	bank_card: "Банковская карта",
@@ -35,6 +36,7 @@ export function SubscriptionPage() {
 	const { user, userLoading, checkAuth } = useAuth();
 	const [subscriptionActionError, setSubscriptionActionError] = useState<string | null>(null);
 	const [paymentMethodActionError, setPaymentMethodActionError] = useState<string | null>(null);
+	const [deletePaymentMethodDialogOpen, setDeletePaymentMethodDialogOpen] = useState(false);
 	const {
 		data: tiers,
 		isError,
@@ -100,6 +102,7 @@ export function SubscriptionPage() {
 		onError: () => {
 			setPaymentMethodActionError("Не удалось удалить способ оплаты. Попробуйте позже.");
 		},
+		onSettled: () => setDeletePaymentMethodDialogOpen(false),
 	});
 
 	if (userLoading) {
@@ -184,7 +187,7 @@ export function SubscriptionPage() {
 							disabled={!activePaymentMethod || deletePaymentMethodMutation.isPending}
 							onClick={() => {
 								if (!activePaymentMethod || deletePaymentMethodMutation.isPending) return;
-								void deletePaymentMethodMutation.mutateAsync();
+								setDeletePaymentMethodDialogOpen(true);
 							}}
 						>
 							{deletePaymentMethodMutation.isPending ? (
@@ -256,7 +259,6 @@ export function SubscriptionPage() {
 					Пока нет доступных уровней подписки. Загляните позже.
 				</div>
 			)}
-
 			{sortedTiers.length > 0 && (
 				<div className="grid gap-4 sm:grid-cols-2">
 					{sortedTiers.map(tier => {
@@ -301,6 +303,18 @@ export function SubscriptionPage() {
 					})}
 				</div>
 			)}
+
+			<ConfirmDeletionDialog
+				entityName="способ оплаты"
+				description="Сохранённый способ оплаты будет отвязан. Автопродление остановится, пока вы не добавите новый способ."
+				open={deletePaymentMethodDialogOpen}
+				onOpenChange={setDeletePaymentMethodDialogOpen}
+				onConfirm={() => {
+					if (!activePaymentMethod || deletePaymentMethodMutation.isPending) return;
+					void deletePaymentMethodMutation.mutateAsync();
+				}}
+				pending={deletePaymentMethodMutation.isPending}
+			/>
 		</div>
 	);
 }

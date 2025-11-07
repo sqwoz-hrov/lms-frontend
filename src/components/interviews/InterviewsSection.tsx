@@ -2,6 +2,7 @@
 import type { BaseHrConnectionDto } from "@/api/hrConnectionsApi";
 import { InterviewApi, type BaseInterviewDto } from "@/api/interviewsApi"; // ← singular: interviewApi
 import { GetByIdVideoResponseDto, VideosApi } from "@/api/videosApi"; // ← тип унифицировали на GetByIdVideoResponseDto
+import { ConfirmDeletionDialog } from "@/components/common/dialogs/ConfirmDeletionDialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { VideoPlayer } from "@/components/video/VideoPlayer";
@@ -161,10 +162,14 @@ export function InterviewsSection({ hrConnection }: { hrConnection: BaseHrConnec
 	});
 
 	const [open, setOpen] = useState(false);
+	const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
 
 	const del = useMutation({
 		mutationFn: async (id: string) => InterviewApi.remove(id),
-		onSuccess: () => qc.invalidateQueries({ queryKey: ["interviews", { hr_connection_id: hrConnection.id }] }),
+		onSuccess: () => {
+			qc.invalidateQueries({ queryKey: ["interviews", { hr_connection_id: hrConnection.id }] });
+			setDeleteTargetId(null);
+		},
 	});
 
 	// Сопутствующая загрузка метаданных видео по присутствующим video_id
@@ -228,7 +233,12 @@ export function InterviewsSection({ hrConnection }: { hrConnection: BaseHrConnec
 											/>
 										)}
 										{canCrud && (
-											<Button variant="destructive" size="sm" onClick={() => del.mutate(it.id)}>
+											<Button
+												variant="destructive"
+												size="sm"
+												onClick={() => setDeleteTargetId(it.id)}
+												disabled={del.isPending}
+											>
 												<Trash2 className="size-4 mr-2" /> Удалить
 											</Button>
 										)}
@@ -243,6 +253,19 @@ export function InterviewsSection({ hrConnection }: { hrConnection: BaseHrConnec
 			)}
 
 			<InterviewFormDialog open={open} onOpenChange={setOpen} hrConnection={hrConnection} />
+			<ConfirmDeletionDialog
+				entityName="интервью"
+				open={Boolean(deleteTargetId)}
+				onOpenChange={next => {
+					if (!next) setDeleteTargetId(null);
+				}}
+				onConfirm={() => {
+					if (!deleteTargetId) return;
+					del.mutate(deleteTargetId);
+				}}
+				pending={del.isPending}
+				description="Интервью будет удалено без возможности восстановления."
+			/>
 		</div>
 	);
 }

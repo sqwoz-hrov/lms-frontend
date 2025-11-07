@@ -7,9 +7,10 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ConfirmDeletionDialog } from "@/components/common/dialogs/ConfirmDeletionDialog";
+import { useLocation } from "react-router-dom";
 import { HrConnectionFormDialog } from "./HrConnectionFormDialog";
 import { HrConnectionHeader } from "./HrConnectionHeader";
-import { useLocation } from "react-router-dom";
 
 export type HrConnectionDrawerProps = {
 	open: boolean;
@@ -20,6 +21,7 @@ export type HrConnectionDrawerProps = {
 export function HrConnectionDrawer({ open, onOpenChange, conn }: HrConnectionDrawerProps) {
 	const qc = useQueryClient();
 	const [editOpen, setEditOpen] = useState(false);
+	const [deleteOpen, setDeleteOpen] = useState(false);
 	const [copyStatus, setCopyStatus] = useState<"idle" | "success" | "error">("idle");
 	const copyResetTimeout = useRef<number | null>(null);
 	const location = useLocation();
@@ -31,6 +33,7 @@ export function HrConnectionDrawer({ open, onOpenChange, conn }: HrConnectionDra
 		},
 		onSuccess: () => {
 			qc.invalidateQueries({ queryKey: ["hr-connections"] });
+			setDeleteOpen(false);
 			onOpenChange(false);
 		},
 	});
@@ -100,10 +103,7 @@ export function HrConnectionDrawer({ open, onOpenChange, conn }: HrConnectionDra
 							<HrConnectionHeader
 								conn={conn}
 								onEdit={() => setEditOpen(true)}
-								onDelete={() => {
-									const ok = window.confirm("Удалить контакт и все связанные интервью и фидбек?");
-									if (ok) del.mutate();
-								}}
+								onDelete={() => setDeleteOpen(true)}
 								onCopyLink={handleCopyLink}
 								copyStatus={copyStatus}
 							/>
@@ -135,6 +135,16 @@ export function HrConnectionDrawer({ open, onOpenChange, conn }: HrConnectionDra
 			</DialogContent>
 
 			{conn && <HrConnectionFormDialog open={editOpen} onOpenChange={setEditOpen} initial={conn} />}
+			{conn && (
+				<ConfirmDeletionDialog
+					entityName="контакт"
+					open={deleteOpen}
+					onOpenChange={setDeleteOpen}
+					onConfirm={() => del.mutate()}
+					description="Контакт и все связанные интервью и фидбек будут удалены без возможности восстановления."
+					pending={del.isPending}
+				/>
+			)}
 		</Dialog>
 	);
 }

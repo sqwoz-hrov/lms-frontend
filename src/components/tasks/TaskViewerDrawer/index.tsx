@@ -3,10 +3,9 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 
+import { ConfirmDeletionDialog } from "@/components/common/dialogs/ConfirmDeletionDialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
-
-import { ConfirmDeleteDialog } from "./parts/ConfirmDeleteDialog";
 import { inputDateToIso, isoToInputDate } from "./parts/helpers";
 import { TaskHeader } from "./parts/TaskHeader";
 import { TaskMarkdown } from "./parts/TaskMarkdown";
@@ -233,7 +232,8 @@ export function TaskViewerDrawer({ taskId, onClose }: TaskViewerDrawerProps) {
 			</div>
 
 			{/* Модалка удаления как была */}
-			<ConfirmDeleteDialog
+			<ConfirmDeletionDialog
+				entityName="задачу"
 				open={confirmOpen}
 				onOpenChange={setConfirmOpen}
 				onConfirm={() => deleteMutation.mutate()}
