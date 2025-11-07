@@ -190,6 +190,7 @@ export function CreateTaskPage() {
 												<DropdownMenuCheckboxItem
 													key={u.id}
 													checked={selectedStudents.includes(u.id)}
+													onSelect={event => event.preventDefault()}
 													onCheckedChange={checked => {
 														const isChecked = checked === true;
 														const next = isChecked
