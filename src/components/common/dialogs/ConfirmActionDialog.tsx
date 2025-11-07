@@ -25,6 +25,7 @@ export type ConfirmActionDialogProps = {
 	confirmIcon?: ReactNode;
 	confirmVariant?: ButtonVariant;
 	pending?: boolean;
+	confirmDisabled?: boolean;
 };
 
 export function ConfirmActionDialog({
@@ -38,7 +39,10 @@ export function ConfirmActionDialog({
 	confirmIcon,
 	confirmVariant = "default",
 	pending = false,
+	confirmDisabled = false,
 }: ConfirmActionDialogProps) {
+	const isConfirmDisabled = pending || confirmDisabled;
+
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
 			<DialogContent showCloseButton={!pending}>
@@ -58,7 +62,7 @@ export function ConfirmActionDialog({
 						onClick={() => {
 							void onConfirm();
 						}}
-						disabled={pending}
+						disabled={isConfirmDisabled}
 					>
 						{pending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : confirmIcon}
 						{confirmLabel}

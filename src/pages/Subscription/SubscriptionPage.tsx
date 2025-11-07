@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { useMutation, useQuery } from "@tanstack/react-query";
 
@@ -11,6 +11,7 @@ import {
 	type YookassaPaymentMethodType,
 } from "@/api/paymentsApi";
 import { SubscriptionsApi, type DowngradeSubscriptionDto, type SubscriptionResponseDto } from "@/api/subscriptionsApi";
+import { ConfirmActionDialog } from "@/components/common/dialogs/ConfirmActionDialog";
 import { ConfirmDeletionDialog } from "@/components/common/dialogs/ConfirmDeletionDialog";
 import { SubscriptionTierCard } from "@/components/subscriptions/SubscriptionTierCard";
 import { Badge } from "@/components/ui/badge";
@@ -37,6 +38,10 @@ export function SubscriptionPage() {
 	const [subscriptionActionError, setSubscriptionActionError] = useState<string | null>(null);
 	const [paymentMethodActionError, setPaymentMethodActionError] = useState<string | null>(null);
 	const [deletePaymentMethodDialogOpen, setDeletePaymentMethodDialogOpen] = useState(false);
+	const [downgradeDialogOpen, setDowngradeDialogOpen] = useState(false);
+	const [downgradeTarget, setDowngradeTarget] = useState<SubscriptionTierResponseDto | null>(null);
+	const DOWNGRADE_CONFIRM_DELAY = 5;
+	const [downgradeCountdown, setDowngradeCountdown] = useState(DOWNGRADE_CONFIRM_DELAY);
 	const {
 		data: tiers,
 		isError,
@@ -140,6 +145,24 @@ export function SubscriptionPage() {
 		if (activePaymentMethod.details?.phone) return activePaymentMethod.details.phone;
 		return null;
 	}, [activePaymentMethod]);
+
+	useEffect(() => {
+		if (!downgradeDialogOpen) return;
+		setDowngradeCountdown(DOWNGRADE_CONFIRM_DELAY);
+		const interval = window.setInterval(() => {
+			setDowngradeCountdown(prev => {
+				if (prev <= 1) {
+					window.clearInterval(interval);
+					return 0;
+				}
+				return prev - 1;
+			});
+		}, 1000);
+
+		return () => {
+			window.clearInterval(interval);
+		};
+	}, [downgradeDialogOpen]);
 
 	async function handleUpgrade(tierId: string) {
 		if (createPaymentFormMutation.isPending) return;
@@ -278,7 +301,8 @@ export function SubscriptionPage() {
 								onClick={() => {
 									if (isCurrent) return;
 									if (isDowngrade) {
-										void handleDowngrade(tier.id);
+										setDowngradeTarget(tier);
+										setDowngradeDialogOpen(true);
 										return;
 									}
 									void handleUpgrade(tier.id);
@@ -314,6 +338,42 @@ export function SubscriptionPage() {
 					void deletePaymentMethodMutation.mutateAsync();
 				}}
 				pending={deletePaymentMethodMutation.isPending}
+			/>
+			<ConfirmActionDialog
+				open={downgradeDialogOpen}
+				onOpenChange={next => {
+					setDowngradeDialogOpen(next);
+					if (!next) {
+						setDowngradeTarget(null);
+					}
+				}}
+				title={downgradeTarget ? `Перейти на тариф «${downgradeTarget.tier}»?` : "Перейти на более дешевый тариф?"}
+				description={
+					<div className="space-y-2 text-left">
+						<p>
+							После перехода вы потеряете доступ к материалам, видео и постам, которые доступны только на текущем
+							тарифе.
+						</p>
+						<p>Автопродление будет выполнено уже по сниженной цене, а возврат средств невозможен.</p>
+						{downgradeCountdown > 0 ? (
+							<p className="font-semibold text-destructive/90">
+								Подтверждение станет доступно через {downgradeCountdown} секунд.
+							</p>
+						) : (
+							<p className="font-semibold text-foreground">Вы сможете подтвердить переход сейчас.</p>
+						)}
+					</div>
+				}
+				confirmLabel={downgradeCountdown > 0 ? `Подтверждение через ${downgradeCountdown}с` : "Перейти на этот тариф"}
+				confirmVariant="destructive"
+				confirmDisabled={downgradeCountdown > 0 || !downgradeTarget}
+				pending={downgradeSubscriptionMutation.isPending}
+				onConfirm={() => {
+					if (!downgradeTarget || downgradeCountdown > 0 || downgradeSubscriptionMutation.isPending) return;
+					setDowngradeDialogOpen(false);
+					void handleDowngrade(downgradeTarget.id);
+					setDowngradeTarget(null);
+				}}
 			/>
 		</div>
 	);
