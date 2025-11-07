@@ -2,6 +2,8 @@ import { BrowserRouter } from "react-router-dom";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { AppRoutes } from "@/router/routes";
+import { AppThemeProvider } from "@/providers/AppThemeProvider";
+import { Toaster } from "@/components/ui/sonner";
 
 export function App() {
 	const basename =
@@ -9,9 +11,12 @@ export function App() {
 
 	return (
 		<QueryClientProvider client={queryClient}>
-			<BrowserRouter basename={basename}>
-				<AppRoutes />
-			</BrowserRouter>
+			<AppThemeProvider>
+				<BrowserRouter basename={basename}>
+					<AppRoutes />
+				</BrowserRouter>
+				<Toaster />
+			</AppThemeProvider>
 		</QueryClientProvider>
 	);
 }
