@@ -27,7 +27,7 @@ interface FormData {
 	mentor_user_id: string;
 	summary: string;
 	markdown_content: string;
-	deadline_local: string; // datetime-local input value
+	deadline_local: string; // YYYY-MM-DD (date input value)
 	priority: number | string; // keep as string in input, cast on submit
 	status: TaskStatus;
 }
@@ -106,8 +106,9 @@ export function CreateTaskPage() {
 	});
 
 	function toIsoFromLocal(local: string): string {
-		// 'YYYY-MM-DDTHH:mm' -> ISO string
-		const d = new Date(local);
+		// 'YYYY-MM-DD' -> ISO string at UTC midnight
+		if (!local) throw new Error("Неверный формат даты");
+		const d = new Date(`${local}T00:00:00.000Z`);
 		if (isNaN(d.getTime())) throw new Error("Неверный формат даты");
 		return d.toISOString();
 	}
@@ -300,7 +301,7 @@ export function CreateTaskPage() {
 								<Label htmlFor="deadline_local">Дедлайн</Label>
 								<Input
 									id="deadline_local"
-									type="datetime-local"
+									type="date"
 									{...register("deadline_local", { required: "Укажите дедлайн" })}
 								/>
 								{formState.errors.deadline_local && (
