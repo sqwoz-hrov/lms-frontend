@@ -10,6 +10,7 @@ import {
 	type SubscriptionPaymentMethodResponseDto,
 	type YookassaPaymentMethodType,
 } from "@/api/paymentsApi";
+import { SubscriptionsApi, type DowngradeSubscriptionDto, type SubscriptionResponseDto } from "@/api/subscriptionsApi";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -31,8 +32,8 @@ const paymentMethodTypeLabels: Record<YookassaPaymentMethodType, string> = {
 };
 
 export function SubscriptionPage() {
-	const { user, userLoading } = useAuth();
-	const [upgradeError, setUpgradeError] = useState<string | null>(null);
+	const { user, userLoading, checkAuth } = useAuth();
+	const [subscriptionActionError, setSubscriptionActionError] = useState<string | null>(null);
 	const [paymentMethodActionError, setPaymentMethodActionError] = useState<string | null>(null);
 	const {
 		data: tiers,
@@ -48,17 +49,30 @@ export function SubscriptionPage() {
 	const createPaymentFormMutation = useMutation<CreatePaymentFormResponseDto, unknown, CreatePaymentFormDto>({
 		mutationFn: PaymentsApi.createForm,
 		onMutate: () => {
-			setUpgradeError(null);
+			setSubscriptionActionError(null);
 		},
 		onSuccess: data => {
 			if (data?.confirmation_url) {
 				window.location.assign(data.confirmation_url);
 				return;
 			}
-			setUpgradeError("Не удалось получить ссылку на оплату. Попробуйте снова.");
+			setSubscriptionActionError("Не удалось получить ссылку на оплату. Попробуйте снова.");
 		},
 		onError: () => {
-			setUpgradeError("Не удалось создать форму оплаты. Попробуйте позже.");
+			setSubscriptionActionError("Не удалось создать форму оплаты. Попробуйте позже.");
+		},
+	});
+
+	const downgradeSubscriptionMutation = useMutation<SubscriptionResponseDto, unknown, DowngradeSubscriptionDto>({
+		mutationFn: SubscriptionsApi.downgrade,
+		onMutate: () => {
+			setSubscriptionActionError(null);
+		},
+		onSuccess: async () => {
+			await checkAuth();
+		},
+		onError: () => {
+			setSubscriptionActionError("Не удалось изменить тариф. Попробуйте позже.");
 		},
 	});
 
@@ -133,6 +147,15 @@ export function SubscriptionPage() {
 		}
 	}
 
+	async function handleDowngrade(tierId: string) {
+		if (downgradeSubscriptionMutation.isPending) return;
+		try {
+			await downgradeSubscriptionMutation.mutateAsync({ subscriptionTierId: tierId });
+		} catch {
+			// onError handler already updates the UI
+		}
+	}
+
 	return (
 		<div className="mx-auto flex w-full max-w-4xl flex-col gap-6 p-6">
 			<div>
@@ -142,9 +165,9 @@ export function SubscriptionPage() {
 				</p>
 			</div>
 
-			{upgradeError && (
+			{subscriptionActionError && (
 				<div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
-					{upgradeError}
+					{subscriptionActionError}
 				</div>
 			)}
 
@@ -238,18 +261,25 @@ export function SubscriptionPage() {
 				<div className="grid gap-4 sm:grid-cols-2">
 					{sortedTiers.map(tier => {
 						const isCurrent = tier.id === currentTierId;
-						const isProcessing =
+						const isUpgradeProcessing =
 							createPaymentFormMutation.isPending &&
 							createPaymentFormMutation.variables?.subscription_tier_id === tier.id;
+						const isDowngradeProcessing =
+							downgradeSubscriptionMutation.isPending &&
+							downgradeSubscriptionMutation.variables?.subscriptionTierId === tier.id;
+						const isProcessing = isUpgradeProcessing || isDowngradeProcessing;
 						const isDowngrade = typeof currentTierPower === "number" ? tier.power < currentTierPower : false;
 						const footer = (
 							<Button
 								variant={isCurrent ? "secondary" : "default"}
 								disabled={isCurrent || isProcessing}
 								onClick={() => {
-									if (!isCurrent) {
-										void handleUpgrade(tier.id);
+									if (isCurrent) return;
+									if (isDowngrade) {
+										void handleDowngrade(tier.id);
+										return;
 									}
+									void handleUpgrade(tier.id);
 								}}
 							>
 								{isCurrent ? (
@@ -257,7 +287,7 @@ export function SubscriptionPage() {
 								) : isProcessing ? (
 									<>
 										<Loader2 className="mr-2 h-4 w-4 animate-spin" />
-										Создание формы…
+										{isDowngradeProcessing ? "Переключение…" : "Создание формы…"}
 									</>
 								) : isDowngrade ? (
 									"Перейти на этот тир"
