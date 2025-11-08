@@ -136,14 +136,46 @@ export function SubscriptionPage() {
 	const currentTierPower =
 		user.subscription_tier?.power ?? tiers?.find(tier => tier.id === currentTierId)?.power ?? null;
 
-	const paymentMethodDetails = useMemo(() => {
+	const paymentMethodSummary = useMemo(() => {
 		if (!activePaymentMethod) return null;
 		if (activePaymentMethod.title) return activePaymentMethod.title;
 		if (activePaymentMethod.description) return activePaymentMethod.description;
+		return activePaymentMethod.details?.issuer ?? null;
+	}, [activePaymentMethod]);
+
+	const paymentMethodMetadata = useMemo(() => {
+		if (!activePaymentMethod) return [];
+		const items: Array<{ label: string; value: string }> = [];
 		const cardLast4 = activePaymentMethod.details?.card?.last4;
-		if (cardLast4) return `•••• ${cardLast4}`;
-		if (activePaymentMethod.details?.phone) return activePaymentMethod.details.phone;
-		return null;
+		if (cardLast4) {
+			items.push({ label: "Последние цифры", value: `•••• ${cardLast4}` });
+		}
+		const expiryMonth = activePaymentMethod.details?.card?.expiry_month;
+		const expiryYear = activePaymentMethod.details?.card?.expiry_year;
+		if (expiryMonth && expiryYear) {
+			const formattedExpiry = `${expiryMonth.padStart(2, "0")}/${expiryYear.slice(-2)}`;
+			items.push({ label: "Срок действия", value: formattedExpiry });
+		}
+		if (activePaymentMethod.details?.issuer) {
+			items.push({ label: "Банк", value: activePaymentMethod.details.issuer });
+		}
+		if (activePaymentMethod.details?.phone) {
+			items.push({ label: "Телефон", value: activePaymentMethod.details.phone });
+		}
+		if (activePaymentMethod.created_at) {
+			const createdAtDate = new Date(activePaymentMethod.created_at);
+			if (!Number.isNaN(createdAtDate.getTime())) {
+				items.push({
+					label: "Добавлен",
+					value: createdAtDate.toLocaleDateString("ru-RU", {
+						day: "2-digit",
+						month: "long",
+						year: "numeric",
+					}),
+				});
+			}
+		}
+		return items;
 	}, [activePaymentMethod]);
 
 	useEffect(() => {
@@ -242,13 +274,26 @@ export function SubscriptionPage() {
 						</div>
 					) : activePaymentMethod ? (
 						<div className="rounded-lg border bg-muted/30 p-4">
-							<div className="flex flex-wrap items-center gap-3">
-								<Badge variant="secondary">
-									{paymentMethodTypeLabels[activePaymentMethod.type] ?? activePaymentMethod.type}
-								</Badge>
-								{paymentMethodDetails && <span className="text-sm text-muted-foreground">{paymentMethodDetails}</span>}
+							<div className="flex flex-col gap-3">
+								<div className="flex flex-wrap items-center gap-3">
+									<Badge variant="secondary">
+										{paymentMethodTypeLabels[activePaymentMethod.type] ?? activePaymentMethod.type}
+									</Badge>
+									{paymentMethodSummary && <span className="text-sm font-medium">{paymentMethodSummary}</span>}
+								</div>
+								{paymentMethodMetadata.length > 0 && (
+									<div className="grid gap-2 text-sm text-muted-foreground sm:grid-cols-2">
+										{paymentMethodMetadata.map(({ label, value }) => (
+											<div key={`${label}-${value}`}>
+												<span className="text-foreground">{label}:</span> {value}
+											</div>
+										))}
+									</div>
+								)}
+								<p className="text-xs text-muted-foreground">
+									Этот способ будет использован для следующего автопродления. Его можно изменить при новой оплате.
+								</p>
 							</div>
-							<p className="mt-2 text-xs text-muted-foreground">ID способа оплаты: {activePaymentMethod.id}</p>
 						</div>
 					) : (
 						<div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
