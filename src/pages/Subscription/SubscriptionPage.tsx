@@ -163,17 +163,6 @@ export function SubscriptionPage() {
 				}),
 			});
 		}
-		const updatedAtDate = new Date(activePaymentMethod.updatedAt);
-		if (!Number.isNaN(updatedAtDate.getTime())) {
-			items.push({
-				label: "Последнее обновление",
-				value: updatedAtDate.toLocaleDateString("ru-RU", {
-					day: "2-digit",
-					month: "long",
-					year: "numeric",
-				}),
-			});
-		}
 		return items;
 	}, [activePaymentMethod]);
 
