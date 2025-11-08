@@ -136,44 +136,43 @@ export function SubscriptionPage() {
 	const currentTierPower =
 		user.subscription_tier?.power ?? tiers?.find(tier => tier.id === currentTierId)?.power ?? null;
 
-	const paymentMethodSummary = useMemo(() => {
-		if (!activePaymentMethod) return null;
-		if (activePaymentMethod.title) return activePaymentMethod.title;
-		if (activePaymentMethod.description) return activePaymentMethod.description;
-		return activePaymentMethod.details?.issuer ?? null;
+	const paymentMethodLast4 = useMemo(() => {
+		const last4 = activePaymentMethod?.last4;
+		if (!last4) return null;
+		if (typeof last4 === "string") {
+			return last4.trim() || null;
+		}
+		if (typeof last4 === "object") {
+			const firstStringValue = Object.values(last4).find(value => typeof value === "string" && Boolean(value.trim()));
+			return (firstStringValue as string | undefined)?.trim() ?? null;
+		}
+		return null;
 	}, [activePaymentMethod]);
 
 	const paymentMethodMetadata = useMemo(() => {
 		if (!activePaymentMethod) return [];
 		const items: Array<{ label: string; value: string }> = [];
-		const cardLast4 = activePaymentMethod.details?.card?.last4;
-		if (cardLast4) {
-			items.push({ label: "Последние цифры", value: `•••• ${cardLast4}` });
+		const createdAtDate = new Date(activePaymentMethod.createdAt);
+		if (!Number.isNaN(createdAtDate.getTime())) {
+			items.push({
+				label: "Привязан",
+				value: createdAtDate.toLocaleDateString("ru-RU", {
+					day: "2-digit",
+					month: "long",
+					year: "numeric",
+				}),
+			});
 		}
-		const expiryMonth = activePaymentMethod.details?.card?.expiry_month;
-		const expiryYear = activePaymentMethod.details?.card?.expiry_year;
-		if (expiryMonth && expiryYear) {
-			const formattedExpiry = `${expiryMonth.padStart(2, "0")}/${expiryYear.slice(-2)}`;
-			items.push({ label: "Срок действия", value: formattedExpiry });
-		}
-		if (activePaymentMethod.details?.issuer) {
-			items.push({ label: "Банк", value: activePaymentMethod.details.issuer });
-		}
-		if (activePaymentMethod.details?.phone) {
-			items.push({ label: "Телефон", value: activePaymentMethod.details.phone });
-		}
-		if (activePaymentMethod.created_at) {
-			const createdAtDate = new Date(activePaymentMethod.created_at);
-			if (!Number.isNaN(createdAtDate.getTime())) {
-				items.push({
-					label: "Добавлен",
-					value: createdAtDate.toLocaleDateString("ru-RU", {
-						day: "2-digit",
-						month: "long",
-						year: "numeric",
-					}),
-				});
-			}
+		const updatedAtDate = new Date(activePaymentMethod.updatedAt);
+		if (!Number.isNaN(updatedAtDate.getTime())) {
+			items.push({
+				label: "Последнее обновление",
+				value: updatedAtDate.toLocaleDateString("ru-RU", {
+					day: "2-digit",
+					month: "long",
+					year: "numeric",
+				}),
+			});
 		}
 		return items;
 	}, [activePaymentMethod]);
@@ -279,7 +278,9 @@ export function SubscriptionPage() {
 									<Badge variant="secondary">
 										{paymentMethodTypeLabels[activePaymentMethod.type] ?? activePaymentMethod.type}
 									</Badge>
-									{paymentMethodSummary && <span className="text-sm font-medium">{paymentMethodSummary}</span>}
+									{paymentMethodLast4 && (
+										<span className="text-sm font-medium text-muted-foreground">•••• {paymentMethodLast4}</span>
+									)}
 								</div>
 								{paymentMethodMetadata.length > 0 && (
 									<div className="grid gap-2 text-sm text-muted-foreground sm:grid-cols-2">

@@ -16,26 +16,13 @@ export type YookassaPaymentMethodType =
 	| "mobile_balance"
 	| "cash";
 
-export type SubscriptionPaymentMethodCardDetails = {
-	last4?: string | null;
-	expiry_month?: string | null;
-	expiry_year?: string | null;
-};
-
-export type SubscriptionPaymentMethodDetails = {
-	card?: SubscriptionPaymentMethodCardDetails | null;
-	phone?: string | null;
-	issuer?: string | null;
-	[key: string]: unknown;
-};
-
 export type SubscriptionPaymentMethodResponseDto = {
-	id: string;
+	userId: string;
+	paymentMethodId: string;
 	type: YookassaPaymentMethodType;
-	title?: string | null;
-	description?: string | null;
-	details?: SubscriptionPaymentMethodDetails | null;
-	created_at?: string | null;
+	last4: Record<string, string | null> | string | null;
+	createdAt: string;
+	updatedAt: string;
 };
 
 export type CreatePaymentFormDto = {

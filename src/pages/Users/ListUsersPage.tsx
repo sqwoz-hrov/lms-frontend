@@ -122,7 +122,10 @@ export function ListUsersPage() {
 	);
 }
 
-const ROLE_BADGE_CONFIG: Record<UserResponse["role"], { label: string; variant?: ComponentProps<typeof Badge>["variant"] }> = {
+const ROLE_BADGE_CONFIG: Record<
+	UserResponse["role"],
+	{ label: string; variant?: ComponentProps<typeof Badge>["variant"] }
+> = {
 	admin: { label: "Админ" },
 	subscriber: { label: "Подписчик", variant: "outline" },
 	user: { label: "Пользователь", variant: "secondary" },
@@ -130,11 +133,7 @@ const ROLE_BADGE_CONFIG: Record<UserResponse["role"], { label: string; variant?:
 
 function RoleBadge({ role }: { role: UserResponse["role"] }) {
 	const { label, variant } = ROLE_BADGE_CONFIG[role] ?? ROLE_BADGE_CONFIG.user;
-	return (
-		<Badge variant={variant}>
-			{label}
-		</Badge>
-	);
+	return <Badge variant={variant}>{label}</Badge>;
 }
 
 function stripAt(v?: string) {
