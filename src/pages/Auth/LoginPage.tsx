@@ -13,9 +13,13 @@ export function LoginPage() {
 	const navigate = useNavigate();
 
 	async function handleEmailSubmit(email: string) {
-		await askOtp(email);
-		setEmail(email);
-		setStep("otp");
+		try {
+			await askOtp(email);
+			setEmail(email);
+			setStep("otp");
+		} catch {
+			// Ошибка уже отображается из useAuth
+		}
 	}
 
 	async function handleOtpSubmit(otp: string) {
@@ -28,7 +32,10 @@ export function LoginPage() {
 		<div className="flex flex-col items-center justify-center min-h-screen p-4">
 			<h1 className="text-2xl font-bold mb-6">Вход</h1>
 			{step === "email" ? (
-				<EmailStep onSuccess={handleEmailSubmit} />
+				<div className="w-full space-y-2">
+					<EmailStep onSuccess={handleEmailSubmit} />
+					{error && <p className="text-sm text-center text-red-600">{error}</p>}
+				</div>
 			) : (
 				<OtpForm onSubmitOtp={handleOtpSubmit} errorMessage={error} disabled={loading} />
 			)}

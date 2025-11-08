@@ -85,7 +85,12 @@ export function useAuth(): UseAuthReturn {
 			}
 			await askLogin({ email });
 		} catch (e) {
-			setActionError(e instanceof Error ? e.message : "Ошибка при запросе OTP");
+			let normalizedMessage = e instanceof Error ? e.message : "Ошибка при запросе OTP";
+			if (isAxiosError(e) && e.response?.status === 404) {
+				normalizedMessage = "Пользователь не найден";
+			}
+			setActionError(normalizedMessage);
+			throw new Error(normalizedMessage);
 		} finally {
 			setActionLoading(false);
 		}
