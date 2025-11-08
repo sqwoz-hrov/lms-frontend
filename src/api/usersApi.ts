@@ -23,7 +23,7 @@ export type PublicSignupDto = {
 };
 
 export type SignupDto = {
-	role: "admin" | "user";
+	role: "admin" | "user" | "subscriber";
 	name: string;
 	email: string;
 	telegram_username: string;
@@ -102,7 +102,7 @@ export async function publicSignup(data: PublicSignupDto): Promise<UserResponse>
 }
 
 export async function signup(data: SignupDto): Promise<UserResponse> {
-	const res = await apiClient.post<UserResponse>(`${USERS}/signup`, data, {
+	const res = await apiClient.post<UserResponse>(`${USERS}/admin-signup`, data, {
 		withCredentials: true,
 	});
 	return res.data;

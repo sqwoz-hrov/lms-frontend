@@ -11,9 +11,13 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "../../hooks/useAuth";
 
-// ——— Types ———
+const ROLE_OPTIONS: { value: SignupDto["role"]; label: string }[] = [
+	{ value: "user", label: "Пользователь" },
+	{ value: "subscriber", label: "Подписчик" },
+	{ value: "admin", label: "Администратор" },
+];
+
 interface FormData {
-	role: SignupDto["role"];
 	name: string;
 	email: string;
 	telegram_username: string; // may include leading @ — we'll normalize
@@ -25,10 +29,11 @@ export function CreateUserPage() {
 	const { user: me, loading: meLoading } = useAuth();
 	const isAdmin = !!me && (me as any).role === "admin";
 
+	const [role, setRole] = useState<SignupDto["role"]>("user");
+
 	const { register, handleSubmit, setValue, watch, formState } = useForm<FormData>({
 		mode: "onChange",
 		defaultValues: {
-			role: "user",
 			name: "",
 			email: "",
 			telegram_username: "",
@@ -66,7 +71,7 @@ export function CreateUserPage() {
 		setServerError(null);
 
 		const payload: SignupDto = {
-			role: values.role,
+			role,
 			name: values.name.trim(),
 			email: values.email.trim(),
 			telegram_username: normalizeTelegram(values.telegram_username.trim()),
@@ -110,13 +115,16 @@ export function CreateUserPage() {
 						{/* Role */}
 						<div className="space-y-2">
 							<Label>Роль</Label>
-							<Select value={watch("role")} onValueChange={(v: any) => setValue("role", v, { shouldValidate: true })}>
+							<Select value={role} onValueChange={value => setRole(value as SignupDto["role"])}>
 								<SelectTrigger className="w-48">
 									<SelectValue placeholder="Выберите роль" />
 								</SelectTrigger>
 								<SelectContent>
-									<SelectItem value="user">Пользователь</SelectItem>
-									<SelectItem value="admin">Администратор</SelectItem>
+									{ROLE_OPTIONS.map(option => (
+										<SelectItem key={option.value} value={option.value}>
+											{option.label}
+										</SelectItem>
+									))}
 								</SelectContent>
 							</Select>
 						</div>

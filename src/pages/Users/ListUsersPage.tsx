@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { type ComponentProps, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { AuthApi, type UserResponse } from "@/api/usersApi";
@@ -122,9 +122,19 @@ export function ListUsersPage() {
 	);
 }
 
+const ROLE_BADGE_CONFIG: Record<UserResponse["role"], { label: string; variant?: ComponentProps<typeof Badge>["variant"] }> = {
+	admin: { label: "Админ" },
+	subscriber: { label: "Подписчик", variant: "outline" },
+	user: { label: "Пользователь", variant: "secondary" },
+};
+
 function RoleBadge({ role }: { role: UserResponse["role"] }) {
-	if (role === "admin") return <Badge>admin</Badge>;
-	return <Badge variant="secondary">user</Badge>;
+	const { label, variant } = ROLE_BADGE_CONFIG[role] ?? ROLE_BADGE_CONFIG.user;
+	return (
+		<Badge variant={variant}>
+			{label}
+		</Badge>
+	);
 }
 
 function stripAt(v?: string) {
