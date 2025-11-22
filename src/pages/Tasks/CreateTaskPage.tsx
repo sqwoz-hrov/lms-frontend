@@ -55,8 +55,8 @@ function CreateTaskPageContent({ meLoading, isAdmin }: CreateTaskPageContentProp
 
 	const { users, isLoading: usersLoading, isError: usersError, refetch: refetchUsers } = useUsersLoader();
 
-	const students = useMemo(() => users || [], [users]);
-	const mentors = useMemo(() => users || [], [users]);
+	const students = useMemo(() => users ?? [], [users]);
+	const mentors = useMemo(() => (users ?? []).filter(u => u.role === "admin"), [users]);
 
 	const { register, handleSubmit, setValue, watch, formState } = useForm<FormData>({
 		mode: "onChange",

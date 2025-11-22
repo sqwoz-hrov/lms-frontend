@@ -7,6 +7,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { InputWithLimit } from "@/components/ui/input-with-limit";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "../../hooks/useAuth";
@@ -16,6 +17,7 @@ const ROLE_OPTIONS: { value: SignupDto["role"]; label: string }[] = [
 	{ value: "subscriber", label: "Подписчик" },
 	{ value: "admin", label: "Администратор" },
 ];
+const NAME_MAX_LENGTH = 256;
 
 interface FormData {
 	name: string;
@@ -39,6 +41,7 @@ export function CreateUserPage() {
 			telegram_username: "",
 		},
 	});
+	const nameValue = watch("name");
 
 	const [serverError, setServerError] = useState<string | null>(null);
 	const [_, setCreatedId] = useState<string | null>(null);
@@ -132,16 +135,19 @@ export function CreateUserPage() {
 						{/* Name */}
 						<div className="space-y-2">
 							<Label htmlFor="name">Имя</Label>
-							<Input
+							<InputWithLimit
 								id="name"
 								placeholder="Например: Иван Иванов"
 								autoFocus
+								textValue={nameValue}
+								maxLength={NAME_MAX_LENGTH}
+								errorMessage={formState.errors.name?.message}
 								{...register("name", {
 									required: "Укажите имя",
 									minLength: { value: 2, message: "Минимум 2 символа" },
+									maxLength: { value: NAME_MAX_LENGTH, message: `Максимум ${NAME_MAX_LENGTH} символов` },
 								})}
 							/>
-							{formState.errors.name && <p className="text-xs text-red-600">{formState.errors.name.message}</p>}
 						</div>
 
 						{/* Email */}

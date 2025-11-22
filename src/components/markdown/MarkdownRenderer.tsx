@@ -2,6 +2,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import remarkFrontmatter from "remark-frontmatter";
+import remarkBreaks from "remark-breaks";
 
 import rehypeRaw from "rehype-raw";
 import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
@@ -147,7 +148,7 @@ export function MarkdownRenderer({ markdown, mode = "full", className }: Props) 
 		>
 			<article className={`${containerClass} ${className ?? ""}`}>
 				<ReactMarkdown
-					remarkPlugins={[remarkGfm, remarkFrontmatter, remarkMath]}
+					remarkPlugins={[remarkGfm, remarkFrontmatter, remarkMath, remarkBreaks]}
 					rehypePlugins={[
 						rehypeRaw,
 						[rehypeSanitize, isPreview ? previewSchema : baseSchema],

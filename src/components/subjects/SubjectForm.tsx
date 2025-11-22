@@ -95,13 +95,6 @@ export function SubjectForm(props: SubjectFormProps) {
 							validate: v => /^#([0-9A-Fa-f]{6})$/.test(v) || "Введите HEX вида #RRGGBB",
 						})}
 					/>
-
-					<div
-						className="ml-auto h-8 w-8 rounded-full ring-1 ring-black/10"
-						style={{ backgroundColor: color }}
-						aria-label="Предпросмотр цвета"
-						title={color}
-					/>
 				</div>
 				{formState.errors.color_code && (
 					<p className="text-xs text-red-600">{String(formState.errors.color_code.message)}</p>
