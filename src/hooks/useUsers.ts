@@ -5,7 +5,7 @@ import { getUsers, type UserResponse } from "@/api/usersApi";
 export function useUsers() {
 	return useQuery<UserResponse[]>({
 		queryKey: ["users"],
-		queryFn: getUsers,
+		queryFn: () => getUsers(),
 		staleTime: 1000 * 60 * 5, // 5 минут
 	});
 }

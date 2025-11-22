@@ -21,7 +21,7 @@ export function ListUsersPage() {
 		refetch,
 	} = useQuery<UserResponse[]>({
 		queryKey: ["users"],
-		queryFn: AuthApi.getUsers,
+		queryFn: () => AuthApi.getUsers(),
 		staleTime: 60_000,
 	});
 

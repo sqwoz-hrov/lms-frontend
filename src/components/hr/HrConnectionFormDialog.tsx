@@ -7,11 +7,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Controller, useForm } from "react-hook-form";
 import { usePermissions } from "@/hooks/usePermissions";
 import { HrConnectionsApi, type BaseHrConnectionDto, type HrStatus } from "@/api/hrConnectionsApi";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 
-import { getUsers, type UserResponse } from "@/api/usersApi";
+import type { UserResponse } from "@/api/usersApi";
 import { useEffect, useMemo } from "react";
+import { useUsersLoader } from "@/components/users/UsersLoader";
 
 export type HrConnectionFormDialogProps = {
 	open: boolean;
@@ -37,16 +38,7 @@ export function HrConnectionFormDialog({ open, onOpenChange, initial }: HrConnec
 	const { me, isAdmin } = usePermissions();
 	const qc = useQueryClient();
 
-	// грузим пользователей и фильтруем студентов
-	const {
-		data: users,
-		isLoading: usersLoading,
-		isError: usersError,
-	} = useQuery({
-		queryKey: ["users"],
-		queryFn: getUsers,
-		staleTime: 60_000,
-	});
+	const { users, isLoading: usersLoading, isError: usersError } = useUsersLoader();
 
 	const students: UserResponse[] = useMemo(() => (users ?? []).filter(u => u.role === "user"), [users]);
 

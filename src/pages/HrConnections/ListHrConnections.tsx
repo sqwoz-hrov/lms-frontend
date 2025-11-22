@@ -10,14 +10,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Loader2, Plus } from "lucide-react";
 
 import type { BaseHrConnectionDto, HrStatus } from "@/api/hrConnectionsApi";
-import { getUsers, type UserResponse } from "@/api/usersApi";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useHrConnectionsQuery } from "@/hooks/useHrConnectionsQuery";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { HrConnectionDrawer } from "@/components/hr/HrConnectionDrawer";
 import { HrConnectionFormDialog } from "@/components/hr/HrConnectionFormDialog";
 import { useSearchParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { UsersLoader, useUsersLoader } from "@/components/users/UsersLoader";
 
 // ---- Status filter helpers ----
 type StatusFilterValue = HrStatus | "all";
@@ -31,21 +30,24 @@ const STATUS_OPTIONS: { value: StatusFilterValue; label: string }[] = [
 
 export default function ListHrConnectionsPage() {
 	const { isAdmin } = usePermissions();
+	return (
+		<UsersLoader roles={["user", "admin"]} enabled={isAdmin}>
+			<ListHrConnectionsPageContent isAdmin={isAdmin} />
+		</UsersLoader>
+	);
+}
+
+type ListHrConnectionsPageContentProps = {
+	isAdmin: boolean;
+};
+
+function ListHrConnectionsPageContent({ isAdmin }: ListHrConnectionsPageContentProps) {
 	const { filters, setFilters, query } = useHrConnectionsQuery();
 	const [searchParams, setSearchParams] = useSearchParams();
 
 	const [createOpen, setCreateOpen] = useState(false);
 
-	const {
-		data: users,
-		isLoading: isUsersLoading,
-		isError: isUsersError,
-	} = useQuery<UserResponse[]>({
-		queryKey: ["users"],
-		queryFn: getUsers,
-		enabled: isAdmin,
-		staleTime: 60_000,
-	});
+	const { users, isLoading: isUsersLoading, isError: isUsersError } = useUsersLoader();
 
 	const studentOptions = React.useMemo(() => {
 		if (!users) return [];

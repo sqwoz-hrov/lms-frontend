@@ -115,9 +115,32 @@ export async function getCurrentUser(): Promise<UserResponse> {
 	return res.data;
 }
 
-export async function getUsers(): Promise<UserResponse[]> {
+export type GetUsersParams = {
+	roles?: UserRole[];
+};
+
+export async function getUsers(params?: GetUsersParams): Promise<UserResponse[]> {
+	const query: Record<string, string | string[] | undefined> = {};
+	if (params?.roles?.length) {
+		query.roles = params.roles;
+	}
+
 	const res = await apiClient.get<UserResponse[]>(`${USERS}`, {
 		withCredentials: true,
+		params: query,
+		paramsSerializer: (queryParams: Record<string, string | string[] | undefined>) => {
+			const search = new URLSearchParams();
+			Object.entries(queryParams).forEach(([key, value]) => {
+				if (Array.isArray(value)) {
+					value.forEach(v => {
+						if (v) search.append(key, v);
+					});
+					return;
+				}
+				if (value) search.append(key, value);
+			});
+			return search.toString();
+		},
 	});
 	return res.data;
 }

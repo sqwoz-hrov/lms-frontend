@@ -1,5 +1,4 @@
 import { type TaskResponseDto, TasksApi } from "@/api/tasksApi";
-import { getUsers, type UserResponse } from "@/api/usersApi";
 import { Button } from "@/components/ui/button";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
@@ -14,13 +13,25 @@ import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { useUsersById } from "@/hooks/useUsersById";
 import type { DragEndEvent } from "@dnd-kit/core";
 import { useAuth } from "../../hooks/useAuth";
+import { UsersLoader, useUsersLoader } from "@/components/users/UsersLoader";
 
 export function ListTasksPage() {
-	const navigate = useNavigate();
-	const [params, setParams] = useSearchParams();
-
 	const { user: me } = useAuth();
 	const isAdmin = !!me && (me as any).role === "admin";
+	return (
+		<UsersLoader roles={["user", "admin"]}>
+			<ListTasksPageContent isAdmin={isAdmin} />
+		</UsersLoader>
+	);
+}
+
+type ListTasksPageContentProps = {
+	isAdmin: boolean;
+};
+
+function ListTasksPageContent({ isAdmin }: ListTasksPageContentProps) {
+	const navigate = useNavigate();
+	const [params, setParams] = useSearchParams();
 
 	// —— Filters from URL ——
 	const studentUserId = params.get("student_user_id") || undefined;
@@ -28,11 +39,7 @@ export function ListTasksPage() {
 	const activeTaskId = params.get("task_id") || null;
 
 	// —— Users ——
-	const { data: users } = useQuery<UserResponse[]>({
-		queryKey: ["users"],
-		queryFn: getUsers,
-		staleTime: 60_000,
-	});
+	const { users } = useUsersLoader();
 	const usersById = useUsersById(users ?? []);
 
 	// —— Tasks ——

@@ -1,6 +1,5 @@
 import { TasksApi, type TaskStatus } from "@/api/tasksApi";
-import { AuthApi, type UserResponse } from "@/api/usersApi";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
@@ -20,6 +19,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "../../hooks/useAuth";
+import { UsersLoader, useUsersLoader } from "@/components/users/UsersLoader";
 
 // —— Form Types ——
 interface FormData {
@@ -33,24 +33,27 @@ interface FormData {
 }
 
 export function CreateTaskPage() {
-	const navigate = useNavigate();
-	const queryClient = useQueryClient();
 	const { user: me, loading: meLoading } = useAuth();
 	const isAdmin = !!me && (me as any).role === "admin";
+	return (
+		<UsersLoader roles={["user", "admin"]} enabled={isAdmin}>
+			<CreateTaskPageContent meLoading={meLoading} isAdmin={isAdmin} />
+		</UsersLoader>
+	);
+}
+
+type CreateTaskPageContentProps = {
+	meLoading: boolean;
+	isAdmin: boolean;
+};
+
+function CreateTaskPageContent({ meLoading, isAdmin }: CreateTaskPageContentProps) {
+	const navigate = useNavigate();
+	const queryClient = useQueryClient();
 
 	const [serverError, setServerError] = useState<string | null>(null);
 
-	// Users list (both students & mentors for now)
-	const {
-		data: users,
-		isLoading: usersLoading,
-		isError: usersError,
-		refetch: refetchUsers,
-	} = useQuery<UserResponse[]>({
-		queryKey: ["users"],
-		queryFn: AuthApi.getUsers,
-		staleTime: 60_000,
-	});
+	const { users, isLoading: usersLoading, isError: usersError, refetch: refetchUsers } = useUsersLoader();
 
 	const students = useMemo(() => users || [], [users]);
 	const mentors = useMemo(() => users || [], [users]);

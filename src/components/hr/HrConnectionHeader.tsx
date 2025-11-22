@@ -6,9 +6,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { usePermissions } from "@/hooks/usePermissions";
 import { Check, Copy, Link2, Pencil, Trash2, XCircle } from "lucide-react";
 
-import { getUsers, type UserResponse } from "@/api/usersApi";
-import { useQuery } from "@tanstack/react-query";
+import type { UserResponse } from "@/api/usersApi";
 import { useMemo } from "react";
+import { useUsersLoader } from "@/components/users/UsersLoader";
 
 export type HrConnectionHeaderProps = {
 	conn: BaseHrConnectionDto;
@@ -35,17 +35,9 @@ export function HrConnectionHeader({
 	const { isAdmin, canCRUDHrConnection } = usePermissions();
 	const canCrud = canCRUDHrConnection(conn);
 
-	const {
-		data: users,
-		isLoading,
-		isError,
-	} = useQuery({
-		queryKey: ["users"],
-		queryFn: getUsers,
-		staleTime: 60_000,
-	});
+	const { users, isLoading: usersLoading, isError: usersError } = useUsersLoader();
 
-	const students: UserResponse[] = useMemo(() => (users ?? []).filter(u => u.role === "user"), [users]);
+	const students: UserResponse[] = useMemo(() => users.filter(u => u.role === "user"), [users]);
 
 	const studentMap = useMemo(() => {
 		const map = new Map<string, UserResponse>();
@@ -74,9 +66,9 @@ export function HrConnectionHeader({
 							<div>
 								<span className="font-medium text-foreground/80">Студент:</span>{" "}
 								{isAdmin ? (
-									isLoading ? (
+									usersLoading ? (
 										<span>загрузка…</span>
-									) : isError ? (
+									) : usersError ? (
 										<span className="text-destructive">ошибка загрузки</span>
 									) : student ? (
 										<span className="inline-flex flex-wrap items-center gap-2 text-foreground">

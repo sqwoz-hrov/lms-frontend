@@ -8,7 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { isoToInputDate, inputDateToIso, PRIORITY_LABEL, STATUS_LABEL } from "./helpers";
 import { useMemo } from "react";
-import { useUsers, getUserLabel } from "@/hooks/useUsers";
+import { useUsersLoader } from "@/components/users/UsersLoader";
+import { getUserLabel } from "@/hooks/useUsers";
 
 export function TaskProperties(props: {
 	task: TaskResponseDto;
@@ -23,7 +24,7 @@ export function TaskProperties(props: {
 	const { task, isEdit, setValue, status, priority, onStatusChange, statusPending } = props;
 
 	// --- Users loading ---
-	const { data: users, isLoading: usersLoading } = useUsers();
+	const { users, isLoading: usersLoading } = useUsersLoader();
 
 	// Быстрые словари для поиска по id
 	const usersById = useMemo(() => {
