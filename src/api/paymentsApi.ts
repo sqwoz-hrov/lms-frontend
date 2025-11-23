@@ -1,4 +1,4 @@
-// api/paymentsApi.ts — wrapper for creating payment forms
+// api/paymentsApi.ts — wrappers for payments- and payment-method-related endpoints
 import { isAxiosError } from "axios";
 
 import apiClient from "./client";
@@ -16,7 +16,7 @@ export type YookassaPaymentMethodType =
 	| "mobile_balance"
 	| "cash";
 
-export type SubscriptionPaymentMethodResponseDto = {
+export type PaymentMethodResponseDto = {
 	userId: string;
 	paymentMethodId: string;
 	type: YookassaPaymentMethodType;
@@ -25,25 +25,33 @@ export type SubscriptionPaymentMethodResponseDto = {
 	updatedAt: string;
 };
 
-export type CreatePaymentFormDto = {
-	subscription_tier_id: string;
-};
-
-export type CreatePaymentFormResponseDto = {
+export type PaymentMethodConfirmationResponseDto = {
 	confirmation_url: string;
 };
 
-const PAYMENTS_FORMS = "/payments/forms";
-const SUBSCRIPTION_PAYMENT_METHOD = "/subscriptions/payment-method";
+export type ChargeSubscriptionDto = {
+	subscription_tier_id: string;
+};
 
-export async function createPaymentForm(data: CreatePaymentFormDto): Promise<CreatePaymentFormResponseDto> {
-	const res = await apiClient.post<CreatePaymentFormResponseDto>(PAYMENTS_FORMS, data);
+export type ChargeSubscriptionResponseDto = {
+	paymentId: string;
+	status: string;
+	paid: boolean;
+	amountRubles: number;
+	createdAt: string;
+};
+
+const PAYMENTS_CHARGE = "/payments/charge";
+const SUBSCRIPTION_PAYMENT_METHOD = "/payments/payment-method";
+
+export async function addSubscriptionPaymentMethod(): Promise<PaymentMethodConfirmationResponseDto> {
+	const res = await apiClient.post<PaymentMethodConfirmationResponseDto>(SUBSCRIPTION_PAYMENT_METHOD);
 	return res.data;
 }
 
-export async function getActiveSubscriptionPaymentMethod(): Promise<SubscriptionPaymentMethodResponseDto | null> {
+export async function getActiveSubscriptionPaymentMethod(): Promise<PaymentMethodResponseDto | null> {
 	try {
-		const res = await apiClient.get<SubscriptionPaymentMethodResponseDto>(SUBSCRIPTION_PAYMENT_METHOD);
+		const res = await apiClient.get<PaymentMethodResponseDto>(SUBSCRIPTION_PAYMENT_METHOD);
 		return res.data;
 	} catch (error) {
 		if (isAxiosError(error) && error.response?.status === 404) {
@@ -57,8 +65,14 @@ export async function deleteSubscriptionPaymentMethod(): Promise<void> {
 	await apiClient.delete(SUBSCRIPTION_PAYMENT_METHOD);
 }
 
+export async function chargeSubscription(data: ChargeSubscriptionDto): Promise<ChargeSubscriptionResponseDto> {
+	const res = await apiClient.post<ChargeSubscriptionResponseDto>(PAYMENTS_CHARGE, data);
+	return res.data;
+}
+
 export const PaymentsApi = {
-	createForm: createPaymentForm,
+	addPaymentMethod: addSubscriptionPaymentMethod,
 	getActivePaymentMethod: getActiveSubscriptionPaymentMethod,
 	deletePaymentMethod: deleteSubscriptionPaymentMethod,
+	chargeSubscription,
 };

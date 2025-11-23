@@ -101,7 +101,7 @@ export function PostForm(props: PostFormProps) {
 				<Textarea
 					id="markdown_content"
 					className="min-h-[320px] font-mono text-sm"
-					placeholder="# Заголовок\nВаш текст в markdown…"
+					placeholder="Ваш текст в markdown…"
 					{...register("markdown_content", {
 						required: "Контент обязателен",
 						minLength: { value: 10, message: "Минимум 10 символов" },

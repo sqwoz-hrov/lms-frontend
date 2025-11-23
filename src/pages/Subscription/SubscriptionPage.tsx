@@ -5,9 +5,10 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { SubscriptionTiersApi, type SubscriptionTierResponseDto } from "@/api/subscriptionTiersApi";
 import {
 	PaymentsApi,
-	type CreatePaymentFormDto,
-	type CreatePaymentFormResponseDto,
-	type SubscriptionPaymentMethodResponseDto,
+	type ChargeSubscriptionDto,
+	type ChargeSubscriptionResponseDto,
+	type PaymentMethodConfirmationResponseDto,
+	type PaymentMethodResponseDto,
 	type YookassaPaymentMethodType,
 } from "@/api/paymentsApi";
 import { SubscriptionsApi, type DowngradeSubscriptionDto, type SubscriptionResponseDto } from "@/api/subscriptionsApi";
@@ -40,6 +41,8 @@ export function SubscriptionPage() {
 	const [deletePaymentMethodDialogOpen, setDeletePaymentMethodDialogOpen] = useState(false);
 	const [downgradeDialogOpen, setDowngradeDialogOpen] = useState(false);
 	const [downgradeTarget, setDowngradeTarget] = useState<SubscriptionTierResponseDto | null>(null);
+	const [upgradeDialogOpen, setUpgradeDialogOpen] = useState(false);
+	const [upgradeTarget, setUpgradeTarget] = useState<SubscriptionTierResponseDto | null>(null);
 	const DOWNGRADE_CONFIRM_DELAY = 5;
 	const [downgradeCountdown, setDowngradeCountdown] = useState(DOWNGRADE_CONFIRM_DELAY);
 	const {
@@ -53,20 +56,20 @@ export function SubscriptionPage() {
 		staleTime: 60_000,
 	});
 
-	const createPaymentFormMutation = useMutation<CreatePaymentFormResponseDto, unknown, CreatePaymentFormDto>({
-		mutationFn: PaymentsApi.createForm,
+	const addPaymentMethodMutation = useMutation<PaymentMethodConfirmationResponseDto>({
+		mutationFn: PaymentsApi.addPaymentMethod,
 		onMutate: () => {
-			setSubscriptionActionError(null);
+			setPaymentMethodActionError(null);
 		},
 		onSuccess: data => {
 			if (data?.confirmation_url) {
 				window.location.assign(data.confirmation_url);
 				return;
 			}
-			setSubscriptionActionError("Не удалось получить ссылку на оплату. Попробуйте снова.");
+			setPaymentMethodActionError("Не удалось получить ссылку на привязку карты. Попробуйте снова.");
 		},
 		onError: () => {
-			setSubscriptionActionError("Не удалось создать форму оплаты. Попробуйте позже.");
+			setPaymentMethodActionError("Не удалось инициировать привязку карты. Попробуйте позже.");
 		},
 	});
 
@@ -83,13 +86,26 @@ export function SubscriptionPage() {
 		},
 	});
 
+	const chargeSubscriptionMutation = useMutation<ChargeSubscriptionResponseDto, unknown, ChargeSubscriptionDto>({
+		mutationFn: PaymentsApi.chargeSubscription,
+		onMutate: () => {
+			setSubscriptionActionError(null);
+		},
+		onSuccess: async () => {
+			await checkAuth();
+		},
+		onError: () => {
+			setSubscriptionActionError("Не удалось списать оплату. Попробуйте позже.");
+		},
+	});
+
 	const {
 		data: activePaymentMethod,
 		isError: paymentMethodError,
 		isLoading: paymentMethodLoading,
 		isFetching: paymentMethodFetching,
 		refetch: refetchPaymentMethod,
-	} = useQuery<SubscriptionPaymentMethodResponseDto | null>({
+	} = useQuery<PaymentMethodResponseDto | null>({
 		queryKey: ["subscriptions", "payment-method"],
 		queryFn: PaymentsApi.getActivePaymentMethod,
 		enabled: Boolean(user?.id),
@@ -166,6 +182,8 @@ export function SubscriptionPage() {
 		return items;
 	}, [activePaymentMethod]);
 
+	const hasPaymentMethod = Boolean(activePaymentMethod);
+
 	useEffect(() => {
 		if (!downgradeDialogOpen) return;
 		setDowngradeCountdown(DOWNGRADE_CONFIRM_DELAY);
@@ -185,9 +203,9 @@ export function SubscriptionPage() {
 	}, [downgradeDialogOpen]);
 
 	async function handleUpgrade(tierId: string) {
-		if (createPaymentFormMutation.isPending) return;
+		if (chargeSubscriptionMutation.isPending) return;
 		try {
-			await createPaymentFormMutation.mutateAsync({ subscription_tier_id: tierId });
+			await chargeSubscriptionMutation.mutateAsync({ subscription_tier_id: tierId });
 		} catch {
 			// onError handler already updates the UI
 		}
@@ -219,29 +237,48 @@ export function SubscriptionPage() {
 
 			<div className="rounded-xl border p-5">
 				<div className="flex flex-col gap-1">
-					<div className="flex items-center justify-between gap-3">
+					<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 						<div>
 							<h2 className="text-lg font-semibold">Сохранённый способ оплаты</h2>
 							<p className="text-sm text-muted-foreground">Используется для автопродления подписки.</p>
 						</div>
-						<Button
-							variant="outline"
-							size="sm"
-							disabled={!activePaymentMethod || deletePaymentMethodMutation.isPending}
-							onClick={() => {
-								if (!activePaymentMethod || deletePaymentMethodMutation.isPending) return;
-								setDeletePaymentMethodDialogOpen(true);
-							}}
-						>
-							{deletePaymentMethodMutation.isPending ? (
-								<>
-									<Loader2 className="mr-2 h-4 w-4 animate-spin" />
-									Удаление…
-								</>
-							) : (
-								"Удалить"
-							)}
-						</Button>
+						<div className="flex flex-wrap items-center gap-2">
+							<Button
+								size="sm"
+								disabled={addPaymentMethodMutation.isPending}
+								onClick={() => {
+									if (addPaymentMethodMutation.isPending) return;
+									void addPaymentMethodMutation.mutateAsync();
+								}}
+							>
+								{addPaymentMethodMutation.isPending ? (
+									<>
+										<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+										Перенаправление…
+									</>
+								) : (
+									"Привязать карту"
+								)}
+							</Button>
+							<Button
+								variant="outline"
+								size="sm"
+								disabled={!activePaymentMethod || deletePaymentMethodMutation.isPending}
+								onClick={() => {
+									if (!activePaymentMethod || deletePaymentMethodMutation.isPending) return;
+									setDeletePaymentMethodDialogOpen(true);
+								}}
+							>
+								{deletePaymentMethodMutation.isPending ? (
+									<>
+										<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+										Удаление…
+									</>
+								) : (
+									"Удалить"
+								)}
+							</Button>
+						</div>
 					</div>
 
 					{paymentMethodActionError && <p className="text-sm text-destructive">{paymentMethodActionError}</p>}
@@ -288,8 +325,8 @@ export function SubscriptionPage() {
 					) : (
 						<div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
 							<p>
-								Сохранённый способ оплаты отсутствует. Он появится после успешной оплаты и будет использован для{" "}
-								автопродления.
+								Сохранённый способ оплаты отсутствует. Привяжите карту, чтобы оплачивать подписку и включить{" "}
+								автопродление.
 							</p>
 						</div>
 					)}
@@ -322,25 +359,30 @@ export function SubscriptionPage() {
 					{sortedTiers.map(tier => {
 						const isCurrent = tier.id === currentTierId;
 						const isUpgradeProcessing =
-							createPaymentFormMutation.isPending &&
-							createPaymentFormMutation.variables?.subscription_tier_id === tier.id;
+							chargeSubscriptionMutation.isPending &&
+							chargeSubscriptionMutation.variables?.subscription_tier_id === tier.id;
 						const isDowngradeProcessing =
 							downgradeSubscriptionMutation.isPending &&
 							downgradeSubscriptionMutation.variables?.subscriptionTierId === tier.id;
 						const isProcessing = isUpgradeProcessing || isDowngradeProcessing;
 						const isDowngrade = typeof currentTierPower === "number" ? tier.power < currentTierPower : false;
+						const isUpgrade = !isDowngrade && !isCurrent;
+						const isUpgradeDisabled = isUpgrade && !hasPaymentMethod;
 						const footer = (
 							<Button
 								variant={isCurrent ? "secondary" : "default"}
-								disabled={isCurrent || isProcessing}
+								disabled={isCurrent || isProcessing || isUpgradeDisabled}
+								title={isUpgradeDisabled ? "Привяжите карту, чтобы перейти на этот тариф." : undefined}
 								onClick={() => {
-									if (isCurrent) return;
+									if (isCurrent || isProcessing) return;
 									if (isDowngrade) {
 										setDowngradeTarget(tier);
 										setDowngradeDialogOpen(true);
 										return;
 									}
-									void handleUpgrade(tier.id);
+									if (isUpgradeDisabled) return;
+									setUpgradeTarget(tier);
+									setUpgradeDialogOpen(true);
 								}}
 							>
 								{isCurrent ? (
@@ -348,7 +390,7 @@ export function SubscriptionPage() {
 								) : isProcessing ? (
 									<>
 										<Loader2 className="mr-2 h-4 w-4 animate-spin" />
-										{isDowngradeProcessing ? "Переключение…" : "Создание формы…"}
+										{isDowngradeProcessing ? "Переключение…" : "Списание…"}
 									</>
 								) : isDowngrade ? (
 									"Перейти на этот тир"
@@ -373,6 +415,39 @@ export function SubscriptionPage() {
 					void deletePaymentMethodMutation.mutateAsync();
 				}}
 				pending={deletePaymentMethodMutation.isPending}
+			/>
+			<ConfirmActionDialog
+				open={upgradeDialogOpen}
+				onOpenChange={next => {
+					setUpgradeDialogOpen(next);
+					if (!next) {
+						setUpgradeTarget(null);
+					}
+				}}
+				title={upgradeTarget ? `Оплатить тариф «${upgradeTarget.tier}»?` : "Оплатить подписку?"}
+				description={
+					upgradeTarget ? (
+						<div className="space-y-2 text-left text-sm leading-relaxed">
+							<p>
+								С карты спишем {upgradeTarget.price_rubles.toLocaleString("ru-RU")} ₽. Подписка сразу переключится на
+								выбранный уровень.
+							</p>
+							<p className="text-muted-foreground">
+								Этот способ оплаты сохранится для последующих автопродлений. После подтверждения возврат средств
+								невозможен.
+							</p>
+						</div>
+					) : null
+				}
+				confirmLabel="Оплатить"
+				confirmDisabled={!upgradeTarget}
+				pending={chargeSubscriptionMutation.isPending}
+				onConfirm={() => {
+					if (!upgradeTarget || chargeSubscriptionMutation.isPending) return;
+					setUpgradeDialogOpen(false);
+					void handleUpgrade(upgradeTarget.id);
+					setUpgradeTarget(null);
+				}}
 			/>
 			<ConfirmActionDialog
 				open={downgradeDialogOpen}
