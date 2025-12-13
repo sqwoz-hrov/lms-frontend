@@ -123,7 +123,7 @@ export function TaskProperties(props: {
 			</div>
 
 			{/* Student / Mentor */}
-			<div className="grid grid-cols-2 gap-4">
+			<div className="space-y-4">
 				{/* Student */}
 				<div className="space-y-2">
 					<Label>Студент</Label>
@@ -133,8 +133,8 @@ export function TaskProperties(props: {
 							onValueChange={v => setValue("student_user_id", v)}
 							disabled={usersLoading}
 						>
-							<SelectTrigger>
-								<SelectValue placeholder={usersLoading ? "Загрузка..." : "Выберите студента"} />
+							<SelectTrigger className="w-full max-w-full overflow-hidden">
+								<SelectValue className="truncate" placeholder={usersLoading ? "Загрузка..." : "Выберите студента"} />
 							</SelectTrigger>
 							<SelectContent>
 								{/* Костыль: текущий id вне списка */}
@@ -162,8 +162,8 @@ export function TaskProperties(props: {
 							onValueChange={v => setValue("mentor_user_id", v)}
 							disabled={usersLoading}
 						>
-							<SelectTrigger>
-								<SelectValue placeholder={usersLoading ? "Загрузка..." : "Выберите ментора"} />
+							<SelectTrigger className="w-full max-w-full overflow-hidden">
+								<SelectValue className="truncate" placeholder={usersLoading ? "Загрузка..." : "Выберите ментора"} />
 							</SelectTrigger>
 							<SelectContent>
 								{/* Костыль: текущий id вне списка */}
