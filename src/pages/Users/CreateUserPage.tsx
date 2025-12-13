@@ -134,7 +134,9 @@ export function CreateUserPage() {
 
 						{/* Name */}
 						<div className="space-y-2">
-							<Label htmlFor="name">Имя</Label>
+							<Label htmlFor="name" required>
+								Имя
+							</Label>
 							<InputWithLimit
 								id="name"
 								placeholder="Например: Иван Иванов"
@@ -152,7 +154,9 @@ export function CreateUserPage() {
 
 						{/* Email */}
 						<div className="space-y-2">
-							<Label htmlFor="email">Email</Label>
+							<Label htmlFor="email" required>
+								Email
+							</Label>
 							<Input
 								id="email"
 								type="email"
@@ -167,7 +171,9 @@ export function CreateUserPage() {
 
 						{/* Telegram username */}
 						<div className="space-y-2">
-							<Label htmlFor="telegram_username">Telegram</Label>
+							<Label htmlFor="telegram_username" required>
+								Telegram
+							</Label>
 							<Input
 								id="telegram_username"
 								placeholder="@username"

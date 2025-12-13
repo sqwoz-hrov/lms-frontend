@@ -87,7 +87,7 @@ export function MaterialForm(props: MaterialFormProps) {
 		<form onSubmit={handleSubmit(submit)} className="space-y-6">
 			{/* subject */}
 			<div className="space-y-2">
-				<Label>Предмет</Label>
+				<Label required>Предмет</Label>
 				<Select value={watch("subject_id")} onValueChange={v => setValue("subject_id", v, { shouldValidate: true })}>
 					<SelectTrigger className="w-full sm:w-80">
 						<SelectValue placeholder="Выберите предмет" />
@@ -110,7 +110,9 @@ export function MaterialForm(props: MaterialFormProps) {
 
 			{/* name */}
 			<div className="space-y-2">
-				<Label htmlFor="name">Название</Label>
+				<Label htmlFor="name" required>
+					Название
+				</Label>
 				<Input
 					id="name"
 					placeholder="Например: Введение в графы"

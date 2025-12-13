@@ -169,7 +169,7 @@ function CreateTaskPageContent({ meLoading, isAdmin }: CreateTaskPageContentProp
 					<form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
 						{/* Student */}
 						<div className="space-y-2">
-							<Label>Ученики</Label>
+							<Label required>Ученики</Label>
 							{usersLoading ? (
 								<div className="text-sm text-muted-foreground">Загрузка пользователей…</div>
 							) : usersError ? (
@@ -233,7 +233,7 @@ function CreateTaskPageContent({ meLoading, isAdmin }: CreateTaskPageContentProp
 
 						{/* Mentor */}
 						<div className="space-y-2">
-							<Label>Наставник</Label>
+							<Label required>Наставник</Label>
 							{usersLoading ? (
 								<div className="text-sm text-muted-foreground">Загрузка пользователей…</div>
 							) : usersError ? (
@@ -272,7 +272,9 @@ function CreateTaskPageContent({ meLoading, isAdmin }: CreateTaskPageContentProp
 
 						{/* Summary */}
 						<div className="space-y-2">
-							<Label htmlFor="summary">Краткое описание</Label>
+							<Label htmlFor="summary" required>
+								Краткое описание
+							</Label>
 							<Input
 								id="summary"
 								placeholder="Например: Реализовать двусвязный список"
@@ -286,7 +288,9 @@ function CreateTaskPageContent({ meLoading, isAdmin }: CreateTaskPageContentProp
 
 						{/* Markdown content */}
 						<div className="space-y-2">
-							<Label htmlFor="markdown_content">Текст задания (Markdown)</Label>
+							<Label htmlFor="markdown_content" required>
+								Текст задания (Markdown)
+							</Label>
 							<Textarea
 								id="markdown_content"
 								className="min-h-[280px] font-mono text-sm"
@@ -301,7 +305,9 @@ function CreateTaskPageContent({ meLoading, isAdmin }: CreateTaskPageContentProp
 						{/* Deadline & Priority & Status */}
 						<div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
 							<div className="space-y-2">
-								<Label htmlFor="deadline_local">Дедлайн</Label>
+								<Label htmlFor="deadline_local" required>
+									Дедлайн
+								</Label>
 								<Input
 									id="deadline_local"
 									type="date"
@@ -313,7 +319,9 @@ function CreateTaskPageContent({ meLoading, isAdmin }: CreateTaskPageContentProp
 							</div>
 
 							<div className="space-y-2">
-								<Label htmlFor="priority">Приоритет</Label>
+								<Label htmlFor="priority" required>
+									Приоритет
+								</Label>
 								<Input
 									id="priority"
 									type="number"
@@ -329,7 +337,7 @@ function CreateTaskPageContent({ meLoading, isAdmin }: CreateTaskPageContentProp
 							</div>
 
 							<div className="space-y-2">
-								<Label>Статус</Label>
+								<Label required>Статус</Label>
 								<Select
 									value={status}
 									onValueChange={(v: TaskStatus) => setValue("status", v, { shouldValidate: true })}
