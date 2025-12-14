@@ -1,21 +1,51 @@
 import { useMemo } from "react";
+import { z } from "zod";
 import { SseEnvelope, useSse } from "@/providers/SseProvider";
+
+const INTERVIEW_TRANSCRIPTION_EVENT = "interview-transcription-chunk" as const;
+
+const interviewTranscriptionChunkEventSchema = z.object({
+	type: z.literal(INTERVIEW_TRANSCRIPTION_EVENT),
+	interviewTranscriptionId: z.string(),
+	videoId: z.string(),
+	chunkIndex: z.number(),
+	text: z.string(),
+	startTimeSec: z.number(),
+	endTimeSec: z.number(),
+	speakerLabel: z.string().optional(),
+});
+
+const sseEventSchemas = {
+	[INTERVIEW_TRANSCRIPTION_EVENT]: interviewTranscriptionChunkEventSchema,
+} as const;
+
+type SseEventMap = {
+	[K in keyof typeof sseEventSchemas]: z.infer<(typeof sseEventSchemas)[K]>;
+};
+
+function validateSseEventPayload<TEvent extends keyof typeof sseEventSchemas>(
+	event: TEvent,
+	payload: unknown,
+): SseEventMap[TEvent] {
+	return sseEventSchemas[event].parse(payload);
+}
+
+export type InterviewTranscriptionChunkEvent = z.infer<typeof interviewTranscriptionChunkEventSchema>;
 
 export type InterviewTranscriptionMessage = {
 	id?: string;
-	event: string;
-	transcriptionId?: string;
-	text?: string;
-	payload: unknown;
+	event: typeof INTERVIEW_TRANSCRIPTION_EVENT;
+	transcriptionId: string;
+	videoId: string;
+	chunkIndex: number;
+	text: string;
+	startTimeSec: number;
+	endTimeSec: number;
+	speakerLabel?: string;
+	payload: InterviewTranscriptionChunkEvent;
 	raw: SseEnvelope;
 	receivedAt: number;
 };
-
-const INTERVIEW_EVENTS = [
-	"interview_transcription_chunk",
-	"interview_transcription_finished",
-	"interview_transcription_error",
-];
 
 export function useInterviewTranscriptionsStream() {
 	const { events, status, lastError, reconnect } = useSse();
@@ -35,60 +65,35 @@ export function useInterviewTranscriptionsStream() {
 }
 
 function normalizeInterviewEvent(envelope: SseEnvelope): InterviewTranscriptionMessage | null {
-	const baseType = envelope.event;
-	const payload = derivePayload(envelope.data);
-
-	const derivedType = firstString(payload["type"], payload["event_type"], payload["event"], baseType);
-
-	if (!derivedType) {
+	if (envelope.event !== INTERVIEW_TRANSCRIPTION_EVENT) {
 		return null;
 	}
 
-	if (!isInterviewType(derivedType)) {
+	const payload = parseChunkPayload(envelope.data);
+	if (!payload) {
 		return null;
 	}
-
-	const transcriptionId = firstString(
-		payload["interview_transcription_id"],
-		payload["transcription_id"],
-		payload["id"],
-		envelope.id,
-	);
-	const text = firstString(payload["chunk"], payload["text"], payload["content"], payload["message"]);
 
 	return {
 		id: envelope.id,
-		event: derivedType,
-		transcriptionId: transcriptionId ?? undefined,
-		text: text ?? undefined,
+		event: INTERVIEW_TRANSCRIPTION_EVENT,
+		transcriptionId: payload.interviewTranscriptionId,
+		videoId: payload.videoId,
+		chunkIndex: payload.chunkIndex,
+		text: payload.text,
+		startTimeSec: payload.startTimeSec,
+		endTimeSec: payload.endTimeSec,
+		speakerLabel: payload.speakerLabel,
 		payload,
 		raw: envelope,
 		receivedAt: envelope.receivedAt,
 	};
 }
 
-function derivePayload(data: unknown): Record<string, unknown> {
-	if (!isRecord(data)) {
-		return { raw: data };
+function parseChunkPayload(data: unknown): InterviewTranscriptionChunkEvent | null {
+	try {
+		return validateSseEventPayload(INTERVIEW_TRANSCRIPTION_EVENT, data);
+	} catch {
+		return null;
 	}
-
-	const payload = isRecord(data.payload) ? data.payload : undefined;
-	return payload ? { ...data, ...payload } : data;
-}
-
-function firstString(...candidates: Array<unknown>): string | null {
-	for (const candidate of candidates) {
-		if (typeof candidate === "string" && candidate.trim()) {
-			return candidate;
-		}
-	}
-	return null;
-}
-
-function isInterviewType(type: string) {
-	return INTERVIEW_EVENTS.includes(type);
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === "object" && value !== null;
 }
