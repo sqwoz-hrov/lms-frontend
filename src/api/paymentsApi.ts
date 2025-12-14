@@ -39,6 +39,7 @@ export type ChargeSubscriptionResponseDto = {
 	paid: boolean;
 	amountRubles: number;
 	createdAt: string;
+	confirmation_url?: string;
 };
 
 const PAYMENTS_CHARGE = "/payments/charge";

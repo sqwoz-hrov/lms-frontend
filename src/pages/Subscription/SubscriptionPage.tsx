@@ -91,7 +91,11 @@ export function SubscriptionPage() {
 		onMutate: () => {
 			setSubscriptionActionError(null);
 		},
-		onSuccess: async () => {
+		onSuccess: async data => {
+			if (data?.confirmation_url) {
+				window.location.assign(data.confirmation_url);
+				return;
+			}
 			await checkAuth();
 		},
 		onError: () => {
