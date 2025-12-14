@@ -8,6 +8,7 @@ function normalizeBase(input?: string) {
 }
 
 const baseURL = normalizeBase(import.meta.env.VITE_API_URL);
+export const apiBaseURL = baseURL;
 
 const apiClient = axios.create({
 	baseURL, // например: "/lms-api"

@@ -18,6 +18,7 @@ import { SubscriptionTierUpsertPage } from "@/pages/Subscription/SubscriptionTie
 import { SettingsPage } from "@/pages/Settings/SettingsPage";
 import { PostUpsertPage } from "@/pages/Posts/PostUpsertPage";
 import { ListPostsPage } from "@/pages/Posts/ListPostsPage";
+import InterviewTranscriptionsPage from "@/pages/InterviewTranscriptions/InterviewTranscriptionsPage";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { AdminRoute } from "./components/AdminRoute";
@@ -80,6 +81,7 @@ export function AppRoutes() {
 					<Route path="/users" element={<ListUsersPage />} />
 					<Route path="/users/new" element={<CreateUserPage />} />
 					<Route path="/tasks/new" element={<CreateTaskPage />} />
+					<Route path="/interview-transcriptions" element={<InterviewTranscriptionsPage />} />
 				</Route>
 
 				{/* fallback */}

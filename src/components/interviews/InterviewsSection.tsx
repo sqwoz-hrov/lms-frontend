@@ -2,6 +2,7 @@
 import type { BaseHrConnectionDto } from "@/api/hrConnectionsApi";
 import { InterviewApi, type BaseInterviewDto } from "@/api/interviewsApi"; // ← singular: interviewApi
 import { GetByIdVideoResponseDto, VideosApi } from "@/api/videosApi"; // ← тип унифицировали на GetByIdVideoResponseDto
+import { InterviewTranscriptionsApi } from "@/api/interviewTranscriptionsApi";
 import { ConfirmDeletionDialog } from "@/components/common/dialogs/ConfirmDeletionDialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -9,9 +10,11 @@ import { VideoPlayer } from "@/components/video/VideoPlayer";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useResumableVideoUpload } from "@/hooks/useResumableVideoUpload";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Loader2, Pause, Play, Plus, Trash2, X } from "lucide-react";
+import { Captions, Loader2, Pause, Play, Plus, Trash2, X } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import { InterviewFormDialog } from "./InterviewFormDialog";
+import { toast } from "sonner";
+import { useNavigate } from "react-router-dom";
 
 /** Нормализуем backend-статусы к фазам плеера */
 function toPlayerPhase(p?: string): NonNullable<React.ComponentProps<typeof VideoPlayer>["phase"]> {
@@ -153,7 +156,8 @@ function VideoAttach({ interview, onAttached }: { interview: BaseInterviewDto; o
 
 export function InterviewsSection({ hrConnection }: { hrConnection: BaseHrConnectionDto }) {
 	const qc = useQueryClient();
-	const { canCRUDInterview } = usePermissions();
+	const navigate = useNavigate();
+	const { canCRUDInterview, isAdmin } = usePermissions();
 	const canCrud = canCRUDInterview(hrConnection);
 
 	const q = useQuery<BaseInterviewDto[]>({
@@ -163,6 +167,7 @@ export function InterviewsSection({ hrConnection }: { hrConnection: BaseHrConnec
 
 	const [open, setOpen] = useState(false);
 	const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+	const [pendingTranscriptionInterviewId, setPendingTranscriptionInterviewId] = useState<string | null>(null);
 
 	const del = useMutation({
 		mutationFn: async (id: string) => InterviewApi.remove(id),
@@ -170,6 +175,10 @@ export function InterviewsSection({ hrConnection }: { hrConnection: BaseHrConnec
 			qc.invalidateQueries({ queryKey: ["interviews", { hr_connection_id: hrConnection.id }] });
 			setDeleteTargetId(null);
 		},
+	});
+
+	const startTranscriptionMutation = useMutation({
+		mutationFn: (videoId: string) => InterviewTranscriptionsApi.start({ video_id: videoId }),
 	});
 
 	// Сопутствующая загрузка метаданных видео по присутствующим video_id
@@ -189,6 +198,31 @@ export function InterviewsSection({ hrConnection }: { hrConnection: BaseHrConnec
 				<Loader2 className="size-4 animate-spin" /> Загрузка интервью…
 			</div>
 		);
+	}
+
+	async function handleStartTranscription(interview: BaseInterviewDto) {
+		if (!interview.video_id) {
+			toast.error("У интервью нет видео для транскрибации");
+			return;
+		}
+
+		try {
+			setPendingTranscriptionInterviewId(interview.id);
+			const result = await startTranscriptionMutation.mutateAsync(interview.video_id);
+			toast.success("Транскрибация запущена", {
+				description: `ID запроса: ${result.id}`,
+				action: {
+					label: "Мониторинг",
+					onClick: () => navigate("/interview-transcriptions"),
+				},
+			});
+		} catch (error) {
+			const description =
+				error instanceof Error ? error.message : "Не удалось запустить транскрибацию. Проверьте консоль.";
+			toast.error("Ошибка запуска транскрибации", { description });
+		} finally {
+			setPendingTranscriptionInterviewId(null);
+		}
 	}
 
 	return (
@@ -223,7 +257,7 @@ export function InterviewsSection({ hrConnection }: { hrConnection: BaseHrConnec
 										)}
 									</div>
 
-									<div className="flex items-center gap-2 md:self-start">
+									<div className="flex items-center gap-2 md:self-start flex-wrap">
 										{canCrud && (
 											<VideoAttach
 												interview={it}
@@ -231,6 +265,21 @@ export function InterviewsSection({ hrConnection }: { hrConnection: BaseHrConnec
 													qc.invalidateQueries({ queryKey: ["interviews", { hr_connection_id: hrConnection.id }] })
 												}
 											/>
+										)}
+										{isAdmin && it.video_id && (
+											<Button
+												variant="secondary"
+												size="sm"
+												onClick={() => handleStartTranscription(it)}
+												disabled={startTranscriptionMutation.isPending && pendingTranscriptionInterviewId === it.id}
+											>
+												{startTranscriptionMutation.isPending && pendingTranscriptionInterviewId === it.id ? (
+													<Loader2 className="mr-2 size-4 animate-spin" />
+												) : (
+													<Captions className="mr-2 size-4" />
+												)}
+												Транскрибация
+											</Button>
 										)}
 										{canCrud && (
 											<Button

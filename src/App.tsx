@@ -4,6 +4,7 @@ import { queryClient } from "@/lib/queryClient";
 import { AppRoutes } from "@/router/routes";
 import { AppThemeProvider } from "@/providers/AppThemeProvider";
 import { Toaster } from "@/components/ui/sonner";
+import { SseProvider } from "@/providers/SseProvider";
 
 export function App() {
 	const basename =
@@ -12,9 +13,11 @@ export function App() {
 	return (
 		<QueryClientProvider client={queryClient}>
 			<AppThemeProvider>
-				<BrowserRouter basename={basename}>
-					<AppRoutes />
-				</BrowserRouter>
+				<SseProvider>
+					<BrowserRouter basename={basename}>
+						<AppRoutes />
+					</BrowserRouter>
+				</SseProvider>
 				<Toaster />
 			</AppThemeProvider>
 		</QueryClientProvider>

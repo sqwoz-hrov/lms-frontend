@@ -61,6 +61,9 @@ export function Navbar() {
 							<NavLink to="/users" className={linkCls}>
 								Пользователи
 							</NavLink>
+							<NavLink to="/interview-transcriptions" className={linkCls}>
+								Транскрибации
+							</NavLink>
 						</>
 					)}
 
