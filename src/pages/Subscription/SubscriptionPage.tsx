@@ -92,8 +92,8 @@ export function SubscriptionPage() {
 			setSubscriptionActionError(null);
 		},
 		onSuccess: async data => {
-			if (data?.confirmation_url) {
-				window.location.assign(data.confirmation_url);
+			if (data?.confirmationUrl) {
+				window.location.assign(data.confirmationUrl);
 				return;
 			}
 			await checkAuth();
