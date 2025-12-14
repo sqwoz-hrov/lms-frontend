@@ -1,8 +1,10 @@
+import { INTERVIEW_TRANSCRIPTION_EVENT } from "@/constants/interviewTranscriptions";
 import { apiBaseURL } from "@/api/client";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 
 const SSE_ROUTE = "/sse/stream";
 const MAX_EVENTS = 200;
+const CUSTOM_SSE_EVENTS = [INTERVIEW_TRANSCRIPTION_EVENT] as const;
 
 export type SseEnvelope = {
 	id?: string;
@@ -35,29 +37,22 @@ export function SseProvider({ children }: { children: React.ReactNode }) {
 		}
 
 		let eventSource: EventSource | null = null;
+		let removeEventListeners: (() => void) | null = null;
 		let disposed = false;
 		let retryAttempt = 0;
 		let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
 		const sseUrl = `${apiBaseURL}${SSE_ROUTE}`;
 
-		const connect = () => {
-			if (disposed) return;
-			setStatus("connecting");
-			setLastError(null);
+		const cleanupEventSource = () => {
+			removeEventListeners?.();
+			removeEventListeners = null;
 			eventSource?.close();
+			eventSource = null;
+		};
 
-			const es = new EventSource(sseUrl, { withCredentials: true });
-			eventSource = es;
-
-			es.onopen = () => {
-				if (disposed) return;
-				setStatus("open");
-				setLastError(null);
-				retryAttempt = 0;
-			};
-
-			es.onmessage = event => {
+		const attachEventListeners = (es: EventSource) => {
+			const handleMessage = (event: MessageEvent<string>) => {
 				if (disposed) return;
 
 				const parsed = parseMessageEvent(event);
@@ -68,11 +63,42 @@ export function SseProvider({ children }: { children: React.ReactNode }) {
 				});
 			};
 
+			es.addEventListener("message", handleMessage);
+
+			const customListenerCleanups = CUSTOM_SSE_EVENTS.map(eventName => {
+				const listener: EventListener = event => handleMessage(event as MessageEvent<string>);
+				es.addEventListener(eventName, listener);
+				return () => es.removeEventListener(eventName, listener);
+			});
+
+			return () => {
+				es.removeEventListener("message", handleMessage);
+				customListenerCleanups.forEach(cleanup => cleanup());
+			};
+		};
+
+		const connect = () => {
+			if (disposed) return;
+			setStatus("connecting");
+			setLastError(null);
+			cleanupEventSource();
+
+			const es = new EventSource(sseUrl, { withCredentials: true });
+			eventSource = es;
+			removeEventListeners = attachEventListeners(es);
+
+			es.onopen = () => {
+				if (disposed) return;
+				setStatus("open");
+				setLastError(null);
+				retryAttempt = 0;
+			};
+
 			es.onerror = () => {
 				if (disposed) return;
 				setStatus("error");
 				setLastError("Подключение к SSE потеряно. Пытаемся восстановить…");
-				eventSource?.close();
+				cleanupEventSource();
 
 				const delay = Math.min(30_000, 1000 * Math.pow(2, retryAttempt));
 				retryAttempt += 1;
@@ -87,7 +113,7 @@ export function SseProvider({ children }: { children: React.ReactNode }) {
 			if (reconnectTimer) {
 				clearTimeout(reconnectTimer);
 			}
-			eventSource?.close();
+			cleanupEventSource();
 		};
 	}, [reconnectFlag]);
 

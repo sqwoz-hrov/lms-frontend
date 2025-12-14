@@ -1,8 +1,7 @@
 import { useMemo } from "react";
 import { z } from "zod";
+import { INTERVIEW_TRANSCRIPTION_EVENT } from "@/constants/interviewTranscriptions";
 import { SseEnvelope, useSse } from "@/providers/SseProvider";
-
-const INTERVIEW_TRANSCRIPTION_EVENT = "interview-transcription-chunk" as const;
 
 const interviewTranscriptionChunkEventSchema = z.object({
 	type: z.literal(INTERVIEW_TRANSCRIPTION_EVENT),
