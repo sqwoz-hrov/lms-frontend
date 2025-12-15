@@ -15,6 +15,8 @@ export default function InterviewTranscriptionDetailsPage() {
 	const params = useParams<{ id: string }>();
 	const transcriptionId = params.id ?? "";
 	const queryClient = useQueryClient();
+	const cachedList = queryClient.getQueryData<InterviewTranscriptionResponseDto[]>(["interview-transcriptions"]);
+	const cachedItem = cachedList?.find(item => item.id === transcriptionId);
 
 	const transcriptionQuery = useQuery({
 		queryKey: ["interview-transcriptions", transcriptionId],
@@ -23,14 +25,10 @@ export default function InterviewTranscriptionDetailsPage() {
 			if (!transcriptionId) {
 				throw new Error("Не указан идентификатор транскрибации");
 			}
-			const cachedList = queryClient.getQueryData<InterviewTranscriptionResponseDto[]>(["interview-transcriptions"]);
-			const cachedItem = cachedList?.find(item => item.id === transcriptionId);
-			if (cachedItem) {
-				return cachedItem;
-			}
 			return InterviewTranscriptionsApi.getById(transcriptionId);
 		},
-		refetchInterval: data => (data?.status === "done" ? false : 10_000),
+		initialData: cachedItem,
+		refetchInterval: query => (query.state.data?.status === "done" ? false : 10_000),
 	});
 
 	const transcription = transcriptionQuery.data;
