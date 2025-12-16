@@ -4,32 +4,34 @@ import apiClient from "./client";
 
 export type UploadedRangeDto = { start: string; end: string };
 
-export type VideoResponseDto = {
+export type VideoPhase =
+	| "receiving"
+	| "converting"
+	| "hashing"
+	| "uploading_s3"
+	| "completed"
+	| "failed"
+	| "uploading"
+	| "processing";
+
+type BaseVideoResponseDto = {
 	id: string;
+	user_id?: string;
 	filename: string;
 	mime_type?: string | null;
 	youtube_link?: string | null;
 	total_size?: string;
 	chunk_size?: string;
-	phase?: "uploading" | "processing" | "completed" | "failed";
+	phase?: VideoPhase;
 	uploaded_ranges?: UploadedRangeDto[];
 	upload_offset?: string;
 	checksum?: string | null;
 	created_at: string;
 };
 
-export type GetByIdVideoResponseDto = {
-	id: string;
-	filename: string;
-	mime_type?: string | null;
-	youtube_link?: string | null;
-	total_size?: string;
-	chunk_size?: string;
-	phase?: "uploading" | "processing" | "completed" | "failed";
-	uploaded_ranges?: UploadedRangeDto[];
-	upload_offset?: string;
-	checksum?: string | null;
-	created_at: string;
+export type VideoResponseDto = BaseVideoResponseDto;
+
+export type GetByIdVideoResponseDto = BaseVideoResponseDto & {
 	video_url?: string;
 };
 

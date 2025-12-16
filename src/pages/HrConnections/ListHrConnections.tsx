@@ -16,7 +16,8 @@ import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { HrConnectionDrawer } from "@/components/hr/HrConnectionDrawer";
 import { HrConnectionFormDialog } from "@/components/hr/HrConnectionFormDialog";
 import { useSearchParams } from "react-router-dom";
-import { UsersLoader, useUsersLoader } from "@/components/users/UsersLoader";
+import { UsersLoader } from "@/components/users/UsersLoader";
+import { UserSelectFilter } from "@/components/users/UserSelectFilter";
 
 // ---- Status filter helpers ----
 type StatusFilterValue = HrStatus | "all";
@@ -46,13 +47,6 @@ function ListHrConnectionsPageContent({ isAdmin }: ListHrConnectionsPageContentP
 	const [searchParams, setSearchParams] = useSearchParams();
 
 	const [createOpen, setCreateOpen] = useState(false);
-
-	const { users, isLoading: isUsersLoading, isError: isUsersError } = useUsersLoader();
-
-	const studentOptions = React.useMemo(() => {
-		if (!users) return [];
-		return users.filter(user => user.role === "user");
-	}, [users]);
 
 	// Локальные контролы фильтров (с дебаунсом для имени)
 	const [nameInput, setNameInput] = useState(filters.name ?? "");
@@ -137,39 +131,13 @@ function ListHrConnectionsPageContent({ isAdmin }: ListHrConnectionsPageContentP
 					</div>
 
 					{isAdmin && (
-						<div className="grid gap-2">
-							<Label htmlFor="filter-student">Студент</Label>
-							<Select
-								value={filters.student_user_id ?? "all"}
-								onValueChange={value =>
-									setFilters({
-										...filters,
-										student_user_id: value === "all" ? undefined : value,
-									})
-								}
-								disabled={isUsersLoading || isUsersError}
-							>
-								<SelectTrigger id="filter-student">
-									<SelectValue placeholder={isUsersLoading ? "Загрузка..." : "Выберите студента"} />
-								</SelectTrigger>
-								<SelectContent>
-									<SelectItem value="all">Все студенты</SelectItem>
-									{filters.student_user_id &&
-										!studentOptions.some(student => student.id === filters.student_user_id) && (
-											<SelectItem value={filters.student_user_id} disabled>
-												{filters.student_user_id}
-											</SelectItem>
-										)}
-									{studentOptions.map(student => (
-										<SelectItem key={student.id} value={student.id}>
-											{student.name}
-											{student.telegram_username ? ` (@${student.telegram_username})` : ""}
-										</SelectItem>
-									))}
-								</SelectContent>
-							</Select>
-							{isUsersError && <p className="text-sm text-destructive">Не удалось загрузить список студентов</p>}
-						</div>
+						<UserSelectFilter
+							label="Студент"
+							value={filters.student_user_id}
+							onChange={value => setFilters({ ...filters, student_user_id: value })}
+							allowedRoles={["user"]}
+							allLabel="Все студенты"
+						/>
 					)}
 
 					<div className="flex items-end gap-2">

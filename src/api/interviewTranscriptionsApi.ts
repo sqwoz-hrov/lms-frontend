@@ -1,4 +1,5 @@
 import apiClient from "./client";
+import type { VideoResponseDto } from "./videosApi";
 
 export type StartInterviewTranscriptionDto = {
 	video_id: string;
@@ -8,11 +9,12 @@ export type InterviewTranscriptionStatus = "created" | "processing" | "done";
 
 export type InterviewTranscriptionResponseDto = {
 	id: string;
-	video_id: string;
+	video_id?: string;
 	status: InterviewTranscriptionStatus;
 	s3_transcription_key: string | null;
 	transcription_url?: string | null;
 	created_at: string;
+	video?: VideoResponseDto | null;
 };
 
 export type ListInterviewTranscriptionsParams = {

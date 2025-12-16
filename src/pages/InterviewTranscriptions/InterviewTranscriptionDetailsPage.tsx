@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import { InterviewTranscriptionsApi, type InterviewTranscriptionResponseDto } from "@/api/interviewTranscriptionsApi";
+import type { VideoResponseDto } from "@/api/videosApi";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -10,13 +11,22 @@ import {
 	useInterviewTranscriptionsStream,
 } from "@/hooks/useInterviewTranscriptionsStream";
 import { TranscriptionStatusBadge } from "@/components/interview-transcriptions/TranscriptionStatusBadge";
+import { describeVideoPhase, formatDateTime, formatFileSizeFromString } from "./utils";
 
 export default function InterviewTranscriptionDetailsPage() {
 	const params = useParams<{ id: string }>();
 	const transcriptionId = params.id ?? "";
 	const queryClient = useQueryClient();
-	const cachedList = queryClient.getQueryData<InterviewTranscriptionResponseDto[]>(["interview-transcriptions"]);
-	const cachedItem = cachedList?.find(item => item.id === transcriptionId);
+	const cachedItem = useMemo(() => {
+		const lists = queryClient.getQueriesData<InterviewTranscriptionResponseDto[]>({
+			queryKey: ["interview-transcriptions"],
+		});
+		for (const [, list] of lists) {
+			const found = list?.find(item => item.id === transcriptionId);
+			if (found) return found;
+		}
+		return undefined;
+	}, [queryClient, transcriptionId]);
 
 	const transcriptionQuery = useQuery({
 		queryKey: ["interview-transcriptions", transcriptionId],
@@ -129,17 +139,16 @@ export default function InterviewTranscriptionDetailsPage() {
 					<Card>
 						<CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
 							<div className="space-y-2">
-								<CardTitle className="text-xl">
-									Транскрибация <span className="font-mono text-base">{shortId(transcription.id)}</span>
-								</CardTitle>
+								<CardTitle className="text-xl">{transcription.video?.filename ?? "Транскрибация интервью"}</CardTitle>
 								<div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
 									<span>
-										Создано:{" "}
-										<span className="text-foreground">{new Date(transcription.created_at).toLocaleString()}</span>
+										Старт расшифровки:{" "}
+										<span className="text-foreground">{formatDateTime(transcription.created_at)}</span>
 									</span>
-									{transcription.video_id && (
+									{transcription.video?.created_at && (
 										<span>
-											Видео: <span className="font-mono text-foreground">{transcription.video_id}</span>
+											Видео загружено:{" "}
+											<span className="text-foreground">{formatDateTime(transcription.video.created_at)}</span>
 										</span>
 									)}
 								</div>
@@ -158,6 +167,8 @@ export default function InterviewTranscriptionDetailsPage() {
 							</div>
 						</CardHeader>
 					</Card>
+
+					<VideoDetailsCard video={transcription.video} />
 
 					{showChunks ? (
 						<Card>
@@ -228,6 +239,35 @@ export default function InterviewTranscriptionDetailsPage() {
 	);
 }
 
+function VideoDetailsCard({ video }: { video?: VideoResponseDto | null }) {
+	const sizeLabel = formatFileSizeFromString(video?.total_size) ?? "—";
+	return (
+		<Card>
+			<CardHeader>
+				<CardTitle className="text-lg">Детали видео</CardTitle>
+			</CardHeader>
+			<CardContent>
+				<dl className="grid gap-4 sm:grid-cols-2">
+					<InfoRow label="Имя файла" value={video?.filename ?? "Без названия"} />
+					<InfoRow label="Статус загрузки" value={describeVideoPhase(video?.phase)} />
+					<InfoRow label="Размер" value={sizeLabel} />
+					<InfoRow label="MIME-тип" value={video?.mime_type ?? "—"} />
+					<InfoRow label="Загружено" value={video?.created_at ? formatDateTime(video.created_at) : "—"} />
+				</dl>
+			</CardContent>
+		</Card>
+	);
+}
+
+function InfoRow({ label, value }: { label: string; value: string }) {
+	return (
+		<div className="space-y-1">
+			<dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</dt>
+			<dd className="text-sm text-foreground">{value}</dd>
+		</div>
+	);
+}
+
 function ChunkBubble({ chunk }: { chunk: InterviewTranscriptionMessage }) {
 	return (
 		<div className="rounded-xl border bg-card px-4 py-3">
@@ -255,11 +295,6 @@ function TypingIndicator() {
 			))}
 		</div>
 	);
-}
-
-function shortId(id: string) {
-	if (id.length <= 12) return id;
-	return `${id.slice(0, 6)}…${id.slice(-4)}`;
 }
 
 function formatTime(seconds: number) {
