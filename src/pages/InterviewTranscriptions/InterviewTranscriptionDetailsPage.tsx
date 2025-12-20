@@ -22,7 +22,8 @@ export default function InterviewTranscriptionDetailsPage() {
 			queryKey: ["interview-transcriptions"],
 		});
 		for (const [, list] of lists) {
-			const found = list?.find(item => item.id === transcriptionId);
+			if (!Array.isArray(list)) continue;
+			const found = list.find(item => item.id === transcriptionId);
 			if (found) return found;
 		}
 		return undefined;
