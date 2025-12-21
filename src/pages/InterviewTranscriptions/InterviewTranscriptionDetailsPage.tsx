@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 import { InterviewTranscriptionsApi, type InterviewTranscriptionResponseDto } from "@/api/interviewTranscriptionsApi";
 import type { VideoResponseDto } from "@/api/videosApi";
 import { Button } from "@/components/ui/button";
@@ -43,6 +44,30 @@ export default function InterviewTranscriptionDetailsPage() {
 	});
 
 	const transcription = transcriptionQuery.data;
+	const restartMutation = useMutation({
+		mutationFn: async () => {
+			if (!transcriptionId) throw new Error("Не указан идентификатор транскрибации");
+			return InterviewTranscriptionsApi.restart({ interview_transcription_id: transcriptionId });
+		},
+		onSuccess: data => {
+			queryClient.setQueryData(["interview-transcriptions", transcriptionId], data);
+			queryClient.setQueriesData<InterviewTranscriptionResponseDto[]>(
+				{ queryKey: ["interview-transcriptions"] },
+				prev => {
+					if (!prev) return prev;
+					return prev.map(item => (item.id === data.id ? data : item));
+				},
+			);
+			queryClient.invalidateQueries({ queryKey: ["interview-transcriptions"] });
+			toast.success("Транскрибация перезапущена", {
+				description: "Мы повторно запустили расшифровку этого интервью.",
+			});
+		},
+		onError: error => {
+			const description = error instanceof Error ? error.message : "Не удалось выполнить запрос. Попробуйте ещё раз.";
+			toast.error("Не удалось перезапустить транскрибацию", { description });
+		},
+	});
 	const { messages } = useInterviewTranscriptionsStream();
 
 	const chunks = useMemo(() => {
@@ -154,8 +179,17 @@ export default function InterviewTranscriptionDetailsPage() {
 									)}
 								</div>
 							</div>
-							<div className="flex items-center gap-2">
+							<div className="flex flex-wrap items-center gap-2">
 								<TranscriptionStatusBadge status={transcription.status} />
+								<Button
+									variant="outline"
+									size="sm"
+									onClick={() => restartMutation.mutate()}
+									disabled={restartMutation.isPending}
+								>
+									{restartMutation.isPending && <Loader2 className="mr-2 size-4 animate-spin" />}
+									Перезапустить
+								</Button>
 								<Button
 									variant="outline"
 									size="sm"

@@ -12,6 +12,7 @@ const STATUS_VARIANTS: Record<
 	done: { label: "Готово", variant: "secondary" },
 	processing: { label: "В работе", variant: "outline" },
 	created: { label: "Создано", variant: "outline" },
+	restarted: { label: "Перезапущено", variant: "outline" },
 };
 
 export function TranscriptionStatusBadge({ status }: Props) {

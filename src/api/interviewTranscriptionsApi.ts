@@ -5,7 +5,7 @@ export type StartInterviewTranscriptionDto = {
 	video_id: string;
 };
 
-export type InterviewTranscriptionStatus = "created" | "processing" | "done";
+export type InterviewTranscriptionStatus = "created" | "processing" | "restarted" | "done";
 
 export type InterviewTranscriptionResponseDto = {
 	id: string;
@@ -19,6 +19,10 @@ export type InterviewTranscriptionResponseDto = {
 
 export type ListInterviewTranscriptionsParams = {
 	user_id?: string;
+};
+
+export type RestartInterviewTranscriptionDto = {
+	interview_transcription_id: string;
 };
 
 async function start(payload: StartInterviewTranscriptionDto) {
@@ -45,9 +49,18 @@ async function getByVideoId(videoId: string) {
 	return data;
 }
 
+async function restart(payload: RestartInterviewTranscriptionDto) {
+	const { data } = await apiClient.post<InterviewTranscriptionResponseDto>(
+		"/interview-transcriptions/restart",
+		payload,
+	);
+	return data;
+}
+
 export const InterviewTranscriptionsApi = {
 	start,
 	list,
 	getById,
 	getByVideoId,
+	restart,
 };
