@@ -6,7 +6,7 @@ services:
     container_name: lms-frontend
     restart: unless-stopped
     networks:
-      - traefik_public
+      - traefik
     labels:
       - 'traefik.enable=true'
       - 'traefik.http.routers.lms-frontend.rule=Host(`sqwoz-hrov.ru`) && PathPrefix(`/lms`)'
@@ -24,5 +24,7 @@ services:
       - .env
 
 networks:
-  traefik_public:
+  traefik:
     external: true
+    name: $TRAEFIK_NETWORK
+
