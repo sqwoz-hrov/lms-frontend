@@ -54,7 +54,7 @@ export default function InterviewTranscriptionDetailsPage() {
 			queryClient.setQueriesData<InterviewTranscriptionResponseDto[]>(
 				{ queryKey: ["interview-transcriptions"] },
 				prev => {
-					if (!prev) return prev;
+					if (!Array.isArray(prev)) return prev;
 					return prev.map(item => (item.id === data.id ? data : item));
 				},
 			);
