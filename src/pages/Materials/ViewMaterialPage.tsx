@@ -71,22 +71,17 @@ export function ViewMaterial() {
 		refetch: refetchVideo,
 	} = useQuery<GetByIdVideoResponseDto | null>({
 		queryKey: ["video", material?.video_id],
-		enabled: !!material && material.type === "video" && !!material.video_id,
+		enabled: !!material?.video_id,
 		queryFn: async () => (material?.video_id ? VideosApi.getById(material.video_id) : null),
 		staleTime: 5 * 60_000,
 		retry: 1,
 	});
 
 	const icon = useMemo(() => {
-		switch (material?.type) {
-			case "article":
-				return <FileText className="h-5 w-5" />;
-			case "video":
-				return <Video className="h-5 w-5" />;
-			default:
-				return <FileQuestion className="h-5 w-5" />;
-		}
-	}, [material?.type]);
+		if (material?.video_id) return <Video className="h-5 w-5" />;
+		if (material?.markdown_content) return <FileText className="h-5 w-5" />;
+		return <FileQuestion className="h-5 w-5" />;
+	}, [material?.video_id, material?.markdown_content]);
 
 	if (!id) {
 		return (
@@ -126,10 +121,7 @@ export function ViewMaterial() {
 				<div className="flex flex-wrap items-center gap-3">
 					<div className="rounded-lg bg-muted p-2">{icon}</div>
 					<h1 className="text-2xl font-semibold tracking-tight">{material.name}</h1>
-					<div className="flex items-center gap-2">
-						<TypeBadge type={material.type} />
-						{material.is_archived && <Badge variant="outline">Архив</Badge>}
-					</div>
+					{material.is_archived && <Badge variant="outline">Архив</Badge>}
 					{/* Subject pill */}
 					{subjectLoading ? (
 						<span className="h-6 w-28 rounded bg-muted animate-pulse" />
@@ -154,8 +146,8 @@ export function ViewMaterial() {
 				</div>
 			</div>
 
-			{/* Блок с видео — только для материалов типа "video" */}
-			{material.type === "video" && material.video_id && (
+			{/* Блок с видео — только если прикреплено видео */}
+			{material.video_id && (
 				<Card className="mb-6">
 					<CardHeader className="flex flex-row items-center justify-between">
 						<CardTitle className="text-base">Видео</CardTitle>
@@ -225,15 +217,4 @@ export function ViewMaterial() {
 			</Card>
 		</div>
 	);
-}
-
-function TypeBadge({ type }: { type: MaterialResponseDto["type"] }) {
-	switch (type) {
-		case "article":
-			return <Badge variant="secondary">Статья</Badge>;
-		case "video":
-			return <Badge variant="secondary">Видео</Badge>;
-		default:
-			return <Badge variant="secondary">Другое</Badge>;
-	}
 }

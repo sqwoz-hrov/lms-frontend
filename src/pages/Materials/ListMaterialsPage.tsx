@@ -10,7 +10,7 @@ import {
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { FileQuestion, FileText, MoreVertical, Video } from "lucide-react";
+import { MoreVertical } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
@@ -82,29 +82,6 @@ export function ListMaterialsPage() {
 			await queryClient.invalidateQueries({ queryKey: ["materials"] });
 		},
 	});
-
-	function typeBadge(t: MaterialResponseDto["type"]) {
-		switch (t) {
-			case "article":
-				return (
-					<Badge variant="secondary" className="gap-1">
-						<FileText className="h-3.5 w-3.5" /> Статья
-					</Badge>
-				);
-			case "video":
-				return (
-					<Badge variant="secondary" className="gap-1">
-						<Video className="h-3.5 w-3.5" /> Видео
-					</Badge>
-				);
-			default:
-				return (
-					<Badge variant="secondary" className="gap-1">
-						<FileQuestion className="h-3.5 w-3.5" /> Другое
-					</Badge>
-				);
-		}
-	}
 
 	const onOpen = (m: MaterialResponseDto) => navigate(`/materials/${m.id}`);
 	const onEdit = (m: MaterialResponseDto) => navigate(`/materials/${m.id}/edit`);
@@ -213,12 +190,11 @@ export function ListMaterialsPage() {
 									</DropdownMenu>
 								)}
 							</CardHeader>
-							<CardContent className="pt-0">
-								<div className="flex items-center justify-between">
-									{typeBadge(m.type)}
-									{m.is_archived && <Badge variant="outline">Архив</Badge>}
-								</div>
-							</CardContent>
+							{m.is_archived && (
+								<CardContent className="pt-0">
+									<Badge variant="outline">Архив</Badge>
+								</CardContent>
+							)}
 						</Card>
 					))}
 				</div>
