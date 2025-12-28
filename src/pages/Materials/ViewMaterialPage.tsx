@@ -115,6 +115,10 @@ export function ViewMaterial() {
 		);
 	}
 
+	const hasMarkdown = !!material.markdown_content?.trim();
+	const hasVideo = !!material.video_id;
+	const hasContent = hasMarkdown || hasVideo;
+
 	return (
 		<div className="container mx-auto px-4 py-6">
 			<div className="mb-6 flex flex-wrap items-center justify-between gap-3">
@@ -146,72 +150,69 @@ export function ViewMaterial() {
 				</div>
 			</div>
 
-			{/* Блок с видео — только если прикреплено видео */}
-			{material.video_id && (
-				<Card className="mb-6">
-					<CardHeader className="flex flex-row items-center justify-between">
-						<CardTitle className="text-base">Видео</CardTitle>
-						<div className="flex items-center gap-2">
-							{videoLoading ? (
-								<span className="text-xs text-muted-foreground">Загрузка ссылки…</span>
-							) : videoError ? (
-								<Button size="sm" variant="secondary" onClick={() => refetchVideo()}>
-									Обновить ссылку
-								</Button>
-							) : null}
-						</div>
+			<Card className="mb-6">
+				{hasMarkdown && (
+					<CardHeader>
+						<CardTitle className="text-base">Содержание</CardTitle>
 					</CardHeader>
-					<CardContent>
-						{/* Всю логику отображения берёт на себя VideoPlayer */}
-						<VideoPlayer
-							src={video?.video_url}
-							type={video?.mime_type ?? "video/mp4"}
-							title={material.name}
-							phase={toPlayerPhase(video?.phase)}
-						/>
-
-						{/* Техническая подсказка/отладка */}
-						<div className="mt-3 text-xs text-muted-foreground">
-							Видео ID: <code>{material.video_id}</code>
-							{video?.phase ? (
-								<>
-									{" "}
-									• Статус: <code>{video.phase}</code>
-								</>
-							) : null}
-							{video?.mime_type ? (
-								<>
-									{" "}
-									• MIME: <code>{video.mime_type}</code>
-								</>
-							) : null}
-							{!video?.video_url && !videoLoading && (
-								<>
-									{" "}
-									•{" "}
-									<button className="underline underline-offset-4" onClick={() => refetchVideo()}>
-										обновить ссылку
-									</button>
-								</>
+				)}
+				<CardContent className={hasContent ? "space-y-6" : undefined}>
+					{hasContent ? (
+						<>
+							{hasMarkdown && (
+								<article className="prose max-w-none prose-headings:scroll-mt-24">
+									<MarkdownRenderer markdown={material.markdown_content!} mode="full" />
+								</article>
 							)}
-						</div>
-					</CardContent>
-				</Card>
-			)}
-
-			<Card>
-				<CardHeader>
-					<CardTitle className="text-base">Содержание</CardTitle>
-				</CardHeader>
-				<CardContent>
-					{material.markdown_content ? (
-						<article className="prose max-w-none prose-headings:scroll-mt-24">
-							<MarkdownRenderer markdown={material.markdown_content} mode="full" />
-						</article>
+							{hasVideo && (
+								<section>
+									<div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+										<h2 className="text-base font-semibold">Видео</h2>
+										<div className="flex items-center gap-2">
+											{videoLoading ? (
+												<span className="text-xs text-muted-foreground">Загрузка ссылки…</span>
+											) : videoError ? (
+												<Button size="sm" variant="secondary" onClick={() => refetchVideo()}>
+													Обновить ссылку
+												</Button>
+											) : null}
+										</div>
+									</div>
+									<VideoPlayer
+										src={video?.video_url}
+										type={video?.mime_type ?? "video/mp4"}
+										title={material.name}
+										phase={toPlayerPhase(video?.phase)}
+									/>
+									<div className="mt-3 text-xs text-muted-foreground">
+										Видео ID: <code>{material.video_id}</code>
+										{video?.phase ? (
+											<>
+												{" "}
+												• Статус: <code>{video.phase}</code>
+											</>
+										) : null}
+										{video?.mime_type ? (
+											<>
+												{" "}
+												• MIME: <code>{video.mime_type}</code>
+											</>
+										) : null}
+										{!video?.video_url && !videoLoading && (
+											<>
+												{" "}
+												•{" "}
+												<button className="underline underline-offset-4" onClick={() => refetchVideo()}>
+													обновить ссылку
+												</button>
+											</>
+										)}
+									</div>
+								</section>
+							)}
+						</>
 					) : (
-						<div className="text-sm text-muted-foreground">
-							Для этого материала отсутствует поле <code>markdown_content</code>.
-						</div>
+						<div className="text-sm text-muted-foreground">Контент для этого материала пока не добавлен.</div>
 					)}
 				</CardContent>
 			</Card>
