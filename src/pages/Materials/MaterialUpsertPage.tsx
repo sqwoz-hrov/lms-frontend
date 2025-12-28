@@ -69,22 +69,27 @@ export function UpsertMaterialPage() {
 	) {
 		// wire the form's progress setter for the hook to call
 		setUploadProgressRef.current = setUploadProgress;
+		const markdown = (values.markdown_content || "").trim();
+		const file = values.video_file?.[0];
 
 		if (mode === "create") {
+			if (!markdown && !file) {
+				throw new Error("Добавьте видео или markdown содержимое");
+			}
+
 			const payload: CreateMaterialDto = {
 				subject_id: values.subject_id.trim(),
 				name: values.name.trim(),
-				type: values.type,
 			};
 
-			if (values.type === "video") {
-				const file = values.video_file?.[0];
-				if (!file) throw new Error("Выберите видеофайл");
+			if (markdown) {
+				payload.markdown_content = markdown;
+			}
+
+			if (file) {
 				// resumable upload → returns final VideoResponseDto on 201
 				const v = await startUpload(file);
 				payload.video_id = v.id;
-			} else {
-				payload.markdown_content = values.markdown_content?.trim() || undefined;
 			}
 
 			const created = await createMut.mutateAsync(payload);
@@ -103,19 +108,20 @@ export function UpsertMaterialPage() {
 			id: material.id,
 			subject_id: values.subject_id.trim(),
 			name: values.name.trim(),
-			type: values.type,
 		};
 
-		if (values.type === "video") {
-			const file = values.video_file?.[0];
-			if (file) {
-				const v = await startUpload(file);
-				payload.video_id = v.id;
-			}
-			payload.markdown_content = undefined; // keep clean
-		} else {
-			payload.video_id = undefined;
-			payload.markdown_content = values.markdown_content?.trim() || "";
+		let hasVideoAfter = !!material.video_id;
+		const markdownAfter = markdown;
+
+		if (file) {
+			const v = await startUpload(file);
+			payload.video_id = v.id;
+			hasVideoAfter = true;
+		}
+		payload.markdown_content = markdownAfter;
+
+		if (!hasVideoAfter && !markdownAfter) {
+			throw new Error("Добавьте видео или markdown содержимое");
 		}
 
 		const updated = await updateMut.mutateAsync(payload);

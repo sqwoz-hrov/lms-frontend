@@ -1,11 +1,8 @@
-// api/materialsApi.ts — add getById helper (via list+find)
 import apiClient from "./client";
 
-// ===== Types (из OpenAPI) =====
 export type CreateMaterialDto = {
 	subject_id: string;
 	name: string;
-	type: "article" | "video" | "other";
 	student_user_id?: string;
 	video_id?: string;
 	markdown_content?: string;
@@ -15,7 +12,6 @@ export type MaterialResponseDto = {
 	id: string;
 	subject_id: string;
 	name: string;
-	type: "article" | "video" | "other";
 	video_id?: string;
 	markdown_content_id?: string;
 	markdown_content?: string;
@@ -27,7 +23,6 @@ export type UpdateMaterialDto = {
 	id: string;
 	subject_id?: string;
 	name?: string;
-	type?: "article" | "video" | "other";
 	student_user_id?: string;
 	video_id?: string;
 	markdown_content_id?: string;
