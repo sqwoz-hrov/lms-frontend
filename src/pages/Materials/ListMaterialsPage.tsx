@@ -56,6 +56,24 @@ export function ListMaterialsPage() {
 		retry: 1,
 	});
 
+	const {
+		data: subjects,
+		isLoading: subjectsLoading,
+		isError: subjectsError,
+	} = useQuery<SubjectResponseDto[]>({
+		queryKey: ["subjects"],
+		queryFn: SubjectsApi.list,
+		staleTime: 5 * 60_000,
+	});
+
+	const subjectsById = useMemo<Record<string, SubjectResponseDto>>(() => {
+		if (!subjects) return {} as Record<string, SubjectResponseDto>;
+		return subjects.reduce<Record<string, SubjectResponseDto>>((acc, subj) => {
+			acc[subj.id] = subj;
+			return acc;
+		}, {});
+	}, [subjects]);
+
 	// Build query params for API
 	const listParams = useMemo(() => {
 		return {
@@ -163,40 +181,71 @@ export function ListMaterialsPage() {
 				</Card>
 			) : (
 				<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-					{materials.map(m => (
-						<Card
-							key={m.id}
-							className={`transition hover:shadow-md ${m.is_archived ? "opacity-75" : ""}`}
-							role="button"
-							onClick={() => onOpen(m)}
-						>
-							<CardHeader className="flex flex-row items-start justify-between gap-2">
-								<CardTitle className="text-base font-medium line-clamp-2 pr-2">{m.name}</CardTitle>
+					{materials.map(m => {
+						const subjectMeta = m.subject_id ? subjectsById[m.subject_id] : undefined;
+						return (
+							<Card
+								key={m.id}
+								className={`transition hover:shadow-md ${m.is_archived ? "opacity-75" : ""}`}
+								role="button"
+								onClick={() => onOpen(m)}
+							>
+								<CardHeader className="flex flex-row items-start justify-between gap-2">
+									<div className="flex flex-1 flex-col gap-1 pr-2">
+										<CardTitle className="text-base font-medium leading-snug line-clamp-2">{m.name}</CardTitle>
+										{m.subject_id && (
+											<div className="min-h-[24px]">
+												{subjectsLoading ? (
+													<Badge variant="outline" className="text-xs font-normal text-muted-foreground">
+														Загрузка предмета…
+													</Badge>
+												) : subjectMeta ? (
+													<Badge variant="outline" className="w-fit gap-1 text-xs font-normal">
+														<span
+															className="h-2.5 w-2.5 rounded-full border"
+															aria-hidden="true"
+															style={{ backgroundColor: subjectMeta.color_code }}
+														/>
+														{subjectMeta.name}
+													</Badge>
+												) : subjectsError ? (
+													<Badge variant="destructive" className="text-xs font-normal">
+														Ошибка загрузки предмета
+													</Badge>
+												) : (
+													<Badge variant="secondary" className="text-xs font-normal">
+														Предмет не найден
+													</Badge>
+												)}
+											</div>
+										)}
+									</div>
 
-								{isAdmin && (
-									<DropdownMenu>
-										<DropdownMenuTrigger asChild>
-											<Button variant="ghost" size="icon" className="h-8 w-8" onClick={e => e.stopPropagation()}>
-												<MoreVertical className="h-4 w-4" />
-											</Button>
-										</DropdownMenuTrigger>
-										<DropdownMenuContent align="end" onClick={e => e.stopPropagation()}>
-											<DropdownMenuItem onClick={() => onEdit(m)}>Редактировать</DropdownMenuItem>
-											<DropdownMenuSeparator />
-											<DropdownMenuItem onClick={() => onArchiveToggle(m)}>
-												{m.is_archived ? "Разархивировать" : "Архивировать"}
-											</DropdownMenuItem>
-										</DropdownMenuContent>
-									</DropdownMenu>
+									{isAdmin && (
+										<DropdownMenu>
+											<DropdownMenuTrigger asChild>
+												<Button variant="ghost" size="icon" className="h-8 w-8" onClick={e => e.stopPropagation()}>
+													<MoreVertical className="h-4 w-4" />
+												</Button>
+											</DropdownMenuTrigger>
+											<DropdownMenuContent align="end" onClick={e => e.stopPropagation()}>
+												<DropdownMenuItem onClick={() => onEdit(m)}>Редактировать</DropdownMenuItem>
+												<DropdownMenuSeparator />
+												<DropdownMenuItem onClick={() => onArchiveToggle(m)}>
+													{m.is_archived ? "Разархивировать" : "Архивировать"}
+												</DropdownMenuItem>
+											</DropdownMenuContent>
+										</DropdownMenu>
+									)}
+								</CardHeader>
+								{m.is_archived && (
+									<CardContent className="pt-0">
+										<Badge variant="outline">Архив</Badge>
+									</CardContent>
 								)}
-							</CardHeader>
-							{m.is_archived && (
-								<CardContent className="pt-0">
-									<Badge variant="outline">Архив</Badge>
-								</CardContent>
-							)}
-						</Card>
-					))}
+							</Card>
+						);
+					})}
 				</div>
 			)}
 		</div>
