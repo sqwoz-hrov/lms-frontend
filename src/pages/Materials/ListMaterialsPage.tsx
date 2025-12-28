@@ -1,7 +1,7 @@
 import { MaterialsApi, type MaterialResponseDto } from "@/api/materialsApi";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -73,6 +73,46 @@ export function ListMaterialsPage() {
 			return acc;
 		}, {});
 	}, [subjects]);
+
+	const renderSubjectBadge = (subjectId?: string) => {
+		if (!subjectId) return null;
+		const subjectMeta = subjectsById[subjectId];
+
+		if (subjectsLoading) {
+			return (
+				<Badge variant="outline" className="text-xs font-normal text-muted-foreground">
+					Загрузка предмета…
+				</Badge>
+			);
+		}
+
+		if (subjectMeta) {
+			return (
+				<Badge variant="outline" className="w-fit gap-1 text-xs font-normal">
+					<span
+						className="h-2.5 w-2.5 rounded-full border"
+						aria-hidden="true"
+						style={{ backgroundColor: subjectMeta.color_code }}
+					/>
+					{subjectMeta.name}
+				</Badge>
+			);
+		}
+
+		if (subjectsError) {
+			return (
+				<Badge variant="destructive" className="text-xs font-normal">
+					Ошибка загрузки предмета
+				</Badge>
+			);
+		}
+
+		return (
+			<Badge variant="secondary" className="text-xs font-normal">
+				Предмет не найден
+			</Badge>
+		);
+	};
 
 	// Build query params for API
 	const listParams = useMemo(() => {
@@ -182,66 +222,40 @@ export function ListMaterialsPage() {
 			) : (
 				<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
 					{materials.map(m => {
-						const subjectMeta = m.subject_id ? subjectsById[m.subject_id] : undefined;
+						const subjectBadge = renderSubjectBadge(m.subject_id);
 						return (
 							<Card
 								key={m.id}
-								className={`transition hover:shadow-md ${m.is_archived ? "opacity-75" : ""}`}
+								className={`flex h-full flex-col transition hover:shadow-md ${m.is_archived ? "opacity-75" : ""}`}
 								role="button"
 								onClick={() => onOpen(m)}
 							>
-								<CardHeader className="flex flex-row items-start justify-between gap-2">
-									<div className="flex flex-1 flex-col gap-1 pr-2">
-										<CardTitle className="text-base font-medium leading-snug line-clamp-2">{m.name}</CardTitle>
-										{m.subject_id && (
-											<div className="min-h-[24px]">
-												{subjectsLoading ? (
-													<Badge variant="outline" className="text-xs font-normal text-muted-foreground">
-														Загрузка предмета…
-													</Badge>
-												) : subjectMeta ? (
-													<Badge variant="outline" className="w-fit gap-1 text-xs font-normal">
-														<span
-															className="h-2.5 w-2.5 rounded-full border"
-															aria-hidden="true"
-															style={{ backgroundColor: subjectMeta.color_code }}
-														/>
-														{subjectMeta.name}
-													</Badge>
-												) : subjectsError ? (
-													<Badge variant="destructive" className="text-xs font-normal">
-														Ошибка загрузки предмета
-													</Badge>
-												) : (
-													<Badge variant="secondary" className="text-xs font-normal">
-														Предмет не найден
-													</Badge>
-												)}
-											</div>
+								<CardHeader className="space-y-2 flex-1">
+									<div className="flex items-start justify-between gap-2">
+										<CardTitle className="flex-1 text-base font-medium leading-snug line-clamp-2">{m.name}</CardTitle>
+										{isAdmin && (
+											<DropdownMenu>
+												<DropdownMenuTrigger asChild>
+													<Button variant="ghost" size="icon" className="h-8 w-8" onClick={e => e.stopPropagation()}>
+														<MoreVertical className="h-4 w-4" />
+													</Button>
+												</DropdownMenuTrigger>
+												<DropdownMenuContent align="end" onClick={e => e.stopPropagation()}>
+													<DropdownMenuItem onClick={() => onEdit(m)}>Редактировать</DropdownMenuItem>
+													<DropdownMenuSeparator />
+													<DropdownMenuItem onClick={() => onArchiveToggle(m)}>
+														{m.is_archived ? "Разархивировать" : "Архивировать"}
+													</DropdownMenuItem>
+												</DropdownMenuContent>
+											</DropdownMenu>
 										)}
 									</div>
-
-									{isAdmin && (
-										<DropdownMenu>
-											<DropdownMenuTrigger asChild>
-												<Button variant="ghost" size="icon" className="h-8 w-8" onClick={e => e.stopPropagation()}>
-													<MoreVertical className="h-4 w-4" />
-												</Button>
-											</DropdownMenuTrigger>
-											<DropdownMenuContent align="end" onClick={e => e.stopPropagation()}>
-												<DropdownMenuItem onClick={() => onEdit(m)}>Редактировать</DropdownMenuItem>
-												<DropdownMenuSeparator />
-												<DropdownMenuItem onClick={() => onArchiveToggle(m)}>
-													{m.is_archived ? "Разархивировать" : "Архивировать"}
-												</DropdownMenuItem>
-											</DropdownMenuContent>
-										</DropdownMenu>
-									)}
 								</CardHeader>
-								{m.is_archived && (
-									<CardContent className="pt-0">
-										<Badge variant="outline">Архив</Badge>
-									</CardContent>
+								{(subjectBadge || m.is_archived) && (
+									<CardFooter className="mt-auto flex w-full items-center justify-between gap-2 pt-0">
+										<div className="flex-1">{subjectBadge}</div>
+										{m.is_archived && <Badge variant="outline">Архив</Badge>}
+									</CardFooter>
 								)}
 							</Card>
 						);
