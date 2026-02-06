@@ -1,7 +1,7 @@
 import { useVideoUpload } from "@/components/video";
 import { PossibleState } from "../../types";
 import { InterviewRecordingPropertyForm } from "./VideoUploadQuestionsForm";
-import { Loader2 } from "lucide-react";
+import { TranscriptWaitingBlock } from "./TranscriptWaitingBlock";
 
 type Props = {
     state: PossibleState;
@@ -23,10 +23,7 @@ export function LowerContainer({ state, uploadStatus, onStateChange }: Props) {
 				/>
 			)}
 			{isTranscribing && (
-				<div className="flex items-center justify-center gap-3 py-12">
-					<Loader2 className="h-6 w-6 animate-spin text-primary" />
-					<span className="text-xl">Идёт распознавание...</span>
-				</div>
+				<TranscriptWaitingBlock />
 			)}
 			{hasTranscription && (
 				<article className="prose max-w-none prose-headings:scroll-mt-24">
