@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { VideoPlayer } from "@/components/video/VideoPlayer";
 import { CopyIcon } from "lucide-react";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { UpperContainer } from "./components/UpperContainer/UpperContainer";
 import { PossibleState } from "./types";
@@ -14,7 +14,7 @@ const MOCK_UPLOAD_VIDEO = true;
 
 
 export default function InterviewTranscriptionFlowPage() {
-    const state: PossibleState = 'empty';
+    const [state, setState] = useState<PossibleState>('empty');
 
 	const navigate = useNavigate();
 
@@ -61,7 +61,7 @@ export default function InterviewTranscriptionFlowPage() {
 
 				<CardContent className={"space-y-6"}>
                     <UpperContainer state={state} uploadState={uploadState} />
-                    <LowerContainer state={state} uploadStatus={uploadState.status} />
+                    <LowerContainer state={state} uploadStatus={uploadState.status} onStateChange={setState} />
 				</CardContent>
 			</Card>
 		</div>

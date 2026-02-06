@@ -2,6 +2,7 @@ import * as React from "react";
 import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { useVideoUpload } from "@/components/video";
+import type { PossibleState } from "../../types";
 
 type FormValues = {
 
@@ -73,9 +74,11 @@ function ChalkRadio({
 export function InterviewRecordingPropertyForm({
   onSuccess,
   videoUploadStatus,
+  onStateChange,
 }: {
   onSuccess?: (email: string) => Promise<void>;
   videoUploadStatus: ReturnType<typeof useVideoUpload>["status"];
+  onStateChange: (state: PossibleState) => void;
 }) {
 
   const formDefalutValues = {
@@ -105,7 +108,6 @@ export function InterviewRecordingPropertyForm({
       clearErrors("peopleCount");
     } else {
       // если вернулись обратно в "count" и поле пустое — можно поставить дефолт
-      // (по желанию)
       if (!peopleCount) {
         setValue("peopleCount", formDefalutValues.peopleCount, { shouldDirty: true, shouldValidate: false });
       }
@@ -117,16 +119,14 @@ export function InterviewRecordingPropertyForm({
   return (
     <form
       onSubmit={handleSubmit(async (d) => {
-        // пример: тут можно собрать всё, что нужно бэкенду
+        // TODO: по сути запустить джобу распознавания видео и обновить стейт странички через UseContext
         console.log("FORM DATA:", d);
+
+        // Переключаем состояние на "распознавание"
+        onStateChange('transcribe_video');
 
         // твоя логика
         if (onSuccess) await onSuccess('pisyun');
-
-        alert(
-          "Здесь будет логика отправки данных на бэкенд, а пока просто вывод в консоль:\n" +
-          JSON.stringify(d, null, 2)
-        );
       })}
       className="w-full"
     >
