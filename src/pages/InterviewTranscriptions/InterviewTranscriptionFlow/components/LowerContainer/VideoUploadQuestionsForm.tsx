@@ -1,6 +1,7 @@
 import * as React from "react";
 import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
+import { useVideoUpload } from "@/components/video";
 
 type FormValues = {
 
@@ -71,8 +72,10 @@ function ChalkRadio({
 
 export function InterviewRecordingPropertyForm({
   onSuccess,
+  videoUploadStatus,
 }: {
   onSuccess?: (email: string) => Promise<void>;
+  videoUploadStatus: ReturnType<typeof useVideoUpload>["status"];
 }) {
 
   const formDefalutValues = {
@@ -108,6 +111,8 @@ export function InterviewRecordingPropertyForm({
       }
     }
   }, [peopleMode, clearErrors, setValue]);
+
+  const ableToSubmit = !isSubmitting && videoUploadStatus === "completed";
 
   return (
     <form
@@ -276,7 +281,13 @@ export function InterviewRecordingPropertyForm({
 
         </div>
         <div className="md:w-[240px] flex-1">
-          <Button className="w-full h-24" onClick={handleSubmit((val) => { console.log(val) })}><span className="text-[22px]">Анализировать</span></Button>
+          <Button
+            type="submit"
+            disabled={!ableToSubmit}
+            className={"w-full h-24" + (ableToSubmit ? " bg-blue-500" : " bg-gray-300")}
+          >
+            <span className="text-[22px]">Анализировать</span>
+          </Button>
         </div>
 
       </div>

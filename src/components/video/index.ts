@@ -1,6 +1,5 @@
 // Video upload components and hooks
 export { VideoUploadInput, type VideoUploadInputProps } from "./VideoUploadInput";
-export { VideoUploadDemo } from "./VideoUploadDemo";
 export {
 	VideoUploadStateProvider as VideoUploadProvider,
 	useVideoUploadContext,

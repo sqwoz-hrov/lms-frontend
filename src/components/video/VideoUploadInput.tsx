@@ -162,6 +162,9 @@ export function VideoUploadInput({
 							<p className="text-sm font-medium">{label}</p>
 							<p className="text-xs text-muted-foreground mt-1">Перетащите файл или нажмите для выбора</p>
 						</div>
+                        <div>
+			                {helpText && <p className="text-xs text-muted-foreground">{helpText}</p>}
+                        </div>
 					</>
 				)}
 
@@ -262,7 +265,6 @@ export function VideoUploadInput({
 				)}
 			</div>
 
-			{helpText && <p className="text-xs text-muted-foreground">{helpText}</p>}
 		</div>
 	);
 }

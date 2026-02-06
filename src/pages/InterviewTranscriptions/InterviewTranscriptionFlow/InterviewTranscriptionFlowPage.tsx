@@ -7,7 +7,10 @@ import { useNavigate } from "react-router-dom";
 import { UpperContainer } from "./components/UpperContainer/UpperContainer";
 import { PossibleState } from "./types";
 import { LowerContainer } from "./components/LowerContainer/LowerContainer";
+import { useVideoUpload } from "@/hooks/useVideoUpload";
 
+
+const MOCK_UPLOAD_VIDEO = true;
 
 
 export default function InterviewTranscriptionFlowPage() {
@@ -20,6 +23,20 @@ export default function InterviewTranscriptionFlowPage() {
         if (state === 'complete' as PossibleState) return <CopyIcon className="h-5 w-5" />;
         return <></>;
 	}, [state]);
+
+	{/* TODO: the page progress resets when you go away :) */}
+    const uploadState = useVideoUpload({
+		mockMode: MOCK_UPLOAD_VIDEO,
+		mockDuration: 3000,
+		mockErrorProbability: 0,
+		onUploadComplete: (video) => {
+            // TODO: change the state of the page
+		},
+		onUploadError: (error) => {
+            // TODO: show like red stuff and everything
+			console.error("Upload error:", error);
+		},
+	});
 
 	return (
 		<div className="container mx-auto px-4 py-6">
@@ -43,8 +60,8 @@ export default function InterviewTranscriptionFlowPage() {
 				)}
 
 				<CardContent className={"space-y-6"}>
-                    <UpperContainer state={state} />
-                    <LowerContainer state={state} />
+                    <UpperContainer state={state} uploadState={uploadState} />
+                    <LowerContainer state={state} uploadStatus={uploadState.status} />
 				</CardContent>
 			</Card>
 		</div>

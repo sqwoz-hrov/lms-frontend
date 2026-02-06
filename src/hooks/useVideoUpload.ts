@@ -1,4 +1,7 @@
 import { useState, useCallback, useMemo, useRef } from "react";
+import { VideosApi } from "@/api/videosApi";
+
+type VideoUploadResult = Awaited<ReturnType<typeof VideosApi.uploadVideoResumable>>;
 
 export type VideoUploadStatus = "idle" | "selecting" | "uploading" | "completed" | "error" | "canceled";
 
@@ -13,7 +16,7 @@ export type VideoUploadState = {
 	progress: VideoUploadProgress;
 	error: string | null;
 	file: File | null;
-	videoId: string | null;
+	video: VideoUploadResult | null;
 };
 
 export type UseVideoUploadOptions = {
@@ -24,7 +27,7 @@ export type UseVideoUploadOptions = {
 	/** Mock error probability 0-1 (default: 0) */
 	mockErrorProbability?: number;
 	/** Callback when upload completes */
-	onUploadComplete?: (videoId: string, file: File) => void;
+	onUploadComplete?: (video: VideoUploadResult, file: File) => void;
 	/** Callback when upload fails */
 	onUploadError?: (error: string, file: File) => void;
 	/** Callback when upload starts */
@@ -54,7 +57,7 @@ export function useVideoUpload(options: UseVideoUploadOptions = {}) {
 	const [progress, setProgressState] = useState<VideoUploadProgress>(initialProgress);
 	const [error, setError] = useState<string | null>(null);
 	const [file, setFileState] = useState<File | null>(null);
-	const [videoId, setVideoId] = useState<string | null>(null);
+	const [video, setVideo] = useState<VideoUploadResult | null>(null);
 
 	const abortControllerRef = useRef<AbortController | null>(null);
 
@@ -73,7 +76,7 @@ export function useVideoUpload(options: UseVideoUploadOptions = {}) {
 		setProgress(initialProgress);
 		setError(null);
 		setFileState(null);
-		setVideoId(null);
+		setVideo(null);
 	}, [setProgress]);
 
 	const setFile = useCallback((f: File | null) => {
@@ -93,7 +96,7 @@ export function useVideoUpload(options: UseVideoUploadOptions = {}) {
 	}, []);
 
 	const startMockUpload = useCallback(
-		async (uploadFile: File, signal: AbortSignal): Promise<string> => {
+		async (uploadFile: File, signal: AbortSignal): Promise<VideoUploadResult> => {
 			const totalSize = uploadFile.size;
 			const steps = 20;
 			const stepDuration = mockDuration / steps;
@@ -116,15 +119,19 @@ export function useVideoUpload(options: UseVideoUploadOptions = {}) {
 			}
 
 			// Return a mock video ID
-			return `mock-video-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+			return {
+                id: `mock-video-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+                filename: uploadFile.name,
+                mime_type: uploadFile.type,
+                created_at: new Date().toISOString(),
+            };
 		},
 		[mockDuration, mockErrorProbability, setProgress],
 	);
 
 	const startRealUpload = useCallback(
-		async (uploadFile: File, signal: AbortSignal): Promise<string> => {
+		async (uploadFile: File, signal: AbortSignal): Promise<VideoUploadResult> => {
 			// Dynamic import to avoid loading the API when not needed
-			const { VideosApi } = await import("@/api/videosApi");
 
 			const result = await VideosApi.uploadVideoResumable(uploadFile, {
 				signal,
@@ -134,13 +141,13 @@ export function useVideoUpload(options: UseVideoUploadOptions = {}) {
 				},
 			});
 
-			return result.id;
+			return result;
 		},
 		[setProgress],
 	);
 
 	const startUpload = useCallback(
-		async (uploadFile: File): Promise<string | null> => {
+		async (uploadFile: File): Promise<VideoUploadResult | null> => {
 			// Cancel any existing upload
 			abortControllerRef.current?.abort();
 
@@ -150,20 +157,20 @@ export function useVideoUpload(options: UseVideoUploadOptions = {}) {
 			setFileState(uploadFile);
 			setStatus("uploading");
 			setError(null);
-			setVideoId(null);
+			setVideo(null);
 			setProgress({ sent: 0, total: uploadFile.size, pct: 0 });
 
 			onUploadStart?.(uploadFile);
 
 			try {
-				const id = mockMode
+				const video = mockMode
 					? await startMockUpload(uploadFile, controller.signal)
 					: await startRealUpload(uploadFile, controller.signal);
 
-				setVideoId(id);
+				setVideo(video);
 				setStatus("completed");
-				onUploadComplete?.(id, uploadFile);
-				return id;
+				onUploadComplete?.(video, uploadFile);
+				return video;
 			} catch (err: any) {
 				if (controller.signal.aborted) {
 					setStatus("canceled");
@@ -186,9 +193,9 @@ export function useVideoUpload(options: UseVideoUploadOptions = {}) {
 			progress,
 			error,
 			file,
-			videoId,
+			video,
 		}),
-		[status, progress, error, file, videoId],
+		[status, progress, error, file, video],
 	);
 
 	return useMemo(
@@ -198,8 +205,9 @@ export function useVideoUpload(options: UseVideoUploadOptions = {}) {
 			cancelUpload,
 			reset,
 			setFile,
+            mockMode,
 		}),
-		[state, startUpload, cancelUpload, reset, setFile],
+		[state, startUpload, cancelUpload, reset, setFile, mockMode],
 	);
 }
 
