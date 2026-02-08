@@ -2,19 +2,23 @@ import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { VideoPlayer } from "@/components/video/VideoPlayer";
 import { CopyIcon } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { UpperContainer } from "./components/UpperContainer/UpperContainer";
 import { PossibleState } from "./types";
 import { LowerContainer } from "./components/LowerContainer/LowerContainer";
 import { useVideoUpload } from "@/hooks/useVideoUpload";
+import { useInterviewTranscriptionStatus } from "@/hooks/useInterviewTranscriptionStatus";
 
 
 const MOCK_UPLOAD_VIDEO = true;
+// Duration in ms to simulate transcription processing in mock mode
+const MOCK_TRANSCRIPTION_DURATION = 5000;
 
 
 export default function InterviewTranscriptionFlowPage() {
     const [state, setState] = useState<PossibleState>('empty');
+    const [videoId, setVideoId] = useState<string | undefined>(undefined);
 
 	const navigate = useNavigate();
 
@@ -24,17 +28,46 @@ export default function InterviewTranscriptionFlowPage() {
         return <></>;
 	}, [state]);
 
+	// Handle SSE events for transcription status changes
+	const handleTranscriptionComplete = useCallback(() => {
+		setState('complete');
+	}, []);
+
+	const handleTranscriptionError = useCallback(() => {
+		setState('transcribe_error');
+	}, []);
+
+	useInterviewTranscriptionStatus({
+		videoId,
+		onComplete: handleTranscriptionComplete,
+		onError: handleTranscriptionError,
+	});
+
+	// Mock mode: simulate transcription completion after delay
+	useEffect(() => {
+		if (!MOCK_UPLOAD_VIDEO) return;
+		if (state !== 'transcribe_video') return;
+
+		const timer = setTimeout(() => {
+			setState('complete');
+		}, MOCK_TRANSCRIPTION_DURATION);
+
+		return () => clearTimeout(timer);
+	}, [state]);
+
 	{/* TODO: the page progress resets when you go away :) */}
     const uploadState = useVideoUpload({
 		mockMode: MOCK_UPLOAD_VIDEO,
 		mockDuration: 3000,
 		mockErrorProbability: 0,
 		onUploadComplete: (video) => {
-            // TODO: change the state of the page
+            // Store the video ID for SSE listening and transcription fetching
+			setVideoId(video.id);
 		},
 		onUploadError: (error) => {
             // TODO: show like red stuff and everything
 			console.error("Upload error:", error);
+			setState('upload_error');
 		},
 	});
 
@@ -61,7 +94,7 @@ export default function InterviewTranscriptionFlowPage() {
 
 				<CardContent className={"space-y-6"}>
                     <UpperContainer state={state} uploadState={uploadState} />
-                    <LowerContainer state={state} uploadStatus={uploadState.status} onStateChange={setState} />
+                    <LowerContainer state={state} uploadStatus={uploadState.status} onStateChange={setState} videoId={videoId} />
 				</CardContent>
 			</Card>
 		</div>
