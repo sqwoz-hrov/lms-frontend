@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { Loader2, Copy, Check, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { InterviewTranscriptionsApi, type InterviewTranscriptionResponseDto } from "@/api/interviewTranscriptionsApi";
 import { useInterviewTranscriptionsStream, type InterviewTranscriptionMessage } from "@/hooks/useInterviewTranscriptionsStream";
 import { MarkdownRenderer } from "@/components/markdown/MarkdownRenderer";
@@ -88,6 +89,28 @@ const MOCK_TRANSCRIPTION_TEXT = `
 [SPEAKER_03] Пока что не целиком, но потихоньку дело движется.
 `;
 
+const MOCK_SUMMARY_TEXT = `
+## Результат анализа
+
+### Участники
+- **Интервьюер** — Чел, техлид компании
+- **Кандидат** — Чувак
+
+### Заваленные секции
+- Архитектура платформы
+- Мультитенантность
+
+### Что стоит подучить
+- Архитектура микросервисов
+- Основы DevOps
+- Работа с облачными решениями
+
+### Общее впечатление
+Кандидат уверенно рассказывает о своём опыте, демонстрирует понимание как высокоуровневых задач (архитектура), так и готовность работать с рядовыми задачами.
+`;
+
+
+type ViewMode = "summary" | "detailed";
 
 type TranscriptResultBlockProps = {
 	/** Video ID to fetch transcription for */
@@ -99,9 +122,11 @@ type TranscriptResultBlockProps = {
 export function TranscriptResultBlock({ videoId, transcriptionId }: TranscriptResultBlockProps) {
 	const [transcription, setTranscription] = useState<InterviewTranscriptionResponseDto | null>(null);
 	const [fullText, setFullText] = useState<string | null>(null);
+	const [summaryText, setSummaryText] = useState<string | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const [copied, setCopied] = useState(false);
+	const [viewMode, setViewMode] = useState<ViewMode>("summary");
 
 	const { messages } = useInterviewTranscriptionsStream();
 
@@ -134,6 +159,7 @@ export function TranscriptResultBlock({ videoId, transcriptionId }: TranscriptRe
 					
 					setTranscription(MOCK_TRANSCRIPTION);
 					setFullText(MOCK_TRANSCRIPTION_TEXT);
+					setSummaryText(MOCK_SUMMARY_TEXT);
 					return;
 				}
 
@@ -229,6 +255,7 @@ export function TranscriptResultBlock({ videoId, transcriptionId }: TranscriptRe
 		);
 	}
 
+    // TODO: handle this better smh
 	// Show streaming chunks if transcription is still processing
 	if (transcription.status !== "done" && chunks.length > 0) {
 		return (
@@ -247,37 +274,53 @@ export function TranscriptResultBlock({ videoId, transcriptionId }: TranscriptRe
 	}
 
 	// Show full transcription
+	const displayText = viewMode === "summary" ? summaryText : fullText;
+	const copyText = viewMode === "summary" ? summaryText : fullText;
+
 	return (
 		<Card>
-			<CardHeader className="flex flex-row items-center justify-between">
-				<CardTitle className="text-lg">Готовая транскрипция</CardTitle>
-				<Button
-					variant="outline"
-					size="sm"
-					onClick={handleCopy}
-					disabled={!fullText}
-				>
-					{copied ? (
-						<>
-							<Check className="h-4 w-4 mr-1" />
-							Скопировано
-						</>
-					) : (
-						<>
-							<Copy className="h-4 w-4 mr-1" />
-							Копировать
-						</>
-					)}
-				</Button>
+			<CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+				<div className="flex items-center gap-3">
+					<Tabs value={viewMode} onValueChange={(v) => setViewMode(v as ViewMode)}>
+						<TabsList className="h-9">
+							<TabsTrigger value="summary" className="text-sm px-3">
+								Кратко
+							</TabsTrigger>
+							<TabsTrigger value="detailed" className="text-sm px-3">
+								Подробно
+							</TabsTrigger>
+						</TabsList>
+					</Tabs>
+					<Button
+						variant="outline"
+						size="sm"
+						onClick={handleCopy}
+						disabled={!copyText}
+					>
+						{copied ? (
+							<>
+								<Check className="h-4 w-4 mr-1" />
+								Скопировано
+							</>
+						) : (
+							<>
+								<Copy className="h-4 w-4 mr-1" />
+								Копировать
+							</>
+						)}
+					</Button>
+				</div>
 			</CardHeader>
 			<CardContent>
-				{fullText ? (
+				{displayText ? (
 					<article className="prose prose-sm max-w-none dark:prose-invert">
-						<MarkdownRenderer markdown={fullText} />
+						<MarkdownRenderer markdown={displayText} />
 					</article>
 				) : (
 					<p className="text-muted-foreground">
-						Транскрипция пока пуста или недоступна
+						{viewMode === "summary" 
+							? "Краткое содержание пока недоступно" 
+							: "Транскрипция пока пуста или недоступна"}
 					</p>
 				)}
 			</CardContent>
