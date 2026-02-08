@@ -26,6 +26,7 @@ import { AdminRoute } from "./components/AdminRoute";
 import { HomeGate } from "./components/HomeGate";
 import { PublicOnly } from "./components/PublicOnly";
 import { NonSubscriberRoute } from "./components/NonSubscriberRoute";
+import InterviewTranscriptionFlowPage from "@/pages/InterviewTranscriptions/InterviewTranscriptionFlow/InterviewTranscriptionFlowPage";
 
 export function AppRoutes() {
 	return (
@@ -61,6 +62,7 @@ export function AppRoutes() {
 					<Route path="/subjects" element={<ListSubjectsPage />} />
 					<Route path="/subscription" element={<SubscriptionPage />} />
 					<Route path="/settings" element={<SettingsPage />} />
+					<Route path="/transcript" element={<InterviewTranscriptionFlowPage />} />
 				</Route>
 
 				<Route element={<NonSubscriberRoute />}>
