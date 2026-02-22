@@ -11,4 +11,14 @@ export default defineConfig({
 			"@": path.resolve(__dirname, "./src"),
 		},
 	},
+	server: {
+		proxy: {
+			// Проксируем API на stage, чтобы в dev избежать CORS и работать с нужным бэкендом.
+			"/lms-api": {
+				target: "https://stage.sqwoz-hrov.ru",
+				changeOrigin: true,
+				secure: true,
+			},
+		},
+	},
 });
