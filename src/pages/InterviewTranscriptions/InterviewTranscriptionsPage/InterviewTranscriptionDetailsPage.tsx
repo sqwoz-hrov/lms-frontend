@@ -129,10 +129,10 @@ type PlayerMode = "floating" | "sticky";
 /**
  * A container that wraps children (the VideoPlayer) and provides two modes:
  *
- * • **floating** (default) – When the player scrolls out of the viewport it
+ * • **floating**  – When the player scrolls out of the viewport it
  *   shrinks into a small PiP window fixed to the bottom-left corner.
  *
- * • **sticky** – The player uses `position: sticky; top: 0` so it sticks to
+ * • **sticky** (default) – The player uses `position: sticky; top: 0` so it sticks to
  *   the top of the viewport when scrolled past.
  *
  * A small control bar lets the user toggle between the two modes. In floating
@@ -140,7 +140,7 @@ type PlayerMode = "floating" | "sticky";
  * floating widget itself.
  */
 function VideoPlayerContainer({ children }: { children: ReactNode }) {
-	const [mode, setMode] = useState<PlayerMode>("floating");
+	const [mode, setMode] = useState<PlayerMode>("sticky");
 
 	/**
 	 * A sentinel element placed *before* the player in the DOM. When this
@@ -189,7 +189,7 @@ function VideoPlayerContainer({ children }: { children: ReactNode }) {
 	 * 2. The player wrapper is ALWAYS rendered in-flow.
 	 *    - In **sticky** mode, when out of view, it uses `position: fixed; top: 0`
 	 *      spanning the content-area width. A placeholder keeps layout stable.
-	 *    - In **floating PiP** mode, when the sentinel leaves the viewport,
+	 *    - In **floating / PiP** mode, when the sentinel leaves the viewport,
 	 *      the wrapper gets `position: fixed; bottom-left; small size`.
 	 *      A same-height placeholder keeps layout stable.
 	 *    - Otherwise it sits in normal flow.
