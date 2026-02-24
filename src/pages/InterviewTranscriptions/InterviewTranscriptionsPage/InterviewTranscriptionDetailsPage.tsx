@@ -522,17 +522,17 @@ function TranscriptView({
 							.filter(Boolean)
 							.join(" ")}
 					>
-						<span className="flex items-center gap-2">
+						<span className="flex items-center gap-4">
 							{/* Fixed-width icon slot so all lines stay left-aligned */}
 							<span className="shrink-0 w-4 flex items-center justify-center">
 								{hasError ? ERROR_TYPE_MAP[errorHints[0].errorType] : null}
 							</span>
-							{displaySpeaker && (
-								<span className={`shrink-0 text-xs font-semibold uppercase tracking-wide ${speakerColor(colorKey)}`}>
-									{displaySpeaker}
+							<span className="flex flex-1 items-center gap-2 min-w-0">
+								<span className={`shrink-0 w-28 text-xs font-semibold uppercase tracking-wide truncate ${displaySpeaker ? speakerColor(colorKey) : ""}`}>
+									{displaySpeaker ?? ""}
 								</span>
-							)}
-							<span className="flex-1 text-sm leading-relaxed">{line.text}</span>
+								<span className="flex-1 text-sm leading-relaxed">{line.text}</span>
+							</span>
 						</span>
 					</button>
 				);
