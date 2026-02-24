@@ -402,6 +402,8 @@ export default function InterviewTranscriptionDetailsPage() {
 										lines={transcriptLines}
 										hintsByLineId={reportHintsByLineId}
 										onLineClick={line => videoPlayerRef.current?.seekTo(line.start)}
+										candidateNameInTranscription={transcriptionReport?.candidate_name_in_transcription}
+										candidateName={transcriptionReport?.candidate_name}
 									/>
 									</>
 								) : transcription.transcription_url ? (
@@ -447,6 +449,11 @@ const SPEAKER_COLORS: Record<string, string> = {
 	SPEAKER_02: "text-violet-600 dark:text-violet-400",
 	SPEAKER_03: "text-orange-600 dark:text-orange-400",
 	SPEAKER_04: "text-rose-600 dark:text-rose-400",
+	SPEAKER_05: "text-cyan-600 dark:text-cyan-400",
+	SPEAKER_06: "text-amber-600 dark:text-amber-400",
+	SPEAKER_07: "text-pink-600 dark:text-pink-400",
+	SPEAKER_08: "text-teal-600 dark:text-teal-400",
+	SPEAKER_09: "text-indigo-600 dark:text-indigo-400",
 };
 
 function speakerColor(speaker: string | null): string {
@@ -458,10 +465,16 @@ function TranscriptView({
 	lines,
 	hintsByLineId,
 	onLineClick,
+	candidateNameInTranscription,
+	candidateName,
 }: {
 	lines: TranscriptLine[];
 	hintsByLineId?: Map<number, LLMReportHint[]>;
 	onLineClick?: (line: TranscriptLine) => void;
+	/** The raw speaker label used in the transcript for the candidate (e.g. "SPEAKER_01") */
+	candidateNameInTranscription?: string | null;
+	/** The human-readable name to display instead (e.g. "Иван Иванов"). Falls back to "Собеседуемый". */
+	candidateName?: string | null;
 }) {
 	const [activeId, setActiveId] = useState<number | null>(null);
 
@@ -473,12 +486,30 @@ function TranscriptView({
 		);
 	}
 
+
+	/** Resolves the display label for a speaker token. */
+	function resolveSpeakerLabel(speaker: string): string {
+		if (
+			candidateNameInTranscription &&
+			speaker.trim().toUpperCase() === candidateNameInTranscription.trim().toUpperCase()
+		) {
+			return candidateName?.trim() || "Кандидат";
+		}
+		// old logic
+		// return speaker;
+		const idx = parseInt(speaker.trim().toUpperCase().replace("SPEAKER_", ""));
+		return `Интервьюер ${idx}`;
+	}
+
 	return (
 		<div className="rounded-lg border bg-card/50 divide-y divide-border/50">
 			{lines.map(line => {
 				const hints = hintsByLineId?.get(line.id) ?? [];
 				const hasError = hints.some(h => h.hintType === "error");
 				const errorHints = hints.filter((h): h is Extract<LLMReportHint, { hintType: "error" }> => h.hintType === "error");
+				const displaySpeaker = line.speaker ? resolveSpeakerLabel(line.speaker) : null;
+				/** Keep the original token for color lookup */
+				const colorKey = line.speaker;
 
 				return (
 					<button
@@ -502,9 +533,9 @@ function TranscriptView({
 							<span className="shrink-0 w-4 flex items-center justify-center">
 								{hasError ? ERROR_TYPE_MAP[errorHints[0].errorType] : null}
 							</span>
-							{line.speaker && (
-								<span className={`shrink-0 text-xs font-semibold uppercase tracking-wide ${speakerColor(line.speaker)}`}>
-									{line.speaker}
+							{displaySpeaker && (
+								<span className={`shrink-0 text-xs font-semibold uppercase tracking-wide ${speakerColor(colorKey)}`}>
+									{displaySpeaker}
 								</span>
 							)}
 							<span className="flex-1 text-sm leading-relaxed">{line.text}</span>
