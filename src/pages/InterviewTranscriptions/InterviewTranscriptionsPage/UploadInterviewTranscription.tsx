@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { useSse } from "@/providers/SseProvider";
 import { VideoDropZone } from "./components/BeforeUpload/VideoDropZone";
 import { QuotesPanel } from "./components/AfterUpload/QuotesPanel";
-import { InterviewDetailsForm, type InterviewType } from "./components/AfterUpload/InterviewDetailsForm";
+import { InterviewDetailsForm, type InterviewType } from "./components/BeforeUpload/InterviewDetailsForm";
 import { QUOTES, estimateDisplayDurationMs, isTranscriptionCompletionEvent } from "./lib";
 
 export default function UploadInterviewTranscriptionPage() {
@@ -31,7 +31,7 @@ export default function UploadInterviewTranscriptionPage() {
 		progress,
 		error: uploadError,
 		video: uploadedVideo,
-	} = useResumableVideoUpload();
+	} = useResumableVideoUpload({mock: true, mockDuration: 15000, mockErrorProbability: 0.1, });
 
 	const videoId = uploadedVideo?.id;
 	const {

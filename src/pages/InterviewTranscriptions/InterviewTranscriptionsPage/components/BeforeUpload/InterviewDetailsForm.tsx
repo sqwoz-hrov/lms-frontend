@@ -9,7 +9,7 @@ export type InterviewType = (typeof INTERVIEW_TYPES)[number];
 
 export const SPEAKER_OPTIONS: { value: string; label: string }[] = [
 	{ value: "lazy", label: "Мне лень" },
-	...Array.from({ length: 20 }, (_, idx) => {
+	...Array.from({ length: 9 }, (_, idx) => {
 		const count = idx + 1;
 		return { value: String(count), label: `${count}` };
 	}),
