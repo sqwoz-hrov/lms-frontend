@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { ArrowLeft, AlertCircle, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { InterviewTranscriptionsApi, type InterviewTranscriptionResponseDto } from "@/api/interviewTranscriptionsApi";
 import { VideosApi, type VideoResponseDto } from "@/api/videosApi";
@@ -13,7 +13,7 @@ import {
 } from "@/hooks/useInterviewTranscriptionsStream";
 import { TranscriptionStatusBadge } from "@/components/interview-transcriptions/TranscriptionStatusBadge";
 import { describeVideoPhase, formatDateTime, formatFileSizeFromString } from "../utils";
-import { interviewTranscriptionsReportApi } from "@/api/interviewTranscriptionsReportApi";
+import { interviewTranscriptionsReportApi, type LLMReportHint } from "@/api/interviewTranscriptionsReportApi";
 import { VideoPlayer, type VideoPlayerHandle } from "@/components/video/VideoPlayer";
 
 /** Maps backend video phases to the VideoPlayer phase prop */
@@ -202,7 +202,6 @@ export default function InterviewTranscriptionDetailsPage() {
 	}, [fullText]);
 
 	/** In-memory map from line id → TranscriptLine (for future report mapping) */
-	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	const transcriptLineMap = useMemo<Map<number, TranscriptLine>>(() => {
 		const map = new Map<number, TranscriptLine>();
 		for (const line of transcriptLines) {
@@ -210,6 +209,26 @@ export default function InterviewTranscriptionDetailsPage() {
 		}
 		return map;
 	}, [transcriptLines]);
+
+	/**
+	 * Maps each SRT lineId → all LLM hints that reference it.
+	 * Built from transcriptionReport.llm_report_parsed once both the transcript
+	 * and the report are available.
+	 */
+	const reportHintsByLineId = useMemo<Map<number, LLMReportHint[]>>(() => {
+		const hints = transcriptionReport?.llm_report_parsed;
+		if (!hints || transcriptLineMap.size === 0) return new Map();
+		const map = new Map<number, LLMReportHint[]>();
+		for (const hint of hints) {
+			const existing = map.get(hint.lineId);
+			if (existing) {
+				existing.push(hint);
+			} else {
+				map.set(hint.lineId, [hint]);
+			}
+		}
+		return map;
+	}, [transcriptionReport?.llm_report_parsed, transcriptLineMap]);
 
 	useEffect(() => {
 		if (!transcription || transcription.status !== "done" || !transcription.transcription_url) {
@@ -373,6 +392,7 @@ export default function InterviewTranscriptionDetailsPage() {
 									<>
 									<TranscriptView
 										lines={transcriptLines}
+										hintsByLineId={reportHintsByLineId}
 										onLineClick={line => videoPlayerRef.current?.seekTo(line.start)}
 									/>
 									</>
@@ -428,9 +448,11 @@ function speakerColor(speaker: string | null): string {
 
 function TranscriptView({
 	lines,
+	hintsByLineId,
 	onLineClick,
 }: {
 	lines: TranscriptLine[];
+	hintsByLineId?: Map<number, LLMReportHint[]>;
 	onLineClick?: (line: TranscriptLine) => void;
 }) {
 	const [activeId, setActiveId] = useState<number | null>(null);
@@ -445,30 +467,47 @@ function TranscriptView({
 
 	return (
 		<div className="rounded-lg border bg-card/50 divide-y divide-border/50">
-			{lines.map(line => (
-				<button
-					key={line.id}
-					type="button"
-					onClick={() => {
-						setActiveId(line.id);
-						onLineClick?.(line);
-					}}
-					className={[
-						"w-full text-left px-4 py-2.5 transition-colors",
-						"hover:bg-accent/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
-						activeId === line.id ? "bg-accent" : "",
-					]
-						.filter(Boolean)
-						.join(" ")}
-				>
-					{line.speaker && (
-						<span className={`mr-2 text-xs font-semibold uppercase tracking-wide ${speakerColor(line.speaker)}`}>
-							{line.speaker}
+			{lines.map(line => {
+				const hints = hintsByLineId?.get(line.id) ?? [];
+				const hasError = hints.some(h => h.hintType === "error");
+				const errorHints = hints.filter((h): h is Extract<LLMReportHint, { hintType: "error" }> => h.hintType === "error");
+
+				return (
+					<button
+						key={line.id}
+						type="button"
+						onClick={() => {
+							setActiveId(line.id);
+							onLineClick?.(line);
+						}}
+						className={[
+							"w-full text-left px-4 py-2.5 transition-colors",
+							"hover:bg-accent/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
+							activeId === line.id ? "bg-accent" : "",
+							hasError ? "bg-destructive/5 hover:bg-destructive/10" : "",
+						]
+							.filter(Boolean)
+							.join(" ")}
+					>
+						<span className="flex items-start gap-2">
+							{line.speaker && (
+								<span className={`shrink-0 text-xs font-semibold uppercase tracking-wide ${speakerColor(line.speaker)}`}>
+									{line.speaker}
+								</span>
+							)}
+							<span className="flex-1 text-sm leading-relaxed">{line.text}</span>
+							{hasError && (
+								<span
+									className="shrink-0 mt-0.5 text-destructive"
+									title={errorHints.map(h => `[${h.errorType}] ${h.whyBad}`).join("\n")}
+								>
+									<AlertCircle className="size-4" />
+								</span>
+							)}
 						</span>
-					)}
-					<span className="text-sm leading-relaxed">{line.text}</span>
-				</button>
-			))}
+					</button>
+				);
+			})}
 		</div>
 	);
 }

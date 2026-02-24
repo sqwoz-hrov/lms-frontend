@@ -4,7 +4,7 @@ export type GetTranscriptionReportParams = {
 	transcription_id: string;
 }
 
-type LLMReportParsed = (
+export type LLMReportHint =
 	| {
 			hintType: 'error';
 			lineId: number;
@@ -14,8 +14,9 @@ type LLMReportParsed = (
 			howToFix: string;
 	  }
 	| { hintType: 'note'; lineId: number; topic: string; note: string }
-	| { hintType: 'praise'; lineId: number; topic: string; praise: string }
-)[];
+	| { hintType: 'praise'; lineId: number; topic: string; praise: string };
+
+export type LLMReportParsed = LLMReportHint[];
 
 export type InterviewTranscriptionReportResponseDto = {
 	id: string;
