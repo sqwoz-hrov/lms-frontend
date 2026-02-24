@@ -15,6 +15,12 @@ import { TranscriptionStatusBadge } from "@/components/interview-transcriptions/
 import { describeVideoPhase, formatDateTime, formatFileSizeFromString } from "../utils";
 import { interviewTranscriptionsReportApi, type LLMReportHint } from "@/api/interviewTranscriptionsReportApi";
 import { VideoPlayer, type VideoPlayerHandle } from "@/components/video/VideoPlayer";
+import {
+	Sheet,
+	SheetContent,
+	SheetHeader,
+	SheetTitle,
+} from "@/components/ui/sheet";
 
 const ERROR_TYPE_MAP = {
 	"blunder": <img src="/public/blunder.png" alt="Blunder" title="Blunder: грубая ошибка" className="size-4" />,
@@ -395,7 +401,7 @@ export default function InterviewTranscriptionDetailsPage() {
 									<TranscriptView
 										lines={transcriptLines}
 										hintsByLineId={reportHintsByLineId}
-										onLineClick={line => videoPlayerRef.current?.seekTo(line.start)}
+										onSeek={secs => videoPlayerRef.current?.seekTo(secs)}
 										candidateNameInTranscription={transcriptionReport?.candidate_name_in_transcription}
 										candidateName={transcriptionReport?.candidate_name}
 									/>
@@ -455,22 +461,32 @@ function speakerColor(speaker: string | null): string {
 	return SPEAKER_COLORS[speaker] ?? "text-foreground";
 }
 
+/** Formats seconds into a compact timecode string, e.g. 75.3 → "1:15" */
+function formatTimecode(secs: number): string {
+	const h = Math.floor(secs / 3600);
+	const m = Math.floor((secs % 3600) / 60);
+	const s = Math.floor(secs % 60);
+	if (h > 0) return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+	return `${m}:${String(s).padStart(2, "0")}`;
+}
+
 function TranscriptView({
 	lines,
 	hintsByLineId,
-	onLineClick,
+	onSeek,
 	candidateNameInTranscription,
 	candidateName,
 }: {
 	lines: TranscriptLine[];
 	hintsByLineId?: Map<number, LLMReportHint[]>;
-	onLineClick?: (line: TranscriptLine) => void;
+	/** Called when the user clicks the timecode badge to seek the video */
+	onSeek?: (secs: number) => void;
 	/** The raw speaker label used in the transcript for the candidate (e.g. "SPEAKER_01") */
 	candidateNameInTranscription?: string | null;
 	/** The human-readable name to display instead (e.g. "Иван Иванов"). Falls back to "Собеседуемый". */
 	candidateName?: string | null;
 }) {
-	const [activeId, setActiveId] = useState<number | null>(null);
+	const [drawerLine, setDrawerLine] = useState<TranscriptLine | null>(null);
 
 	if (lines.length === 0) {
 		return (
@@ -480,7 +496,6 @@ function TranscriptView({
 		);
 	}
 
-
 	/** Resolves the display label for a speaker token. */
 	function resolveSpeakerLabel(speaker: string): string {
 		if (
@@ -489,55 +504,143 @@ function TranscriptView({
 		) {
 			return candidateName?.trim() || "Кандидат";
 		}
-		// old logic
-		// return speaker;
 		const idx = parseInt(speaker.trim().toUpperCase().replace("SPEAKER_", ""));
 		return `Интервьюер ${idx}`;
 	}
 
-	return (
-		<div className="rounded-lg border bg-card/50 divide-y divide-border/50">
-			{lines.map(line => {
-				const hints = hintsByLineId?.get(line.id) ?? [];
-				const hasError = hints.some(h => h.hintType === "error");
-				const errorHints = hints.filter((h): h is Extract<LLMReportHint, { hintType: "error" }> => h.hintType === "error");
-				const displaySpeaker = line.speaker ? resolveSpeakerLabel(line.speaker) : null;
-				/** Keep the original token for color lookup */
-				const colorKey = line.speaker;
+	const drawerHints = drawerLine ? (hintsByLineId?.get(drawerLine.id) ?? []) : [];
 
-				return (
-					<button
-						key={line.id}
-						type="button"
-						onClick={() => {
-							setActiveId(line.id);
-							onLineClick?.(line);
-						}}
-						className={[
-							"w-full text-left px-4 py-2.5 transition-colors",
-							"hover:bg-accent/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
-							activeId === line.id ? "bg-accent" : "",
-							hasError ? "bg-destructive/5 hover:bg-destructive/10" : "",
-						]
-							.filter(Boolean)
-							.join(" ")}
-					>
-						<span className="flex items-center gap-4">
-							{/* Fixed-width icon slot so all lines stay left-aligned */}
-							<span className="shrink-0 w-4 flex items-center justify-center">
-								{hasError ? ERROR_TYPE_MAP[errorHints[0].errorType] : null}
-							</span>
-							<span className="flex flex-1 items-center gap-2 min-w-0">
-								<span className={`shrink-0 w-28 text-xs font-semibold uppercase tracking-wide truncate ${displaySpeaker ? speakerColor(colorKey) : ""}`}>
-									{displaySpeaker ?? ""}
+	return (
+		<>
+			<div className="rounded-lg border bg-card/50 divide-y divide-border/50">
+				{lines.map(line => {
+					const hints = hintsByLineId?.get(line.id) ?? [];
+					const hasError = hints.some(h => h.hintType === "error");
+					const errorHints = hints.filter((h): h is Extract<LLMReportHint, { hintType: "error" }> => h.hintType === "error");
+					const hasHints = hints.length > 0;
+					const displaySpeaker = line.speaker ? resolveSpeakerLabel(line.speaker) : null;
+					const colorKey = line.speaker;
+
+					return (
+						<button
+							key={line.id}
+							type="button"
+							onClick={() => {
+								if (hasHints) setDrawerLine(line);
+							}}
+							className={[
+								"group w-full text-left px-4 py-2.5 transition-colors",
+								hasHints
+									? "cursor-pointer hover:bg-accent/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+									: "cursor-default",
+								hasError ? "bg-destructive/5 hover:bg-destructive/10" : "",
+							]
+								.filter(Boolean)
+								.join(" ")}
+						>
+							<span className="flex items-center gap-4">
+								{/* Timecode badge – visible on hover, clicking seeks the video */}
+								<span
+									className="shrink-0 w-10 text-right"
+									onClick={e => {
+										e.stopPropagation();
+										onSeek?.(line.start);
+									}}
+								>
+									<span className="invisible group-hover:visible inline-block px-1 py-0.5 rounded text-[10px] font-mono text-muted-foreground bg-muted hover:bg-accent hover:text-foreground transition-colors cursor-pointer select-none">
+										{formatTimecode(line.start)}
+									</span>
 								</span>
-								<span className="flex-1 text-sm leading-relaxed">{line.text}</span>
+
+								{/* Fixed-width icon slot so all lines stay left-aligned */}
+								<span className="shrink-0 w-4 flex items-center justify-center">
+									{hasError ? ERROR_TYPE_MAP[errorHints[0]!.errorType] : null}
+								</span>
+
+								<span className="flex flex-1 items-center gap-2 min-w-0">
+									<span className={`shrink-0 w-28 text-xs font-semibold uppercase tracking-wide truncate ${displaySpeaker ? speakerColor(colorKey) : ""}`}>
+										{displaySpeaker ?? ""}
+									</span>
+									<span className="flex-1 text-sm leading-relaxed">{line.text}</span>
+								</span>
 							</span>
-						</span>
-					</button>
-				);
-			})}
-		</div>
+						</button>
+					);
+				})}
+			</div>
+
+			{/* Hint drawer */}
+			<Sheet open={drawerLine !== null} onOpenChange={open => { if (!open) setDrawerLine(null); }}>
+				<SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto">
+					<SheetHeader className="mb-4">
+						<SheetTitle className="text-base">
+							{drawerLine && resolveSpeakerLabel(drawerLine.speaker)}
+							{drawerLine && (
+								<button
+									type="button"
+									className="ml-2 text-xs font-mono text-muted-foreground hover:text-foreground transition-colors"
+									onClick={() => { onSeek?.(drawerLine.start); }}
+								>
+									{formatTimecode(drawerLine.start)}
+								</button>
+							)}
+						</SheetTitle>
+						{drawerLine && (
+							<p className="text-sm text-muted-foreground leading-relaxed mt-1">
+								{drawerLine.text}
+							</p>
+						)}
+					</SheetHeader>
+
+					<div className="space-y-4">
+						{drawerHints.map((hint, i) => (
+							<HintCard key={i} hint={hint} />
+						))}
+					</div>
+				</SheetContent>
+			</Sheet>
+		</>
 	);
+}
+
+function HintCard({ hint }: { hint: LLMReportHint }) {
+	if (hint.hintType === "error") {
+		return (
+			<div className="rounded-lg border border-destructive/40 bg-destructive/5 p-4 space-y-3">
+				<div className="flex items-center gap-2">
+					{ERROR_TYPE_MAP[hint.errorType]}
+					<span className="text-sm font-semibold text-destructive capitalize">{hint.topic}</span>
+				</div>
+				<div className="space-y-1">
+					<p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Почему плохо</p>
+					<p className="text-sm leading-relaxed">{hint.whyBad}</p>
+				</div>
+				<div className="space-y-1">
+					<p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Как исправить</p>
+					<p className="text-sm leading-relaxed">{hint.howToFix}</p>
+				</div>
+			</div>
+		);
+	}
+
+	if (hint.hintType === "note") {
+		return (
+			<div className="rounded-lg border bg-muted/40 p-4 space-y-2">
+				<p className="text-sm font-semibold">{hint.topic}</p>
+				<p className="text-sm leading-relaxed text-muted-foreground">{hint.note}</p>
+			</div>
+		);
+	}
+
+	if (hint.hintType === "praise") {
+		return (
+			<div className="rounded-lg border border-emerald-500/30 bg-emerald-50/40 dark:bg-emerald-950/20 p-4 space-y-2">
+				<p className="text-sm font-semibold text-emerald-700 dark:text-emerald-400">{hint.topic}</p>
+				<p className="text-sm leading-relaxed">{hint.praise}</p>
+			</div>
+		);
+	}
+
+	return null;
 }
 
