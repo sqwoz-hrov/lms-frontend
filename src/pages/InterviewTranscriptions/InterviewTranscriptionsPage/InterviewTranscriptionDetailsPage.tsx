@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, AlertCircle, Loader2 } from "lucide-react";
+import { ArrowLeft, AlertCircle, Loader2, Pin, PinOff, ArrowUpToLine } from "lucide-react";
 import { toast } from "sonner";
 import { InterviewTranscriptionsApi, type InterviewTranscriptionResponseDto } from "@/api/interviewTranscriptionsApi";
 import { VideosApi, type VideoResponseDto } from "@/api/videosApi";
@@ -119,6 +119,192 @@ export function parseSrt(raw: string): TranscriptLine[] {
 	return lines;
 }
 
+
+// ---------------------------------------------------------------------------
+// VideoPlayerContainer – wraps the player with floating / sticky behaviour
+// ---------------------------------------------------------------------------
+
+type PlayerMode = "floating" | "sticky";
+
+/**
+ * A container that wraps children (the VideoPlayer) and provides two modes:
+ *
+ * • **floating** (default) – When the player scrolls out of the viewport it
+ *   shrinks into a small PiP window fixed to the bottom-left corner.
+ *
+ * • **sticky** – The player uses `position: sticky; top: 0` so it sticks to
+ *   the top of the viewport when scrolled past.
+ *
+ * A small control bar lets the user toggle between the two modes. In floating
+ * PiP mode, buttons to scroll back and to switch modes are rendered on the
+ * floating widget itself.
+ */
+function VideoPlayerContainer({ children }: { children: ReactNode }) {
+	const [mode, setMode] = useState<PlayerMode>("floating");
+
+	/**
+	 * A sentinel element placed *before* the player in the DOM. When this
+	 * element leaves the viewport we know the player has scrolled out of view.
+	 */
+	const sentinelRef = useRef<HTMLDivElement>(null);
+	/** Ref to the actual player wrapper – used to measure its natural height for the placeholder. */
+	const playerWrapperRef = useRef<HTMLDivElement>(null);
+
+	/** True when the sentinel is not intersecting – i.e. player has scrolled out. */
+	const [isOutOfView, setIsOutOfView] = useState(false);
+	/** Natural height of the player wrapper, used to keep a placeholder so the page doesn't jump. */
+	const [naturalHeight, setNaturalHeight] = useState<number | undefined>(undefined);
+
+	useEffect(() => {
+		const el = sentinelRef.current;
+		if (!el) return;
+		const observer = new IntersectionObserver(
+			([entry]) => {
+				const out = !(entry?.isIntersecting ?? true);
+				setIsOutOfView(out);
+				// Capture height right before we detach the player so the placeholder can
+				// prevent layout shift.
+				if (out && playerWrapperRef.current) {
+					setNaturalHeight(playerWrapperRef.current.offsetHeight);
+				}
+			},
+			{ threshold: 0 },
+		);
+		observer.observe(el);
+		return () => observer.disconnect();
+	}, []);
+
+	const scrollBack = useCallback(() => {
+		sentinelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+	}, []);
+
+	const showPip = mode === "floating" && isOutOfView;
+	/** In sticky mode the player is fixed to the top when scrolled out of view */
+	const showStickyFixed = mode === "sticky" && isOutOfView;
+
+	/*
+	 * Rendering strategy (single <video> element, no remount):
+	 *
+	 * 1. A zero-height sentinel marks the player's natural scroll position.
+	 * 2. The player wrapper is ALWAYS rendered in-flow.
+	 *    - In **sticky** mode, when out of view, it uses `position: fixed; top: 0`
+	 *      spanning the content-area width. A placeholder keeps layout stable.
+	 *    - In **floating PiP** mode, when the sentinel leaves the viewport,
+	 *      the wrapper gets `position: fixed; bottom-left; small size`.
+	 *      A same-height placeholder keeps layout stable.
+	 *    - Otherwise it sits in normal flow.
+	 */
+
+	/** Whether we need a placeholder to prevent layout jump */
+	const needsPlaceholder = (showPip || showStickyFixed) && naturalHeight != null;
+
+	const wrapperClasses = showPip
+		? "fixed bottom-4 left-4 z-50 w-80 max-w-[40vw] rounded-xl overflow-hidden shadow-2xl border bg-card ring-1 ring-border/60 transition-all duration-300"
+		: showStickyFixed
+			? "fixed top-0 left-0 right-0 z-50 mx-auto w-full max-w-4xl px-4 pt-2 pb-1 bg-background/95 backdrop-blur-sm shadow-lg transition-all duration-300"
+			: "transition-all duration-300";
+
+	return (
+		<>
+			{/* Sentinel – zero-height div that marks the player's natural position */}
+			<div ref={sentinelRef} className="h-0" />
+
+			{/* ── Mode toggle switch (always in-flow, above the player) ──────── */}
+			<div className="flex items-center justify-end mb-1">
+				<div className="inline-flex items-center rounded-lg border bg-muted/50 p-0.5 text-xs">
+					<button
+						type="button"
+						onClick={() => setMode("floating")}
+						title="Плавающий режим (PiP)"
+						className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 font-medium transition-colors ${
+							mode === "floating"
+								? "bg-background text-foreground shadow-sm"
+								: "text-muted-foreground hover:text-foreground"
+						}`}
+					>
+						<PinOff className="size-3" />
+						Плавающее
+					</button>
+					<button
+						type="button"
+						onClick={() => setMode("sticky")}
+						title="Закрепить сверху"
+						className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 font-medium transition-colors ${
+							mode === "sticky"
+								? "bg-background text-foreground shadow-sm"
+								: "text-muted-foreground hover:text-foreground"
+						}`}
+					>
+						<Pin className="size-3" />
+						Закрепить
+					</button>
+				</div>
+			</div>
+
+			{/* Placeholder to prevent layout jump when PiP/Sticky detaches the player from flow */}
+			{needsPlaceholder && (
+				<div style={{ height: naturalHeight }} />
+			)}
+
+			{/* ── Player wrapper ─────────────────────────────────────────────── */}
+			<div ref={playerWrapperRef} className={wrapperClasses}>
+				{/* PiP toolbar – only visible when floating PiP is active */}
+				{showPip && (
+					<div className="flex items-center justify-between px-2.5 py-1.5 bg-card/90 backdrop-blur-sm border-b border-border/50">
+						<span className="text-[11px] font-medium text-muted-foreground truncate">
+							Видео
+						</span>
+						<div className="flex items-center gap-0.5">
+							<button
+								type="button"
+								onClick={scrollBack}
+								title="Вернуться к плееру"
+								className="rounded p-1 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+							>
+								<ArrowUpToLine className="size-3.5" />
+							</button>
+							<button
+								type="button"
+								onClick={() => setMode("sticky")}
+								title="Закрепить сверху"
+								className="rounded p-1 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+							>
+								<Pin className="size-3.5" />
+							</button>
+						</div>
+					</div>
+				)}
+				{/* Sticky toolbar – shows scroll-back button when sticky-fixed */}
+				{showStickyFixed && (
+					<div className="flex items-center justify-between mb-1">
+						<span className="text-[11px] font-medium text-muted-foreground truncate">
+							Видео (закреплено)
+						</span>
+						<div className="flex items-center gap-0.5">
+							<button
+								type="button"
+								onClick={scrollBack}
+								title="Вернуться к плееру"
+								className="rounded p-1 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+							>
+								<ArrowUpToLine className="size-3.5" />
+							</button>
+							<button
+								type="button"
+								onClick={() => setMode("floating")}
+								title="Переключить на PiP"
+								className="rounded p-1 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+							>
+								<PinOff className="size-3.5" />
+							</button>
+						</div>
+					</div>
+				)}
+				{children}
+			</div>
+		</>
+	);
+}
 
 export default function InterviewTranscriptionDetailsPage() {
 	const params = useParams<{ id: string }>();
@@ -372,13 +558,15 @@ export default function InterviewTranscriptionDetailsPage() {
 							</div>
 						</CardHeader>
 						<CardContent>
-							<VideoPlayer
-								ref={videoPlayerRef}
-								src={videoDetails?.video_url}
-								type={videoDetails?.mime_type ?? transcription.video?.mime_type ?? "video/mp4"}
-								title={transcription.video?.filename}
-								phase={toPlayerPhase(videoDetails?.phase ?? transcription.video?.phase)}
-							/>
+							<VideoPlayerContainer>
+								<VideoPlayer
+									ref={videoPlayerRef}
+									src={videoDetails?.video_url}
+									type={videoDetails?.mime_type ?? transcription.video?.mime_type ?? "video/mp4"}
+									title={transcription.video?.filename}
+									phase={toPlayerPhase(videoDetails?.phase ?? transcription.video?.phase)}
+								/>
+							</VideoPlayerContainer>
 						</CardContent>
 					</Card>
 
