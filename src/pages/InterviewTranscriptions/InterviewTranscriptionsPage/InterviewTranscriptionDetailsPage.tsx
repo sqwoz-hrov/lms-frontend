@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Loader2 } from "lucide-react";
@@ -14,7 +14,7 @@ import {
 import { TranscriptionStatusBadge } from "@/components/interview-transcriptions/TranscriptionStatusBadge";
 import { describeVideoPhase, formatDateTime, formatFileSizeFromString } from "../utils";
 import { interviewTranscriptionsReportApi } from "@/api/interviewTranscriptionsReportApi";
-import { VideoPlayer } from "@/components/video/VideoPlayer";
+import { VideoPlayer, type VideoPlayerHandle } from "@/components/video/VideoPlayer";
 
 /** Maps backend video phases to the VideoPlayer phase prop */
 function toPlayerPhase(p?: string | null): NonNullable<React.ComponentProps<typeof VideoPlayer>["phase"]> {
@@ -33,10 +33,84 @@ function toPlayerPhase(p?: string | null): NonNullable<React.ComponentProps<type
 	}
 }
 
+// ---------------------------------------------------------------------------
+// SRT parsing
+// ---------------------------------------------------------------------------
+
+export type TranscriptLine = {
+	/** 1-based sequential ID from the SRT block */
+	id: number;
+	/** Start time in seconds */
+	start: number;
+	/** End time in seconds */
+	end: number;
+	/** Speaker label extracted from the text (e.g. "SPEAKER_00") or null */
+	speaker: string | null;
+	/** The spoken text without the speaker prefix */
+	text: string;
+};
+
+/**
+ * Parses an SRT timestamp string like "00:01:23,456" into seconds.
+ */
+function parseSrtTime(ts: string): number {
+	// supports both "," and "." as millisecond separator
+	const clean = ts.replace(",", ".");
+	const parts = clean.split(":");
+	if (parts.length !== 3) return 0;
+	const [h, m, s] = parts.map(Number);
+	return (h ?? 0) * 3600 + (m ?? 0) * 60 + (s ?? 0);
+}
+
+/**
+ * Parses an SRT-like transcript file into an array of {@link TranscriptLine} objects.
+ * Each SRT block looks like:
+ * ```
+ * 1
+ * 00:00:00,000 --> 00:00:05,000
+ * SPEAKER_00: Hello, world.
+ * ```
+ */
+export function parseSrt(raw: string): TranscriptLine[] {
+	const lines: TranscriptLine[] = [];
+	// Split on blank lines separating blocks (handle both \r\n and \n)
+	const blocks = raw.trim().split(/\n\s*\n/);
+
+	for (const block of blocks) {
+		const parts = block.trim().split(/\r?\n/);
+		if (parts.length < 3) continue;
+
+		const idStr = (parts[0] ?? "").trim();
+		const id = parseInt(idStr, 10);
+		if (!Number.isFinite(id)) continue;
+
+		const timeLine = (parts[1] ?? "").trim();
+		const arrowIdx = timeLine.indexOf("-->");
+		if (arrowIdx === -1) continue;
+
+		const start = parseSrtTime(timeLine.slice(0, arrowIdx).trim());
+		const end = parseSrtTime(timeLine.slice(arrowIdx + 3).trim());
+
+		// Everything after the timecode line is text (join multi-line blocks)
+		const rawText = parts.slice(2).join(" ").trim();
+
+		// Try to extract "SPEAKER_XX:" prefix
+		const speakerMatch = /^([A-Z][A-Z0-9_]*):\s*(.+)$/s.exec(rawText);
+		const speaker = speakerMatch ? (speakerMatch[1] ?? null) : null;
+		const text = speakerMatch ? (speakerMatch[2] ?? rawText).trim() : rawText;
+
+		lines.push({ id, start, end, speaker, text });
+	}
+
+	return lines;
+}
+
+
 export default function InterviewTranscriptionDetailsPage() {
 	const params = useParams<{ id: string }>();
 	const transcriptionId = params.id ?? "";
 	const queryClient = useQueryClient();
+	const videoPlayerRef = useRef<VideoPlayerHandle>(null);
 	const cachedItem = useMemo(() => {
 		const lists = queryClient.getQueriesData<InterviewTranscriptionResponseDto[]>({
 			queryKey: ["interview-transcriptions"],
@@ -120,6 +194,22 @@ export default function InterviewTranscriptionDetailsPage() {
 	const [fullText, setFullText] = useState<string | null>(null);
 	const [textError, setTextError] = useState<string | null>(null);
 	const [textLoading, setTextLoading] = useState(false);
+
+	/** Parsed SRT lines – derived from fullText, kept in memory for report mapping */
+	const transcriptLines = useMemo<TranscriptLine[]>(() => {
+		if (!fullText) return [];
+		return parseSrt(fullText);
+	}, [fullText]);
+
+	/** In-memory map from line id → TranscriptLine (for future report mapping) */
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars
+	const transcriptLineMap = useMemo<Map<number, TranscriptLine>>(() => {
+		const map = new Map<number, TranscriptLine>();
+		for (const line of transcriptLines) {
+			map.set(line.id, line);
+		}
+		return map;
+	}, [transcriptLines]);
 
 	useEffect(() => {
 		if (!transcription || transcription.status !== "done" || !transcription.transcription_url) {
@@ -238,8 +328,6 @@ export default function InterviewTranscriptionDetailsPage() {
 						</CardHeader>
 					</Card>
 
-					<VideoDetailsCard video={transcription.video} />
-
 					<Card>
 						<CardHeader className="flex flex-wrap items-center justify-between gap-2 pb-3">
 							<CardTitle className="text-lg">Видео</CardTitle>
@@ -258,6 +346,7 @@ export default function InterviewTranscriptionDetailsPage() {
 						</CardHeader>
 						<CardContent>
 							<VideoPlayer
+								ref={videoPlayerRef}
 								src={videoDetails?.video_url}
 								type={videoDetails?.mime_type ?? transcription.video?.mime_type ?? "video/mp4"}
 								title={transcription.video?.filename}
@@ -282,10 +371,10 @@ export default function InterviewTranscriptionDetailsPage() {
 									</div>
 								) : fullText  ? (
 									<>
-									<AnalysisSection reportId={transcription.id} transcriptionReport={transcriptionReport} />
-									<div className="rounded-lg border bg-card/50 p-4 text-sm leading-relaxed">
-										<pre className="whitespace-pre-wrap font-sans">{fullText}</pre>
-									</div>
+									<TranscriptView
+										lines={transcriptLines}
+										onLineClick={line => videoPlayerRef.current?.seekTo(line.start)}
+									/>
 									</>
 								) : transcription.transcription_url ? (
 									<div className="text-sm text-muted-foreground">
@@ -320,85 +409,67 @@ export default function InterviewTranscriptionDetailsPage() {
 	);
 }
 
-function AnalysisSection({ reportId, transcriptionReport }: { reportId: string; transcriptionReport: any }) {
+// ---------------------------------------------------------------------------
+// Transcript rendering
+// ---------------------------------------------------------------------------
 
-	return (<Card>
-		<CardHeader>
-			<CardTitle className="text-lg">Анализ расшифровки</CardTitle>
-		</CardHeader>
-		<CardContent>
-			<div className="rounded-lg border bg-card/50 p-4 text-sm leading-relaxed">
-				<p>{JSON.stringify(transcriptionReport)}</p>
+const SPEAKER_COLORS: Record<string, string> = {
+	SPEAKER_00: "text-blue-600 dark:text-blue-400",
+	SPEAKER_01: "text-emerald-600 dark:text-emerald-400",
+	SPEAKER_02: "text-violet-600 dark:text-violet-400",
+	SPEAKER_03: "text-orange-600 dark:text-orange-400",
+	SPEAKER_04: "text-rose-600 dark:text-rose-400",
+};
+
+function speakerColor(speaker: string | null): string {
+	if (!speaker) return "text-muted-foreground";
+	return SPEAKER_COLORS[speaker] ?? "text-foreground";
+}
+
+function TranscriptView({
+	lines,
+	onLineClick,
+}: {
+	lines: TranscriptLine[];
+	onLineClick?: (line: TranscriptLine) => void;
+}) {
+	const [activeId, setActiveId] = useState<number | null>(null);
+
+	if (lines.length === 0) {
+		return (
+			<div className="text-sm text-muted-foreground">
+				Не удалось разобрать текст расшифровки.
 			</div>
-		</CardContent>
-	</Card>)
-}
+		);
+	}
 
-function VideoDetailsCard({ video }: { video?: VideoResponseDto | null }) {
-	const sizeLabel = formatFileSizeFromString(video?.total_size) ?? "—";
 	return (
-		<Card>
-			<CardHeader>
-				<CardTitle className="text-lg">Детали видео</CardTitle>
-			</CardHeader>
-			<CardContent>
-				<dl className="grid gap-4 sm:grid-cols-2">
-					<InfoRow label="Имя файла" value={video?.filename ?? "Без названия"} />
-					<InfoRow label="Статус загрузки" value={describeVideoPhase(video?.phase)} />
-					<InfoRow label="Размер" value={sizeLabel} />
-					<InfoRow label="MIME-тип" value={video?.mime_type ?? "—"} />
-					<InfoRow label="Загружено" value={video?.created_at ? formatDateTime(video.created_at) : "—"} />
-				</dl>
-			</CardContent>
-		</Card>
-	);
-}
-
-function InfoRow({ label, value }: { label: string; value: string }) {
-	return (
-		<div className="space-y-1">
-			<dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</dt>
-			<dd className="text-sm text-foreground">{value}</dd>
-		</div>
-	);
-}
-
-function ChunkBubble({ chunk }: { chunk: InterviewTranscriptionMessage }) {
-	return (
-		<div className="rounded-xl border bg-card px-4 py-3">
-			<div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-				{chunk.speakerLabel && <span className="font-medium text-foreground">{chunk.speakerLabel}</span>}
-				<span>
-					{formatTime(chunk.startTimeSec)} – {formatTime(chunk.endTimeSec)}
-				</span>
-				<span className="font-mono text-[11px] text-muted-foreground/70">#{chunk.chunkIndex}</span>
-			</div>
-			<p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed">{chunk.text}</p>
-		</div>
-	);
-}
-
-function TypingIndicator() {
-	return (
-		<div className="inline-flex items-center gap-1 rounded-full border bg-muted px-4 py-2">
-			{[0, 1, 2].map(idx => (
-				<span
-					key={idx}
-					className="h-2 w-2 rounded-full bg-muted-foreground/60 animate-bounce"
-					style={{ animationDelay: `${idx * 0.15}s` }}
-				/>
+		<div className="rounded-lg border bg-card/50 divide-y divide-border/50">
+			{lines.map(line => (
+				<button
+					key={line.id}
+					type="button"
+					onClick={() => {
+						setActiveId(line.id);
+						onLineClick?.(line);
+					}}
+					className={[
+						"w-full text-left px-4 py-2.5 transition-colors",
+						"hover:bg-accent/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
+						activeId === line.id ? "bg-accent" : "",
+					]
+						.filter(Boolean)
+						.join(" ")}
+				>
+					{line.speaker && (
+						<span className={`mr-2 text-xs font-semibold uppercase tracking-wide ${speakerColor(line.speaker)}`}>
+							{line.speaker}
+						</span>
+					)}
+					<span className="text-sm leading-relaxed">{line.text}</span>
+				</button>
 			))}
 		</div>
 	);
 }
 
-function formatTime(seconds: number) {
-	if (!Number.isFinite(seconds)) return "—";
-	const mins = Math.floor(seconds / 60)
-		.toString()
-		.padStart(2, "0");
-	const secs = Math.floor(seconds % 60)
-		.toString()
-		.padStart(2, "0");
-	return `${mins}:${secs}`;
-}

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, type ReactNode } from "react";
 import Hls from "hls.js";
 import { Loader2, Hash, CloudUpload, Clock, XCircle } from "lucide-react";
 
@@ -8,6 +8,13 @@ type Props = {
 	title?: string;
 	poster?: string;
 	phase?: "receiving" | "hashing" | "uploading_s3" | "completed" | "failed";
+};
+
+export type VideoPlayerHandle = {
+	/** Seeks the video to the given time in seconds. */
+	seekTo: (seconds: number) => void;
+	/** Returns the underlying HTMLVideoElement, if available. */
+	getVideoElement: () => HTMLVideoElement | null;
 };
 
 type PlayerPhase = NonNullable<Props["phase"]>;
@@ -67,9 +74,26 @@ function mediaErrorToMessage(err?: MediaError | null): string {
 
 const EMPTY_ICON = <Loader2 className="h-5 w-5 animate-spin" />;
 
-export function VideoPlayer({ src, type, title, poster, phase }: Props) {
+export const VideoPlayer = forwardRef<VideoPlayerHandle, Props>(function VideoPlayer(
+	{ src, type, title, poster, phase }: Props,
+	ref,
+) {
 	const videoRef = useRef<HTMLVideoElement | null>(null);
 	const hlsRef = useRef<Hls | null>(null);
+
+	useImperativeHandle(ref, () => ({
+		seekTo(seconds: number) {
+			const v = videoRef.current;
+			if (!v) return;
+			v.currentTime = seconds;
+			if (v.paused) {
+				v.play().catch(() => {});
+			}
+		},
+		getVideoElement() {
+			return videoRef.current;
+		},
+	}));
 
 	const [fatalError, setFatalError] = useState<string | null>(null);
 	const [isBuffering, setIsBuffering] = useState(false);
@@ -356,4 +380,4 @@ export function VideoPlayer({ src, type, title, poster, phase }: Props) {
 			) : null}
 		</div>
 	);
-}
+});
