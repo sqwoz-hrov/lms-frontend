@@ -48,8 +48,8 @@ export type TranscriptLine = {
 	start: number;
 	/** End time in seconds */
 	end: number;
-	/** Speaker label extracted from the text (e.g. "SPEAKER_00") or null */
-	speaker: string | null;
+	/** Speaker label extracted from the text (e.g. "SPEAKER_00"), inherited from the previous line if absent */
+	speaker: string;
 	/** The spoken text without the speaker prefix */
 	text: string;
 };
@@ -80,6 +80,8 @@ export function parseSrt(raw: string): TranscriptLine[] {
 	// Split on blank lines separating blocks (handle both \r\n and \n)
 	const blocks = raw.trim().split(/\n\s*\n/);
 
+	let lastSpeaker = "UNKNOWN";
+
 	for (const block of blocks) {
 		const parts = block.trim().split(/\r?\n/);
 		if (parts.length < 3) continue;
@@ -98,10 +100,12 @@ export function parseSrt(raw: string): TranscriptLine[] {
 		// Everything after the timecode line is text (join multi-line blocks)
 		const rawText = parts.slice(2).join(" ").trim();
 
-		// Try to extract "SPEAKER_XX:" prefix
+		// Try to extract "SPEAKER_XX:" prefix; fall back to last seen speaker
 		const speakerMatch = /^([A-Z][A-Z0-9_]*):\s*(.+)$/s.exec(rawText);
-		const speaker = speakerMatch ? (speakerMatch[1] ?? null) : null;
+		const speaker = speakerMatch ? (speakerMatch[1] ?? lastSpeaker) : lastSpeaker;
 		const text = speakerMatch ? (speakerMatch[2] ?? rawText).trim() : rawText;
+
+		lastSpeaker = speaker;
 
 		lines.push({ id, start, end, speaker, text });
 	}
