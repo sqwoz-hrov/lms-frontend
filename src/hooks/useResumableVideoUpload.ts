@@ -6,9 +6,20 @@ type Status = "idle" | "uploading" | "paused" | "completed" | "error" | "cancele
 type Options = {
 	chunkSize?: number;
 	onProgress?: (p: { sent: number; total: number; pct: number }) => void;
+	/** Enable mock mode — no real API calls are made */
+	mock?: boolean;
+	/** Total simulated upload duration in ms (default: 4000) */
+	mockDuration?: number;
+	/** Simulate a random error with this probability 0–1 (default: 0) */
+	mockErrorProbability?: number;
 };
 
 export function useResumableVideoUpload(options: Options = {}) {
+	const {
+		mock = false,
+		mockDuration = 4000,
+		mockErrorProbability = 0,
+	} = options;
 	const [status, setStatus] = useState<Status>("idle");
 	const [error, setError] = useState<string | null>(null);
 	const [video, setVideo] = useState<VideoResponseDto | null>(null);
@@ -34,7 +45,58 @@ export function useResumableVideoUpload(options: Options = {}) {
 		[options],
 	);
 
-	const start = useCallback(
+	const startMock = useCallback(
+		async (file: File): Promise<VideoResponseDto> => {
+			setStatus("uploading");
+			setError(null);
+			setVideo(null);
+			updateProgress(0, file.size);
+
+			abortRef.current?.abort();
+			const ctrl = new AbortController();
+			abortRef.current = ctrl;
+
+			const steps = 20;
+			const stepMs = mockDuration / steps;
+
+			try {
+				for (let i = 1; i <= steps; i++) {
+					await new Promise<void>((resolve, reject) => {
+						const t = setTimeout(resolve, stepMs);
+						ctrl.signal.addEventListener("abort", () => { clearTimeout(t); reject(new Error("aborted")); }, { once: true });
+					});
+					updateProgress(Math.round((file.size * i) / steps), file.size);
+				}
+
+				if (Math.random() < mockErrorProbability) {
+					throw new Error("Mock upload error: simulated failure");
+				}
+
+				const result: VideoResponseDto = {
+					id: `mock-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+					filename: file.name,
+					mime_type: file.type || "video/mp4",
+					created_at: new Date().toISOString(),
+				};
+
+				setVideo(result);
+				setStatus("completed");
+				resumeStateRef.current = { sessionId: undefined, uploadOffset: 0 };
+				return result;
+			} catch (err: any) {
+				if (ctrl.signal.aborted) {
+					setStatus("canceled");
+					throw new Error("Upload canceled");
+				}
+				setStatus("error");
+				setError(err?.message ?? "Mock upload failed");
+				throw err;
+			}
+		},
+		[mockDuration, mockErrorProbability, updateProgress],
+	);
+
+	const startReal = useCallback(
 		async (file: File): Promise<VideoResponseDto> => {
 			setStatus("uploading");
 			setError(null);
@@ -85,6 +147,8 @@ export function useResumableVideoUpload(options: Options = {}) {
 		},
 		[options.chunkSize, updateProgress],
 	);
+
+	const start = mock ? startMock : startReal;
 
 	const pause = useCallback(() => {
 		if (status !== "uploading") return;

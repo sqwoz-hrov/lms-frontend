@@ -6,7 +6,7 @@ import { InterviewTranscriptionsApi } from "@/api/interviewTranscriptionsApi";
 import { ConfirmDeletionDialog } from "@/components/common/dialogs/ConfirmDeletionDialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { VideoPlayer } from "@/components/video/VideoPlayer";
+import { VideoProcessingPreview, normalizeVideoPhase } from "@/components/video/VideoProcessingPreview";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useResumableVideoUpload } from "@/hooks/useResumableVideoUpload";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -15,46 +15,6 @@ import { useMemo, useRef, useState } from "react";
 import { InterviewFormDialog } from "./InterviewFormDialog";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
-
-/** Нормализуем backend-статусы к фазам плеера */
-function toPlayerPhase(p?: string): NonNullable<React.ComponentProps<typeof VideoPlayer>["phase"]> {
-	switch (p) {
-		case "receiving":
-		case "hashing":
-		case "uploading_s3":
-		case "completed":
-		case "failed":
-			return p;
-		// На случай старого "processing"
-		case "processing":
-			return "uploading_s3";
-		default:
-			return "receiving";
-	}
-}
-
-function VideoPreview({ video, onRefresh }: { video: GetByIdVideoResponseDto; onRefresh?: () => void }) {
-	const phase = toPlayerPhase(video.phase);
-
-	return (
-		<div className="w-full max-w-xl">
-			<VideoPlayer
-				src={video.video_url}
-				type={video.mime_type ?? "video/mp4"}
-				title={video.filename ?? "Video"}
-				phase={phase}
-			/>
-			<div className="mt-2 flex items-center justify-between gap-2">
-				<div className="text-xs text-muted-foreground truncate">{video.filename ?? "video"}</div>
-				{onRefresh && phase !== "completed" && (
-					<Button size="sm" variant="secondary" onClick={onRefresh}>
-						Обновить
-					</Button>
-				)}
-			</div>
-		</div>
-	);
-}
 
 function VideoAttach({ interview, onAttached }: { interview: BaseInterviewDto; onAttached: () => void }) {
 	const fileRef = useRef<HTMLInputElement | null>(null);
@@ -240,6 +200,8 @@ export function InterviewsSection({ hrConnection }: { hrConnection: BaseHrConnec
 				<div className="grid gap-3">
 					{q.data.map(it => {
 						const video = it.video_id ? videosQ.data?.[it.video_id] : undefined;
+						const normalizedPhase = video ? normalizeVideoPhase(video.phase, Boolean(video.video_url)) : undefined;
+						const showRefresh = normalizedPhase !== "completed";
 						return (
 							<Card key={it.id}>
 								<CardContent className="p-4 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -249,9 +211,24 @@ export function InterviewsSection({ hrConnection }: { hrConnection: BaseHrConnec
 											{it.type} • {new Date(it.created_at).toLocaleString()}
 										</div>
 										{video ? (
-											<div className="mt-3">
-												<VideoPreview video={video} onRefresh={() => videosQ.refetch()} />
-											</div>
+											<VideoProcessingPreview
+												className="mt-3 w-full max-w-xl"
+												variant="plain"
+												filename={video.filename ?? "video"}
+												src={video.video_url}
+												mimeType={video.mime_type ?? "video/mp4"}
+												phase={normalizedPhase}
+												actions={
+													showRefresh ? (
+														<Button size="sm" variant="secondary" onClick={() => videosQ.refetch()}>
+															Обновить
+														</Button>
+													) : null
+												}
+												helperText={
+													showRefresh ? "Видео ещё обрабатывается. Нажмите «Обновить», чтобы проверить статус." : null
+												}
+											/>
 										) : (
 											<div className="mt-3 text-xs text-muted-foreground">Видео не прикреплено.</div>
 										)}
