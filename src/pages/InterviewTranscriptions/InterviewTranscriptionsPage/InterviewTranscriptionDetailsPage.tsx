@@ -315,9 +315,9 @@ export default function InterviewTranscriptionDetailsPage() {
 			) : (
 				<>
 					<Card>
-						<CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+						<CardHeader className="flex flex-wrap items-center justify-between gap-2 pb-3">
+							<CardTitle className="text-xl">{ "Транскрибация интервью " + (videoDetails?.filename ?? "")}</CardTitle>
 							<div className="space-y-2">
-								<CardTitle className="text-xl">{transcription.video?.filename ?? "Транскрибация интервью"}</CardTitle>
 								<div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
 									<span>
 										Старт расшифровки:{" "}
@@ -352,12 +352,6 @@ export default function InterviewTranscriptionDetailsPage() {
 									Обновить
 								</Button>
 							</div>
-						</CardHeader>
-					</Card>
-
-					<Card>
-						<CardHeader className="flex flex-wrap items-center justify-between gap-2 pb-3">
-							<CardTitle className="text-lg">Видео</CardTitle>
 							<div className="flex items-center gap-2">
 								{videoDetailsLoading && (
 									<span className="text-xs text-muted-foreground flex items-center gap-1">
