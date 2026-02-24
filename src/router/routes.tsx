@@ -20,7 +20,7 @@ import { PostUpsertPage } from "@/pages/Posts/PostUpsertPage";
 import { ListPostsPage } from "@/pages/Posts/ListPostsPage";
 import InterviewTranscriptionsPage from "@/pages/InterviewTranscriptions/InterviewTranscriptionsPage";
 import InterviewTranscriptionDetailsPage from "@/pages/InterviewTranscriptions/InterviewTranscriptionDetailsPage";
-import UploadInterviewTranscriptionPage from "@/pages/InterviewTranscriptions/UploadInterviewTranscription";
+import UploadInterviewTranscriptionPage from "@/pages/InterviewTranscriptions/InterviewTranscriptionsPage/UploadInterviewTranscription";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { AdminRoute } from "./components/AdminRoute";
