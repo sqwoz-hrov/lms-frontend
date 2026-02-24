@@ -16,6 +16,10 @@ import { describeVideoPhase, formatDateTime, formatFileSizeFromString } from "..
 import { interviewTranscriptionsReportApi, type LLMReportHint } from "@/api/interviewTranscriptionsReportApi";
 import { VideoPlayer, type VideoPlayerHandle } from "@/components/video/VideoPlayer";
 
+const ERROR_TYPE_MAP = {
+	"blunder": <img src="/public/blunder.png" alt="Blunder" title="Blunder: грубая ошибка" className="size-4" />,
+	"inaccuracy": <img src="/public/inaccuracy.png" alt="Inaccuracy" title="Inaccuracy: неточный ответ" className="size-4" />,
+}
 /** Maps backend video phases to the VideoPlayer phase prop */
 function toPlayerPhase(p?: string | null): NonNullable<React.ComponentProps<typeof VideoPlayer>["phase"]> {
 	switch (p) {
@@ -489,21 +493,17 @@ function TranscriptView({
 							.filter(Boolean)
 							.join(" ")}
 					>
-						<span className="flex items-start gap-2">
+						<span className="flex items-center gap-2">
+							{/* Fixed-width icon slot so all lines stay left-aligned */}
+							<span className="shrink-0 w-4 flex items-center justify-center">
+								{hasError ? ERROR_TYPE_MAP[errorHints[0].errorType] : null}
+							</span>
 							{line.speaker && (
 								<span className={`shrink-0 text-xs font-semibold uppercase tracking-wide ${speakerColor(line.speaker)}`}>
 									{line.speaker}
 								</span>
 							)}
 							<span className="flex-1 text-sm leading-relaxed">{line.text}</span>
-							{hasError && (
-								<span
-									className="shrink-0 mt-0.5 text-destructive"
-									title={errorHints.map(h => `[${h.errorType}] ${h.whyBad}`).join("\n")}
-								>
-									<AlertCircle className="size-4" />
-								</span>
-							)}
 						</span>
 					</button>
 				);
