@@ -24,7 +24,7 @@ export default defineConfig({
 			"/lms-api": {
 				target: "http://127.0.0.1:3000",
 				changeOrigin: true,
-				rewrite: (path) => path.replace(/^\/lms-api/, ""),
+				rewrite: path => path.replace(/^\/lms-api/, ""),
 			},
 		},
 		watch: { usePolling: process.env.CHOKIDAR_USEPOLLING === "true" },

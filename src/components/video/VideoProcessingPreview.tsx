@@ -12,6 +12,7 @@ export const normalizeVideoPhase = (
 ): NonNullable<ComponentProps<typeof VideoPlayer>["phase"]> => {
 	switch (phase) {
 		case "receiving":
+		case "converting":
 		case "hashing":
 		case "uploading_s3":
 		case "completed":

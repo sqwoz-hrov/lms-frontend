@@ -15,11 +15,7 @@ type Options = {
 };
 
 export function useResumableVideoUpload(options: Options = {}) {
-	const {
-		mock = false,
-		mockDuration = 4000,
-		mockErrorProbability = 0,
-	} = options;
+	const { mock = false, mockDuration = 4000, mockErrorProbability = 0 } = options;
 	const [status, setStatus] = useState<Status>("idle");
 	const [error, setError] = useState<string | null>(null);
 	const [video, setVideo] = useState<VideoResponseDto | null>(null);
@@ -63,7 +59,14 @@ export function useResumableVideoUpload(options: Options = {}) {
 				for (let i = 1; i <= steps; i++) {
 					await new Promise<void>((resolve, reject) => {
 						const t = setTimeout(resolve, stepMs);
-						ctrl.signal.addEventListener("abort", () => { clearTimeout(t); reject(new Error("aborted")); }, { once: true });
+						ctrl.signal.addEventListener(
+							"abort",
+							() => {
+								clearTimeout(t);
+								reject(new Error("aborted"));
+							},
+							{ once: true },
+						);
 					});
 					updateProgress(Math.round((file.size * i) / steps), file.size);
 				}

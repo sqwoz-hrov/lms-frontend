@@ -1,4 +1,13 @@
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+	forwardRef,
+	useCallback,
+	useEffect,
+	useImperativeHandle,
+	useMemo,
+	useRef,
+	useState,
+	type ReactNode,
+} from "react";
 import Hls from "hls.js";
 import { Loader2, Hash, CloudUpload, Clock, XCircle } from "lucide-react";
 
@@ -7,7 +16,7 @@ type Props = {
 	type?: string | null;
 	title?: string;
 	poster?: string;
-	phase?: "receiving" | "hashing" | "uploading_s3" | "completed" | "failed";
+	phase?: "receiving" | "converting" | "hashing" | "uploading_s3" | "completed" | "failed";
 };
 
 export type VideoPlayerHandle = {
@@ -33,6 +42,11 @@ const PHASE_PRESENTATION: Record<PlayerPhase, PhasePresentation> = {
 		title: "Видео принимается",
 		desc: "Мы получили запрос и начинаем обработку.",
 		icon: <Clock className="h-5 w-5" />,
+	},
+	converting: {
+		title: "Конвертация",
+		desc: "Подготавливаем видео к дальнейшей обработке.",
+		icon: <Loader2 className="h-5 w-5 animate-spin" />,
 	},
 	hashing: {
 		title: "Подсчёт хеша",

@@ -1,17 +1,26 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { Loader2 } from "lucide-react";
-import { toast } from "sonner";
 import { InterviewTranscriptionsApi } from "@/api/interviewTranscriptionsApi";
+import { interviewTranscriptionsReportApi } from "@/api/interviewTranscriptionsReportApi";
 import { VideosApi, type GetByIdVideoResponseDto } from "@/api/videosApi";
-import { useResumableVideoUpload } from "@/hooks/useResumableVideoUpload";
 import { Button } from "@/components/ui/button";
+import { useResumableVideoUpload } from "@/hooks/useResumableVideoUpload";
 import { useSse } from "@/providers/SseProvider";
-import { VideoDropZone } from "./components/BeforeUpload/VideoDropZone";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 import { QuotesPanel } from "./components/AfterUpload/QuotesPanel";
 import { InterviewDetailsForm, type InterviewType } from "./components/BeforeUpload/InterviewDetailsForm";
-import { QUOTES, estimateDisplayDurationMs, isTranscriptionCompletionEvent } from "./lib";
+import { VideoDropZone } from "./components/BeforeUpload/VideoDropZone";
+import {
+	QUOTES,
+	estimateDisplayDurationMs,
+	isTranscriptionCompletionEvent,
+	isTranscriptionReportReadyEvent,
+	isVideoUploadPhaseChangedEvent,
+	parseTranscriptionReportReadyEvent,
+	parseVideoUploadPhaseChangedEvent,
+	type UploadPhase,
+} from "./lib";
 
 export default function UploadInterviewTranscriptionPage() {
 	const navigate = useNavigate();
@@ -24,6 +33,16 @@ export default function UploadInterviewTranscriptionPage() {
 	const [startedTranscriptionId, setStartedTranscriptionId] = useState<string | null>(null);
 	const [startedVideoId, setStartedVideoId] = useState<string | null>(null);
 	const [completedTranscriptionId, setCompletedTranscriptionId] = useState<string | null>(null);
+	const [liveVideoPhase, setLiveVideoPhase] = useState<UploadPhase | undefined>(undefined);
+	const reportOpeningRef = useRef<string | null>(null);
+	const handledVideoPhaseEventsRef = useRef<Set<string>>(new Set());
+
+	const isMockUploadEnabled = String(import.meta.env.VITE_INTERVIEW_UPLOAD_MOCK ?? "").toLowerCase() === "true";
+
+	const uploadHookOptions = useMemo(
+		() => (isMockUploadEnabled ? { mock: true, mockDuration: 15000, mockErrorProbability: 0.1 } : undefined),
+		[isMockUploadEnabled],
+	);
 
 	const {
 		start: startUpload,
@@ -31,12 +50,11 @@ export default function UploadInterviewTranscriptionPage() {
 		progress,
 		error: uploadError,
 		video: uploadedVideo,
-	} = useResumableVideoUpload({mock: true, mockDuration: 15000, mockErrorProbability: 0.1, });
+	} = useResumableVideoUpload(uploadHookOptions);
 
 	const videoId = uploadedVideo?.id;
 	const {
 		data: uploadedVideoDetails,
-		isFetching: isFetchingPreview,
 		isError: previewError,
 		refetch: refetchPreview,
 	} = useQuery<GetByIdVideoResponseDto>({
@@ -46,6 +64,11 @@ export default function UploadInterviewTranscriptionPage() {
 		staleTime: 30_000,
 		refetchOnWindowFocus: false,
 	});
+
+	useEffect(() => {
+		handledVideoPhaseEventsRef.current.clear();
+		setLiveVideoPhase(undefined);
+	}, [videoId]);
 
 	const startTranscription = useMutation({
 		mutationFn: (videoId: string) => InterviewTranscriptionsApi.start({ video_id: videoId }),
@@ -110,6 +133,66 @@ export default function UploadInterviewTranscriptionPage() {
 		return () => window.clearTimeout(timer);
 	}, [activeQuoteIndex, showQuotes]);
 
+	useEffect(() => {
+		if (!startedTranscriptionId) {
+			reportOpeningRef.current = null;
+		}
+	}, [startedTranscriptionId]);
+
+	useEffect(() => {
+		if (!videoId) return;
+		const latestPhaseEvent = sseEvents.find(event => isVideoUploadPhaseChangedEvent(event, videoId));
+		if (!latestPhaseEvent) return;
+		const eventKey = latestPhaseEvent.id ?? `${latestPhaseEvent.event}-${latestPhaseEvent.receivedAt}`;
+		if (handledVideoPhaseEventsRef.current.has(eventKey)) return;
+		handledVideoPhaseEventsRef.current.add(eventKey);
+
+		const payload = parseVideoUploadPhaseChangedEvent(latestPhaseEvent);
+		if (!payload) return;
+		setLiveVideoPhase(payload.phase);
+
+		if (payload.phase === "completed" || payload.phase === "failed") {
+			void refetchPreview();
+		}
+	}, [sseEvents, videoId, refetchPreview]);
+
+	// When a report-ready SSE arrives, fetch the report (to ensure it's available) and open the details page
+	useEffect(() => {
+		if (!startedTranscriptionId) return;
+		if (completedTranscriptionId === startedTranscriptionId) return;
+		if (reportOpeningRef.current === startedTranscriptionId) return;
+
+		const readyEnvelope = sseEvents.find(event => isTranscriptionReportReadyEvent(event, startedTranscriptionId));
+		const readyPayload = readyEnvelope ? parseTranscriptionReportReadyEvent(readyEnvelope) : null;
+		if (!readyPayload || readyPayload.transcriptionId !== startedTranscriptionId) return;
+
+		reportOpeningRef.current = startedTranscriptionId;
+		let cancelled = false;
+
+		const openTranscription = async () => {
+			try {
+				await interviewTranscriptionsReportApi.getTranscriptionReport({
+					transcription_id: readyPayload.transcriptionId,
+				});
+				if (cancelled) return;
+				setCompletedTranscriptionId(readyPayload.transcriptionId);
+				toast.success("Транскрибация готова");
+				navigate(`/interview-transcriptions/${readyPayload.transcriptionId}`);
+			} catch (error) {
+				if (cancelled) return;
+				const description = error instanceof Error ? error.message : "Попробуйте открыть страницу транскрибации позже.";
+				toast.error("Не удалось открыть транскрибацию", { description });
+				setCompletedTranscriptionId(readyPayload.transcriptionId);
+			}
+		};
+
+		void openTranscription();
+
+		return () => {
+			cancelled = true;
+		};
+	}, [sseEvents, startedTranscriptionId, completedTranscriptionId, navigate]);
+
 	// Detect transcription completion via SSE
 	useEffect(() => {
 		if (!startedTranscriptionId) return;
@@ -134,9 +217,8 @@ export default function UploadInterviewTranscriptionPage() {
 				uploadError={uploadError}
 				uploadedVideo={uploadedVideo}
 				uploadedVideoDetails={uploadedVideoDetails}
-				isFetchingPreview={isFetchingPreview}
 				previewError={previewError}
-				onRefetchPreview={refetchPreview}
+				livePhase={liveVideoPhase}
 				onFileSelected={handleFileSelected}
 			/>
 
@@ -164,10 +246,7 @@ export default function UploadInterviewTranscriptionPage() {
 
 			{completedTranscriptionId && (
 				<div className="flex justify-end">
-					<Button
-						variant="secondary"
-						onClick={() => navigate(`/interview-transcriptions/${completedTranscriptionId}`)}
-					>
+					<Button variant="secondary" onClick={() => navigate(`/interview-transcriptions/${completedTranscriptionId}`)}>
 						Открыть транскрибацию
 					</Button>
 				</div>

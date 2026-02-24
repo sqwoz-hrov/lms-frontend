@@ -42,7 +42,7 @@ export function Navbar() {
 					<NavLink to="/posts" className={linkCls}>
 						Посты
 					</NavLink>
-					<NavLink to="/interviews/upload" className={linkCls}>
+					<NavLink to="/interviews/progress-view" className={linkCls}>
 						Транскрибация
 					</NavLink>
 					{user?.role !== "subscriber" && (
@@ -63,9 +63,6 @@ export function Navbar() {
 							</NavLink>
 							<NavLink to="/users" className={linkCls}>
 								Пользователи
-							</NavLink>
-							<NavLink to="/interview-transcriptions" className={linkCls}>
-								Транскрибации
 							</NavLink>
 						</>
 					)}

@@ -58,7 +58,8 @@ export function InterviewDetailsForm({
 						</SelectContent>
 					</Select>
 					<p className="text-xs text-muted-foreground">
-						Если укажете точное количество участников собеседования, разбор будет лучше. Если вы не помните – значение «Мне лень выбирать» тоже работает :)
+						Если укажете точное количество участников собеседования, разбор будет лучше. Если вы не помните – значение
+						«Мне лень выбирать» тоже работает :)
 					</p>
 				</div>
 
@@ -83,17 +84,16 @@ export function InterviewDetailsForm({
 					{interviewType === "Систем дизайн" && (
 						<div className="flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
 							<AlertTriangle className="size-4 text-amber-500" />
-							<span>Мы не сможем проанализировать что вы нарисовали, но постараемся разобрать ваше интервью на основании диалога с интервьюером</span>
+							<span>
+								Мы не сможем проанализировать что вы нарисовали, но постараемся разобрать ваше интервью на основании
+								диалога с интервьюером
+							</span>
 						</div>
 					)}
 				</div>
 
 				<div className="flex justify-end pt-2">
-					<Button
-						size="lg"
-						disabled={!canSubmit || isSubmitting || isAwaitingCompletion}
-						onClick={onSubmit}
-					>
+					<Button size="lg" disabled={!canSubmit || isSubmitting || isAwaitingCompletion} onClick={onSubmit}>
 						{isSubmitting ? (
 							<>
 								<Loader2 className="mr-2 size-4 animate-spin" />

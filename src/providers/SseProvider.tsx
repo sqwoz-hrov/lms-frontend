@@ -1,10 +1,11 @@
-import { INTERVIEW_TRANSCRIPTION_EVENT } from "@/constants/interviewTranscriptions";
 import { apiBaseURL } from "@/api/client";
+import { INTERVIEW_TRANSCRIPTION_REPORT_READY_EVENT } from "@/constants/interviewTranscriptions";
+import { VIDEO_UPLOAD_PHASE_CHANGED_EVENT } from "@/constants/videos";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 
 const SSE_ROUTE = "/sse/stream";
 const MAX_EVENTS = 200;
-const CUSTOM_SSE_EVENTS = [INTERVIEW_TRANSCRIPTION_EVENT] as const;
+const CUSTOM_SSE_EVENTS = [INTERVIEW_TRANSCRIPTION_REPORT_READY_EVENT, VIDEO_UPLOAD_PHASE_CHANGED_EVENT] as const;
 
 export type SseEnvelope = {
 	id?: string;

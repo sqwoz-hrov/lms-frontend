@@ -1,10 +1,11 @@
 import { useRef, useState } from "react";
-import { Loader2, UploadCloud } from "lucide-react";
+import { UploadCloud } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { VideoProcessingPreview } from "@/components/video/VideoProcessingPreview";
 import { cn } from "@/lib/utils";
 import type { GetByIdVideoResponseDto } from "@/api/videosApi";
+import type { UploadPhase } from "../../lib";
 
 export type VideoDropZoneProps = {
 	/** Whether an upload is currently in progress */
@@ -17,9 +18,8 @@ export type VideoDropZoneProps = {
 	uploadedVideo: { id: string; filename?: string | null; mime_type?: string | null; phase?: string | null } | null;
 	/** Additional video details fetched after upload (for preview URL etc.) */
 	uploadedVideoDetails: GetByIdVideoResponseDto | null | undefined;
-	isFetchingPreview: boolean;
 	previewError: boolean;
-	onRefetchPreview: () => void;
+	livePhase?: UploadPhase;
 	/** Called with the chosen File */
 	onFileSelected: (file: File) => void;
 };
@@ -30,9 +30,8 @@ export function VideoDropZone({
 	uploadError,
 	uploadedVideo,
 	uploadedVideoDetails,
-	isFetchingPreview,
 	previewError,
-	onRefetchPreview,
+	livePhase,
 	onFileSelected,
 }: VideoDropZoneProps) {
 	const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -79,10 +78,10 @@ export function VideoDropZone({
 	const previewMime = uploadedVideo?.mime_type ?? uploadedVideoDetails?.mime_type ?? "video/mp4";
 	const uploadedFileLabel = uploadedVideo?.filename ?? uploadedVideoDetails?.filename ?? null;
 	const previewHelperText = previewError
-		? "Не удалось получить ссылку на видео. Нажмите «Обновить», чтобы попробовать ещё раз."
+		? "Не удалось получить ссылку на видео. Мы скоро попробуем ещё раз автоматически."
 		: previewUrl
-			? "Если превью не появилось, обновите статус или попробуйте позже."
-			: "Видео проходит внутренние шаги (хэширование, загрузка). Ссылка появится автоматически.";
+			? "Если превью не появилось, просто дождитесь завершения обработки — статус обновляется автоматически."
+			: "Видео проходит внутренние шаги (конвертация, хеширование, загрузка). Ссылка появится автоматически.";
 
 	return (
 		<Card>
@@ -99,7 +98,7 @@ export function VideoDropZone({
 						filename={uploadedFileLabel}
 						src={previewUrl}
 						mimeType={previewMime}
-						phase={(uploadedVideoDetails?.phase ?? uploadedVideo?.phase) ?? undefined}
+						phase={livePhase ?? uploadedVideoDetails?.phase ?? uploadedVideo?.phase ?? undefined}
 						helperText={previewHelperText}
 						helperTextTone={previewError ? "error" : "default"}
 						actions={
@@ -107,10 +106,6 @@ export function VideoDropZone({
 								<Button size="sm" variant="outline" onClick={openPicker}>
 									<UploadCloud className="mr-2 size-4" />
 									Заменить видео
-								</Button>
-								<Button size="sm" variant="ghost" onClick={onRefetchPreview} disabled={isFetchingPreview}>
-									{isFetchingPreview ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
-									Обновить
 								</Button>
 							</>
 						}
@@ -145,10 +140,7 @@ export function VideoDropZone({
 									<span>{progressPct}%</span>
 								</div>
 								<div className="h-2 w-full rounded-full bg-muted">
-									<div
-										className="h-full rounded-full bg-primary transition-all"
-										style={{ width: `${progressPct}%` }}
-									/>
+									<div className="h-full rounded-full bg-primary transition-all" style={{ width: `${progressPct}%` }} />
 								</div>
 							</div>
 						)}

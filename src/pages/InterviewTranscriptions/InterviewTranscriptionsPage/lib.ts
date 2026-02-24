@@ -1,3 +1,6 @@
+import { z } from "zod";
+import { INTERVIEW_TRANSCRIPTION_REPORT_READY_EVENT } from "@/constants/interviewTranscriptions";
+import { VIDEO_UPLOAD_PHASE_CHANGED_EVENT } from "@/constants/videos";
 import type { SseEnvelope } from "@/providers/SseProvider";
 
 export const QUOTES = [
@@ -13,6 +16,20 @@ const COMPLETION_EVENT_NAMES = [
 	"interview-transcription-done",
 	"interview-transcription-finished",
 ] as const;
+
+const transcriptionReportReadyEventSchema = z.object({
+	transcriptionId: z.string().uuid(),
+});
+export type TranscriptionReportReadyEventPayload = z.infer<typeof transcriptionReportReadyEventSchema>;
+
+export const uploadPhaseSchema = z.enum(["receiving", "converting", "hashing", "uploading_s3", "completed", "failed"]);
+export type UploadPhase = z.infer<typeof uploadPhaseSchema>;
+
+const videoUploadPhaseChangedEventSchema = z.object({
+	videoId: z.string().uuid(),
+	phase: uploadPhaseSchema,
+});
+export type VideoUploadPhaseChangedEvent = z.infer<typeof videoUploadPhaseChangedEventSchema>;
 
 export function estimateDisplayDurationMs(text: string): number {
 	const words = text.trim().split(/\s+/).filter(Boolean).length || 1;
@@ -66,4 +83,40 @@ export function isTranscriptionCompletionEvent(
 	}
 
 	return false;
+}
+
+export function parseVideoUploadPhaseChangedEvent(envelope: SseEnvelope): VideoUploadPhaseChangedEvent | null {
+	if (envelope.event !== VIDEO_UPLOAD_PHASE_CHANGED_EVENT) {
+		return null;
+	}
+	if (!isRecord(envelope.data)) {
+		return null;
+	}
+	const result = videoUploadPhaseChangedEventSchema.safeParse(envelope.data);
+	return result.success ? result.data : null;
+}
+
+export function isVideoUploadPhaseChangedEvent(envelope: SseEnvelope, targetVideoId?: string): boolean {
+	const parsed = parseVideoUploadPhaseChangedEvent(envelope);
+	if (!parsed) return false;
+	if (!targetVideoId) return true;
+	return parsed.videoId === targetVideoId;
+}
+
+export function parseTranscriptionReportReadyEvent(envelope: SseEnvelope): TranscriptionReportReadyEventPayload | null {
+	if (envelope.event !== INTERVIEW_TRANSCRIPTION_REPORT_READY_EVENT) {
+		return null;
+	}
+	if (!isRecord(envelope.data)) {
+		return null;
+	}
+	const result = transcriptionReportReadyEventSchema.safeParse(envelope.data);
+	return result.success ? result.data : null;
+}
+
+export function isTranscriptionReportReadyEvent(envelope: SseEnvelope, targetTranscriptionId?: string): boolean {
+	const parsed = parseTranscriptionReportReadyEvent(envelope);
+	if (!parsed) return false;
+	if (!targetTranscriptionId) return true;
+	return parsed.transcriptionId === targetTranscriptionId;
 }

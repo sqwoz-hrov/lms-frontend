@@ -1,31 +1,24 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Link, useParams } from "react-router-dom";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, AlertCircle, Loader2, Pin, PinOff, ArrowUpToLine } from "lucide-react";
-import { toast } from "sonner";
 import { InterviewTranscriptionsApi, type InterviewTranscriptionResponseDto } from "@/api/interviewTranscriptionsApi";
-import { VideosApi, type VideoResponseDto } from "@/api/videosApi";
+import { interviewTranscriptionsReportApi, type LLMReportHint } from "@/api/interviewTranscriptionsReportApi";
+import { VideosApi } from "@/api/videosApi";
+import { TranscriptionStatusBadge } from "@/components/interview-transcriptions/TranscriptionStatusBadge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-	type InterviewTranscriptionMessage,
-	useInterviewTranscriptionsStream,
-} from "@/hooks/useInterviewTranscriptionsStream";
-import { TranscriptionStatusBadge } from "@/components/interview-transcriptions/TranscriptionStatusBadge";
-import { describeVideoPhase, formatDateTime, formatFileSizeFromString } from "../utils";
-import { interviewTranscriptionsReportApi, type LLMReportHint } from "@/api/interviewTranscriptionsReportApi";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { VideoPlayer, type VideoPlayerHandle } from "@/components/video/VideoPlayer";
-import {
-	Sheet,
-	SheetContent,
-	SheetHeader,
-	SheetTitle,
-} from "@/components/ui/sheet";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { ArrowLeft, ArrowUpToLine, Loader2, Pin, PinOff } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Link, useParams } from "react-router-dom";
+import { toast } from "sonner";
+import { formatDateTime } from "../utils";
 
 const ERROR_TYPE_MAP = {
-	"blunder": <img src="/public/blunder.png" alt="Blunder" title="Blunder: грубая ошибка" className="size-4" />,
-	"inaccuracy": <img src="/public/inaccuracy.png" alt="Inaccuracy" title="Inaccuracy: неточный ответ" className="size-4" />,
-}
+	blunder: <img src="/public/blunder.png" alt="Blunder" title="Blunder: грубая ошибка" className="size-4" />,
+	inaccuracy: (
+		<img src="/public/inaccuracy.png" alt="Inaccuracy" title="Inaccuracy: неточный ответ" className="size-4" />
+	),
+};
 /** Maps backend video phases to the VideoPlayer phase prop */
 function toPlayerPhase(p?: string | null): NonNullable<React.ComponentProps<typeof VideoPlayer>["phase"]> {
 	switch (p) {
@@ -118,7 +111,6 @@ export function parseSrt(raw: string): TranscriptLine[] {
 
 	return lines;
 }
-
 
 // ---------------------------------------------------------------------------
 // VideoPlayerContainer – wraps the player with floating / sticky behaviour
@@ -242,18 +234,14 @@ function VideoPlayerContainer({ children }: { children: ReactNode }) {
 			</div>
 
 			{/* Placeholder to prevent layout jump when PiP/Sticky detaches the player from flow */}
-			{needsPlaceholder && (
-				<div style={{ height: naturalHeight }} />
-			)}
+			{needsPlaceholder && <div style={{ height: naturalHeight }} />}
 
 			{/* ── Player wrapper ─────────────────────────────────────────────── */}
 			<div ref={playerWrapperRef} className={wrapperClasses}>
 				{/* PiP toolbar – only visible when floating PiP is active */}
 				{showPip && (
 					<div className="flex items-center justify-between px-2.5 py-1.5 bg-card/90 backdrop-blur-sm border-b border-border/50">
-						<span className="text-[11px] font-medium text-muted-foreground truncate">
-							Видео
-						</span>
+						<span className="text-[11px] font-medium text-muted-foreground truncate">Видео</span>
 						<div className="flex items-center gap-0.5">
 							<button
 								type="button"
@@ -277,9 +265,7 @@ function VideoPlayerContainer({ children }: { children: ReactNode }) {
 				{/* Sticky toolbar – shows scroll-back button when sticky-fixed */}
 				{showStickyFixed && (
 					<div className="flex items-center justify-between mb-1">
-						<span className="text-[11px] font-medium text-muted-foreground truncate">
-							Видео (закреплено)
-						</span>
+						<span className="text-[11px] font-medium text-muted-foreground truncate">Видео (закреплено)</span>
 						<div className="flex items-center gap-0.5">
 							<button
 								type="button"
@@ -345,7 +331,7 @@ export default function InterviewTranscriptionDetailsPage() {
 				throw new Error("Не указан идентификатор расшифровки");
 			}
 			return interviewTranscriptionsReportApi.getTranscriptionReport({ transcription_id: transcriptionId });
-		}
+		},
 	});
 
 	const transcription = transcriptionQuery.data;
@@ -470,7 +456,6 @@ export default function InterviewTranscriptionDetailsPage() {
 		};
 	}, [transcription?.status, transcription?.transcription_url]);
 
-
 	return (
 		<div className="mx-auto w-full max-w-4xl space-y-4 p-4">
 			<div>
@@ -508,7 +493,7 @@ export default function InterviewTranscriptionDetailsPage() {
 				<>
 					<Card>
 						<CardHeader className="flex flex-wrap items-center justify-between gap-2 pb-3">
-							<CardTitle className="text-xl">{ "Транскрибация интервью " + (videoDetails?.filename ?? "")}</CardTitle>
+							<CardTitle className="text-xl">{"Транскрибация интервью " + (videoDetails?.filename ?? "")}</CardTitle>
 							<div className="space-y-2">
 								<div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
 									<span>
@@ -570,22 +555,22 @@ export default function InterviewTranscriptionDetailsPage() {
 						</CardContent>
 					</Card>
 
-						<Card>
-							<CardHeader>
-								<CardTitle className="text-lg">Готовая транскрибация</CardTitle>
-							</CardHeader>
-							<CardContent className="space-y-3">
-								{textLoading ? (
-									<div className="flex items-center gap-2 text-sm text-muted-foreground">
-										<Loader2 className="size-4 animate-spin" />
-										Загружаем текст…
-									</div>
-								) : textError ? (
-									<div className="rounded-md border border-destructive/50 bg-destructive/5 p-3 text-sm text-destructive">
-										{textError}
-									</div>
-								) : fullText  ? (
-									<>
+					<Card>
+						<CardHeader>
+							<CardTitle className="text-lg">Готовая транскрибация</CardTitle>
+						</CardHeader>
+						<CardContent className="space-y-3">
+							{textLoading ? (
+								<div className="flex items-center gap-2 text-sm text-muted-foreground">
+									<Loader2 className="size-4 animate-spin" />
+									Загружаем текст…
+								</div>
+							) : textError ? (
+								<div className="rounded-md border border-destructive/50 bg-destructive/5 p-3 text-sm text-destructive">
+									{textError}
+								</div>
+							) : fullText ? (
+								<>
 									<TranscriptView
 										lines={transcriptLines}
 										hintsByLineId={reportHintsByLineId}
@@ -593,34 +578,34 @@ export default function InterviewTranscriptionDetailsPage() {
 										candidateNameInTranscription={transcriptionReport?.candidate_name_in_transcription}
 										candidateName={transcriptionReport?.candidate_name}
 									/>
-									</>
-								) : transcription.transcription_url ? (
-									<div className="text-sm text-muted-foreground">
-										Файл транскрибации готов, но не удалось отобразить текст.{" "}
-										<a
-											href={transcription.transcription_url}
-											target="_blank"
-											rel="noreferrer"
-											className="text-primary underline underline-offset-2"
-										>
-											Открыть по ссылке
-										</a>
-										.
-									</div>
-								) : (
-									<div className="text-sm text-muted-foreground">
-										Транскрибация завершена, но ссылка с текстом ещё не готова. Попробуйте обновить страницу позже.
-									</div>
-								)}
-								{transcription.transcription_url && (
-									<Button asChild variant="outline" size="sm">
-										<a href={transcription.transcription_url} target="_blank" rel="noreferrer">
-											Скачать исходный файл
-										</a>
-									</Button>
-								)}
-							</CardContent>
-						</Card>
+								</>
+							) : transcription.transcription_url ? (
+								<div className="text-sm text-muted-foreground">
+									Файл транскрибации готов, но не удалось отобразить текст.{" "}
+									<a
+										href={transcription.transcription_url}
+										target="_blank"
+										rel="noreferrer"
+										className="text-primary underline underline-offset-2"
+									>
+										Открыть по ссылке
+									</a>
+									.
+								</div>
+							) : (
+								<div className="text-sm text-muted-foreground">
+									Транскрибация завершена, но ссылка с текстом ещё не готова. Попробуйте обновить страницу позже.
+								</div>
+							)}
+							{transcription.transcription_url && (
+								<Button asChild variant="outline" size="sm">
+									<a href={transcription.transcription_url} target="_blank" rel="noreferrer">
+										Скачать исходный файл
+									</a>
+								</Button>
+							)}
+						</CardContent>
+					</Card>
 				</>
 			)}
 		</div>
@@ -677,11 +662,7 @@ function TranscriptView({
 	const [drawerLine, setDrawerLine] = useState<TranscriptLine | null>(null);
 
 	if (lines.length === 0) {
-		return (
-			<div className="text-sm text-muted-foreground">
-				Не удалось разобрать текст расшифровки.
-			</div>
-		);
+		return <div className="text-sm text-muted-foreground">Не удалось разобрать текст расшифровки.</div>;
 	}
 
 	/** Resolves the display label for a speaker token. */
@@ -704,7 +685,9 @@ function TranscriptView({
 				{lines.map(line => {
 					const hints = hintsByLineId?.get(line.id) ?? [];
 					const hasError = hints.some(h => h.hintType === "error");
-					const errorHints = hints.filter((h): h is Extract<LLMReportHint, { hintType: "error" }> => h.hintType === "error");
+					const errorHints = hints.filter(
+						(h): h is Extract<LLMReportHint, { hintType: "error" }> => h.hintType === "error",
+					);
 					const hasHints = hints.length > 0;
 					const displaySpeaker = line.speaker ? resolveSpeakerLabel(line.speaker) : null;
 					const colorKey = line.speaker;
@@ -742,11 +725,13 @@ function TranscriptView({
 
 								{/* Fixed-width icon slot so all lines stay left-aligned */}
 								<span className="shrink-0 w-4 flex items-center justify-center">
-									{hasError ? ERROR_TYPE_MAP[errorHints[0]!.errorType] : null}
+									{hasError ? ERROR_TYPE_MAP[errorHints[0].errorType] : null}
 								</span>
 
 								<span className="flex flex-1 items-center gap-2 min-w-0">
-									<span className={`shrink-0 w-28 text-xs font-semibold uppercase tracking-wide truncate ${displaySpeaker ? speakerColor(colorKey) : ""}`}>
+									<span
+										className={`shrink-0 w-28 text-xs font-semibold uppercase tracking-wide truncate ${displaySpeaker ? speakerColor(colorKey) : ""}`}
+									>
 										{displaySpeaker ?? ""}
 									</span>
 									<span className="flex-1 text-sm leading-relaxed">{line.text}</span>
@@ -758,7 +743,12 @@ function TranscriptView({
 			</div>
 
 			{/* Hint drawer */}
-			<Sheet open={drawerLine !== null} onOpenChange={open => { if (!open) setDrawerLine(null); }}>
+			<Sheet
+				open={drawerLine !== null}
+				onOpenChange={open => {
+					if (!open) setDrawerLine(null);
+				}}
+			>
 				<SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto">
 					<SheetHeader className="mb-4">
 						<SheetTitle className="text-base">
@@ -767,17 +757,15 @@ function TranscriptView({
 								<button
 									type="button"
 									className="ml-2 text-xs font-mono text-muted-foreground hover:text-foreground transition-colors"
-									onClick={() => { onSeek?.(drawerLine.start); }}
+									onClick={() => {
+										onSeek?.(drawerLine.start);
+									}}
 								>
 									{formatTimecode(drawerLine.start)}
 								</button>
 							)}
 						</SheetTitle>
-						{drawerLine && (
-							<p className="text-sm text-muted-foreground leading-relaxed mt-1">
-								{drawerLine.text}
-							</p>
-						)}
+						{drawerLine && <p className="text-sm text-muted-foreground leading-relaxed mt-1">{drawerLine.text}</p>}
 					</SheetHeader>
 
 					<div className="space-y-4">
@@ -831,4 +819,3 @@ function HintCard({ hint }: { hint: LLMReportHint }) {
 
 	return null;
 }
-
