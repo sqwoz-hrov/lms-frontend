@@ -8,7 +8,7 @@ export const INTERVIEW_TYPES = ["Скрининг", "Техническое со
 export type InterviewType = (typeof INTERVIEW_TYPES)[number];
 
 export const SPEAKER_OPTIONS: { value: string; label: string }[] = [
-	{ value: "lazy", label: "Мне лень" },
+	{ value: "lazy", label: "Мне лень выбирать" },
 	...Array.from({ length: 9 }, (_, idx) => {
 		const count = idx + 1;
 		return { value: String(count), label: `${count}` };
@@ -58,7 +58,7 @@ export function InterviewDetailsForm({
 						</SelectContent>
 					</Select>
 					<p className="text-xs text-muted-foreground">
-						Выбор опционален. Значение «Мне лень» означает, что точное количество неизвестно.
+						Если укажете точное количество участников собеседования, разбор будет лучше. Если вы не помните – значение «Мне лень выбирать» тоже работает :)
 					</p>
 				</div>
 
@@ -83,7 +83,7 @@ export function InterviewDetailsForm({
 					{interviewType === "Систем дизайн" && (
 						<div className="flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
 							<AlertTriangle className="size-4 text-amber-500" />
-							<span>Мы плохо анализируем этот тип собеседования.</span>
+							<span>Мы не сможем проанализировать что вы нарисовали, но постараемся разобрать ваше интервью на основании диалога с интервьюером</span>
 						</div>
 					)}
 				</div>
