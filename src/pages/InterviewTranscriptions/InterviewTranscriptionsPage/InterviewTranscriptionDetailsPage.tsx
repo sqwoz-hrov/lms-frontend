@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { InterviewTranscriptionsApi, type InterviewTranscriptionResponseDto } from "@/api/interviewTranscriptionsApi";
-import type { VideoResponseDto } from "@/api/videosApi";
+import { VideosApi, type VideoResponseDto } from "@/api/videosApi";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -12,7 +12,26 @@ import {
 	useInterviewTranscriptionsStream,
 } from "@/hooks/useInterviewTranscriptionsStream";
 import { TranscriptionStatusBadge } from "@/components/interview-transcriptions/TranscriptionStatusBadge";
-import { describeVideoPhase, formatDateTime, formatFileSizeFromString } from "./utils";
+import { describeVideoPhase, formatDateTime, formatFileSizeFromString } from "../utils";
+import { interviewTranscriptionsReportApi } from "@/api/interviewTranscriptionsReportApi";
+import { VideoPlayer } from "@/components/video/VideoPlayer";
+
+/** Maps backend video phases to the VideoPlayer phase prop */
+function toPlayerPhase(p?: string | null): NonNullable<React.ComponentProps<typeof VideoPlayer>["phase"]> {
+	switch (p) {
+		case "receiving":
+		case "hashing":
+		case "uploading_s3":
+		case "completed":
+		case "failed":
+			return p;
+		case "processing":
+		case "converting":
+			return "uploading_s3";
+		default:
+			return "receiving";
+	}
+}
 
 export default function InterviewTranscriptionDetailsPage() {
 	const params = useParams<{ id: string }>();
@@ -35,7 +54,7 @@ export default function InterviewTranscriptionDetailsPage() {
 		enabled: Boolean(transcriptionId),
 		queryFn: async () => {
 			if (!transcriptionId) {
-				throw new Error("Не указан идентификатор транскрибации");
+				throw new Error("Не указан идентификатор расшифровки");
 			}
 			return InterviewTranscriptionsApi.getById(transcriptionId);
 		},
@@ -43,10 +62,39 @@ export default function InterviewTranscriptionDetailsPage() {
 		refetchInterval: query => (query.state.data?.status === "done" ? false : 10_000),
 	});
 
+	// TODO: get the SSE event about the report being saved and add to "enabled" condition
+	const transcriptionReportQuery = useQuery({
+		queryKey: ["interview-transcription-reports", transcriptionId, "report"],
+		enabled: Boolean(transcriptionId) && transcriptionQuery.data?.status === "done",
+		queryFn: async () => {
+			if (!transcriptionId) {
+				throw new Error("Не указан идентификатор расшифровки");
+			}
+			return interviewTranscriptionsReportApi.getTranscriptionReport({ transcription_id: transcriptionId });
+		}
+	});
+
 	const transcription = transcriptionQuery.data;
+	const transcriptionReport = transcriptionReportQuery.data;
+
+	// Fetch full video details (includes presigned video_url) once we know the video id
+	const videoId = transcription?.video?.id;
+	const {
+		data: videoDetails,
+		isLoading: videoDetailsLoading,
+		isError: videoDetailsError,
+		refetch: refetchVideoDetails,
+	} = useQuery({
+		queryKey: ["video", videoId],
+		queryFn: () => VideosApi.getById(videoId!),
+		enabled: Boolean(videoId),
+		staleTime: 5 * 60_000,
+		retry: 1,
+	});
+
 	const restartMutation = useMutation({
 		mutationFn: async () => {
-			if (!transcriptionId) throw new Error("Не указан идентификатор транскрибации");
+			if (!transcriptionId) throw new Error("Не указан идентификатор расшифровки");
 			return InterviewTranscriptionsApi.restart({ interview_transcription_id: transcriptionId });
 		},
 		onSuccess: data => {
@@ -59,26 +107,15 @@ export default function InterviewTranscriptionDetailsPage() {
 				},
 			);
 			queryClient.invalidateQueries({ queryKey: ["interview-transcriptions"] });
-			toast.success("Транскрибация перезапущена", {
+			toast.success("Расшифровка перезапущена", {
 				description: "Мы повторно запустили расшифровку этого интервью.",
 			});
 		},
 		onError: error => {
 			const description = error instanceof Error ? error.message : "Не удалось выполнить запрос. Попробуйте ещё раз.";
-			toast.error("Не удалось перезапустить транскрибацию", { description });
+			toast.error("Не удалось перезапустить расшифровку", { description });
 		},
 	});
-	const { messages } = useInterviewTranscriptionsStream();
-
-	const chunks = useMemo(() => {
-		if (!transcriptionId) return [];
-		const filtered = messages.filter(msg => msg.transcriptionId === transcriptionId);
-		const byIndex = new Map<number, InterviewTranscriptionMessage>();
-		filtered.forEach(chunk => {
-			byIndex.set(chunk.chunkIndex, chunk);
-		});
-		return Array.from(byIndex.values()).sort((a, b) => a.chunkIndex - b.chunkIndex);
-	}, [messages, transcriptionId]);
 
 	const [fullText, setFullText] = useState<string | null>(null);
 	const [textError, setTextError] = useState<string | null>(null);
@@ -99,7 +136,7 @@ export default function InterviewTranscriptionDetailsPage() {
 		fetch(transcription.transcription_url)
 			.then(res => {
 				if (!res.ok) {
-					throw new Error("Не удалось загрузить файл транскрибации");
+					throw new Error("Не удалось загрузить файл расшифровки");
 				}
 				return res.text();
 			})
@@ -110,7 +147,7 @@ export default function InterviewTranscriptionDetailsPage() {
 			})
 			.catch(err => {
 				if (!disposed) {
-					setTextError(err instanceof Error ? err.message : "Ошибка загрузки транскрибации");
+					setTextError(err instanceof Error ? err.message : "Ошибка загрузки расшифровки");
 				}
 			})
 			.finally(() => {
@@ -124,8 +161,6 @@ export default function InterviewTranscriptionDetailsPage() {
 		};
 	}, [transcription?.status, transcription?.transcription_url]);
 
-	const showChunks = Boolean(transcription && transcription.status !== "done");
-	const showTypingIndicator = showChunks && chunks.length > 0;
 
 	return (
 		<div className="mx-auto w-full max-w-4xl space-y-4 p-4">
@@ -205,23 +240,32 @@ export default function InterviewTranscriptionDetailsPage() {
 
 					<VideoDetailsCard video={transcription.video} />
 
-					{showChunks ? (
-						<Card>
-							<CardHeader>
-								<CardTitle className="text-lg">Поточечная расшифровка</CardTitle>
-							</CardHeader>
-							<CardContent className="space-y-3">
-								{chunks.length === 0 ? (
-									<div className="rounded-lg border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">
-										Ожидаем первые чанки от сервера…
-									</div>
-								) : (
-									chunks.map(chunk => <ChunkBubble key={chunk.chunkIndex} chunk={chunk} />)
+					<Card>
+						<CardHeader className="flex flex-wrap items-center justify-between gap-2 pb-3">
+							<CardTitle className="text-lg">Видео</CardTitle>
+							<div className="flex items-center gap-2">
+								{videoDetailsLoading && (
+									<span className="text-xs text-muted-foreground flex items-center gap-1">
+										<Loader2 className="size-3 animate-spin" /> Загрузка ссылки…
+									</span>
 								)}
-								{showTypingIndicator && <TypingIndicator />}
-							</CardContent>
-						</Card>
-					) : (
+								{videoDetailsError && (
+									<Button size="sm" variant="secondary" onClick={() => refetchVideoDetails()}>
+										Обновить ссылку
+									</Button>
+								)}
+							</div>
+						</CardHeader>
+						<CardContent>
+							<VideoPlayer
+								src={videoDetails?.video_url}
+								type={videoDetails?.mime_type ?? transcription.video?.mime_type ?? "video/mp4"}
+								title={transcription.video?.filename}
+								phase={toPlayerPhase(videoDetails?.phase ?? transcription.video?.phase)}
+							/>
+						</CardContent>
+					</Card>
+
 						<Card>
 							<CardHeader>
 								<CardTitle className="text-lg">Готовая транскрибация</CardTitle>
@@ -236,10 +280,13 @@ export default function InterviewTranscriptionDetailsPage() {
 									<div className="rounded-md border border-destructive/50 bg-destructive/5 p-3 text-sm text-destructive">
 										{textError}
 									</div>
-								) : fullText ? (
+								) : fullText  ? (
+									<>
+									<AnalysisSection reportId={transcription.id} transcriptionReport={transcriptionReport} />
 									<div className="rounded-lg border bg-card/50 p-4 text-sm leading-relaxed">
 										<pre className="whitespace-pre-wrap font-sans">{fullText}</pre>
 									</div>
+									</>
 								) : transcription.transcription_url ? (
 									<div className="text-sm text-muted-foreground">
 										Файл транскрибации готов, но не удалось отобразить текст.{" "}
@@ -267,11 +314,24 @@ export default function InterviewTranscriptionDetailsPage() {
 								)}
 							</CardContent>
 						</Card>
-					)}
 				</>
 			)}
 		</div>
 	);
+}
+
+function AnalysisSection({ reportId, transcriptionReport }: { reportId: string; transcriptionReport: any }) {
+
+	return (<Card>
+		<CardHeader>
+			<CardTitle className="text-lg">Анализ расшифровки</CardTitle>
+		</CardHeader>
+		<CardContent>
+			<div className="rounded-lg border bg-card/50 p-4 text-sm leading-relaxed">
+				<p>{JSON.stringify(transcriptionReport)}</p>
+			</div>
+		</CardContent>
+	</Card>)
 }
 
 function VideoDetailsCard({ video }: { video?: VideoResponseDto | null }) {
