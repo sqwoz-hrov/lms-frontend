@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { VideoPlayer, type VideoPlayerHandle } from "@/components/video/VideoPlayer";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, ArrowUpToLine, Loader2, Pin, PinOff } from "lucide-react";
+import { ArrowLeft, ArrowUpToLine, Loader2, Pin, PinOff, Play } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link, useParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -759,7 +759,8 @@ function TranscriptView({
 										onSeek?.(line.start);
 									}}
 								>
-									<span className="invisible group-hover:visible inline-block px-1 py-0.5 rounded text-[10px] font-mono text-muted-foreground bg-muted hover:bg-accent hover:text-foreground transition-colors cursor-pointer select-none">
+									<span className="invisible group-hover:visible inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[10px] font-mono text-muted-foreground bg-muted hover:bg-accent hover:text-foreground transition-colors cursor-pointer select-none">
+										<Play className="size-2.5 fill-current" />
 										{formatTimecode(line.start)}
 									</span>
 								</span>
