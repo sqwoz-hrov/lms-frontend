@@ -1,6 +1,7 @@
 import { InterviewTranscriptionsApi, type InterviewTranscriptionResponseDto } from "@/api/interviewTranscriptionsApi";
 import { interviewTranscriptionsReportApi, type LLMReportHint } from "@/api/interviewTranscriptionsReportApi";
 import { VideosApi } from "@/api/videosApi";
+import { ErrorNavigator } from "@/components/interview-transcriptions/ErrorNavigator";
 import { TranscriptionStatusBadge } from "@/components/interview-transcriptions/TranscriptionStatusBadge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -116,7 +117,7 @@ export function parseSrt(raw: string): TranscriptLine[] {
 // VideoPlayerContainer – wraps the player with floating / sticky behaviour
 // ---------------------------------------------------------------------------
 
-type PlayerMode = "floating" | "sticky";
+export type PlayerMode = "floating" | "sticky";
 
 /**
  * A container that wraps children (the VideoPlayer) and provides two modes:
@@ -131,8 +132,19 @@ type PlayerMode = "floating" | "sticky";
  * PiP mode, buttons to scroll back and to switch modes are rendered on the
  * floating widget itself.
  */
-function VideoPlayerContainer({ children }: { children: ReactNode }) {
-	const [mode, setMode] = useState<PlayerMode>("sticky");
+function VideoPlayerContainer({
+	children,
+	mode,
+	onModeChange,
+	onOutOfViewChange,
+}: {
+	children: ReactNode;
+	mode: PlayerMode;
+	onModeChange: (mode: PlayerMode) => void;
+	/** Called when the player's out-of-view state changes */
+	onOutOfViewChange?: (outOfView: boolean) => void;
+}) {
+	const setMode = onModeChange;
 
 	/**
 	 * A sentinel element placed *before* the player in the DOM. When this
@@ -154,6 +166,7 @@ function VideoPlayerContainer({ children }: { children: ReactNode }) {
 			([entry]) => {
 				const out = !(entry?.isIntersecting ?? true);
 				setIsOutOfView(out);
+				onOutOfViewChange?.(out);
 				// Capture height right before we detach the player so the placeholder can
 				// prevent layout shift.
 				if (out && playerWrapperRef.current) {
@@ -164,7 +177,7 @@ function VideoPlayerContainer({ children }: { children: ReactNode }) {
 		);
 		observer.observe(el);
 		return () => observer.disconnect();
-	}, []);
+	}, [onOutOfViewChange]);
 
 	const scrollBack = useCallback(() => {
 		sentinelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -237,7 +250,7 @@ function VideoPlayerContainer({ children }: { children: ReactNode }) {
 			{needsPlaceholder && <div style={{ height: naturalHeight }} />}
 
 			{/* ── Player wrapper ─────────────────────────────────────────────── */}
-			<div ref={playerWrapperRef} className={wrapperClasses}>
+			<div ref={playerWrapperRef} data-video-player-wrapper className={wrapperClasses}>
 				{/* PiP toolbar – only visible when floating PiP is active */}
 				{showPip && (
 					<div className="flex items-center justify-between px-2.5 py-1.5 bg-card/90 backdrop-blur-sm border-b border-border/50">
@@ -297,6 +310,11 @@ export default function InterviewTranscriptionDetailsPage() {
 	const transcriptionId = params.id ?? "";
 	const queryClient = useQueryClient();
 	const videoPlayerRef = useRef<VideoPlayerHandle>(null);
+
+	// Lifted state for VideoPlayerContainer
+	const [playerMode, setPlayerMode] = useState<PlayerMode>("sticky");
+	const [playerOutOfView, setPlayerOutOfView] = useState(false);
+
 	const cachedItem = useMemo(() => {
 		const lists = queryClient.getQueriesData<InterviewTranscriptionResponseDto[]>({
 			queryKey: ["interview-transcriptions"],
@@ -415,6 +433,18 @@ export default function InterviewTranscriptionDetailsPage() {
 		}
 		return map;
 	}, [transcriptionReport?.llm_report_parsed, transcriptLineMap]);
+
+	/** Ordered list of line IDs that have at least one error hint */
+	const errorLineIds = useMemo<number[]>(() => {
+		const ids: number[] = [];
+		for (const line of transcriptLines) {
+			const hints = reportHintsByLineId.get(line.id);
+			if (hints?.some(h => h.hintType === "error")) {
+				ids.push(line.id);
+			}
+		}
+		return ids;
+	}, [transcriptLines, reportHintsByLineId]);
 
 	useEffect(() => {
 		if (!transcription || transcription.status !== "done" || !transcription.transcription_url) {
@@ -543,7 +573,11 @@ export default function InterviewTranscriptionDetailsPage() {
 							</div>
 						</CardHeader>
 						<CardContent>
-							<VideoPlayerContainer>
+							<VideoPlayerContainer
+								mode={playerMode}
+								onModeChange={setPlayerMode}
+								onOutOfViewChange={setPlayerOutOfView}
+							>
 								<VideoPlayer
 									ref={videoPlayerRef}
 									src={videoDetails?.video_url}
@@ -606,6 +640,12 @@ export default function InterviewTranscriptionDetailsPage() {
 							)}
 						</CardContent>
 					</Card>
+
+					<ErrorNavigator
+						errorLineIds={errorLineIds}
+						playerMode={playerMode}
+						visible={playerOutOfView && errorLineIds.length > 0}
+					/>
 				</>
 			)}
 		</div>
@@ -681,7 +721,7 @@ function TranscriptView({
 
 	return (
 		<>
-			<div className="rounded-lg border bg-card/50 divide-y divide-border/50">
+			<div data-transcript-view className="rounded-lg border bg-card/50 divide-y divide-border/50">
 				{lines.map(line => {
 					const hints = hintsByLineId?.get(line.id) ?? [];
 					const hasError = hints.some(h => h.hintType === "error");
@@ -695,6 +735,7 @@ function TranscriptView({
 					return (
 						<button
 							key={line.id}
+							data-line-id={line.id}
 							type="button"
 							onClick={() => {
 								if (hasHints) setDrawerLine(line);
