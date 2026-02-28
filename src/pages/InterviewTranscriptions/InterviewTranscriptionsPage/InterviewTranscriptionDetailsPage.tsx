@@ -17,8 +17,14 @@ import { formatDateTime } from "../utils";
 const ERROR_TYPE_MAP = {
 	blunder: <img src="/public/blunder.png" alt="Blunder" title="Blunder: грубая ошибка" className="size-4" />,
 	inaccuracy: (
-		<img src="/public/inaccuracy.png" alt="Inaccuracy" title="Inaccuracy: неточный ответ" className="size-4" />
+		<img src="/public/inaccuracy.png" alt="Inaccuracy" title="Inaccuracy: неточный ответ, можно было чуть лучше" className="size-4" />
 	),
+	missedWin: (
+		<img src="/public/missed-win.png" alt="Missed Win" title="Missed Win: упущенная возможность выделиться" className="size-4" />
+	),
+	mistake: (
+		<img src="/public/mistake.png" alt="Mistake" title="Mistake: ошибка" className="size-4" />
+	)
 };
 /** Maps backend video phases to the VideoPlayer phase prop */
 function toPlayerPhase(p?: string | null): NonNullable<React.ComponentProps<typeof VideoPlayer>["phase"]> {
