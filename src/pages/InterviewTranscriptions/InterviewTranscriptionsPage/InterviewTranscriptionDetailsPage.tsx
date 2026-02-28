@@ -321,6 +321,9 @@ export default function InterviewTranscriptionDetailsPage() {
 	const [playerMode, setPlayerMode] = useState<PlayerMode>("sticky");
 	const [playerOutOfView, setPlayerOutOfView] = useState(false);
 
+	/** Controls which view is shown in the transcript card */
+	const [transcriptViewMode, setTranscriptViewMode] = useState<"detailed" | "summary">("detailed");
+
 	const cachedItem = useMemo(() => {
 		const lists = queryClient.getQueriesData<InterviewTranscriptionResponseDto[]>({
 			queryKey: ["interview-transcriptions"],
@@ -596,8 +599,33 @@ export default function InterviewTranscriptionDetailsPage() {
 					</Card>
 
 					<Card>
-						<CardHeader>
+						<CardHeader className="flex flex-row items-center justify-between gap-2 pb-3">
 							<CardTitle className="text-lg">Готовая транскрибация</CardTitle>
+							{/* View mode toggle */}
+							<div className="inline-flex items-center rounded-lg border bg-muted/50 p-0.5 text-xs">
+								<button
+									type="button"
+									onClick={() => setTranscriptViewMode("detailed")}
+									className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 font-medium transition-colors ${
+										transcriptViewMode === "detailed"
+											? "bg-background text-foreground shadow-sm"
+											: "text-muted-foreground hover:text-foreground"
+									}`}
+								>
+									Подробно
+								</button>
+								<button
+									type="button"
+									onClick={() => setTranscriptViewMode("summary")}
+									className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 font-medium transition-colors ${
+										transcriptViewMode === "summary"
+											? "bg-background text-foreground shadow-sm"
+											: "text-muted-foreground hover:text-foreground"
+									}`}
+								>
+									Кратко
+								</button>
+							</div>
 						</CardHeader>
 						<CardContent className="space-y-3">
 							{textLoading ? (
@@ -611,13 +639,19 @@ export default function InterviewTranscriptionDetailsPage() {
 								</div>
 							) : fullText ? (
 								<>
-									<TranscriptView
-										lines={transcriptLines}
-										hintsByLineId={reportHintsByLineId}
-										onSeek={secs => videoPlayerRef.current?.seekTo(secs)}
-										candidateNameInTranscription={transcriptionReport?.candidate_name_in_transcription}
-										candidateName={transcriptionReport?.candidate_name}
-									/>
+									{/* Pre-render both, toggle visibility */}
+									<div className={transcriptViewMode === "detailed" ? "" : "hidden"}>
+										<TranscriptView
+											lines={transcriptLines}
+											hintsByLineId={reportHintsByLineId}
+											onSeek={secs => videoPlayerRef.current?.seekTo(secs)}
+											candidateNameInTranscription={transcriptionReport?.candidate_name_in_transcription}
+											candidateName={transcriptionReport?.candidate_name}
+										/>
+									</div>
+									<div className={transcriptViewMode === "summary" ? "" : "hidden"}>
+										<TranscriptSummary hints={transcriptionReport?.llm_report_parsed ?? null} />
+									</div>
 								</>
 							) : transcription.transcription_url ? (
 								<div className="text-sm text-muted-foreground">
@@ -661,6 +695,116 @@ export default function InterviewTranscriptionDetailsPage() {
 // ---------------------------------------------------------------------------
 // Transcript rendering
 // ---------------------------------------------------------------------------
+
+/**
+ * A compact summary of all LLM report hints. Groups errors by severity
+ * (blunder → inaccuracy) and lists the topics where mistakes occurred.
+ * Notes and praises are shown as separate counts for quick reference.
+ */
+function TranscriptSummary({ hints }: { hints: LLMReportHint[] | null }) {
+	if (!hints || hints.length === 0) {
+		return (
+			<div className="rounded-lg border bg-muted/30 p-5 text-sm text-muted-foreground">
+				Краткая сводка недоступна — отчёт ещё не готов или не содержит данных.
+			</div>
+		);
+	}
+
+	const errors = hints.filter((h): h is Extract<LLMReportHint, { hintType: "error" }> => h.hintType === "error");
+	const blunders = errors.filter(e => e.errorType === "blunder");
+	const inaccuracies = errors.filter(e => e.errorType === "inaccuracy");
+	const missedWins = errors.filter(e => e.errorType === "missedWin");
+	const mistakes = errors.filter(e => e.errorType === "mistake");
+
+	// Deduplicated list of topics that had errors, in order of first occurrence
+	const errorTopics = Array.from(new Map(errors.map(e => [e.topic.toLowerCase(), e.topic])).values());
+
+	return (
+		<div className="space-y-4">
+			{/* Error severity counters */}
+			<div className="grid grid-cols-2 sm:grid-cols-4 gap-3 items-stretch">
+				<div className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 flex flex-col justify-between min-h-[5rem]">
+					<span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wide my-auto">
+						{ERROR_TYPE_MAP["blunder"]}
+						Критические ошибки
+					</span>
+					<span className="text-2xl font-bold text-destructive tabular-nums mt-2">{blunders.length}</span>
+				</div>
+				<div className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 flex flex-col justify-between min-h-[5rem]">
+					<span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wide my-auto">
+						{ERROR_TYPE_MAP["mistake"]}
+						Серьёзные ошибки
+					</span>
+					<span className="text-2xl font-bold text-destructive tabular-nums mt-2">{mistakes.length}</span>
+				</div>
+				<div className="rounded-lg border border-orange-400/40 bg-orange-50/40 dark:bg-orange-950/20 p-3 flex flex-col justify-between min-h-[5rem]">
+					<span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wide my-auto">
+						{ERROR_TYPE_MAP["missedWin"]}
+						Не идеально
+					</span>
+					<span className="text-2xl font-bold text-orange-600 dark:text-orange-400 tabular-nums mt-2">{missedWins.length}</span>
+				</div>
+				<div className="rounded-lg border border-orange-400/40 bg-orange-50/40 dark:bg-orange-950/20 p-3 flex flex-col justify-between min-h-[5rem]">
+					<span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wide my-auto">
+						{ERROR_TYPE_MAP["inaccuracy"]}
+						Неточности
+					</span>
+					<span className="text-2xl font-bold text-orange-600 dark:text-orange-400 tabular-nums mt-2">{inaccuracies.length}</span>
+				</div>
+			</div>
+
+			{/* Topics with errors */}
+			{errorTopics.length > 0 && (
+				<div className="rounded-lg border bg-card/50 p-4 space-y-2">
+					<p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+						Темы с ошибками ({errorTopics.length})
+					</p>
+					<ul className="space-y-1.5">
+						{errorTopics.map(topic => {
+							const topicErrors = errors.filter(e => e.topic.toLowerCase() === topic.toLowerCase());
+							const topicBlunders = topicErrors.filter(e => e.errorType === "blunder").length;
+							const topicInaccuracies = topicErrors.filter(e => e.errorType === "inaccuracy").length;
+							const topicMissedWins = topicErrors.filter(e => e.errorType === "missedWin").length;
+							const topicMistakes = topicErrors.filter(e => e.errorType === "mistake").length;
+
+							return (
+								<li key={topic} className="flex items-center justify-between gap-2 text-sm">
+									<span className="capitalize">{topic}</span>
+									<span className="flex items-center gap-1.5 shrink-0">
+										{topicBlunders > 0 && (
+											<span className="inline-flex items-center gap-0.5 text-xs font-medium text-destructive">
+												{ERROR_TYPE_MAP["blunder"]}
+												{topicBlunders}
+											</span>
+										)}
+										{topicInaccuracies > 0 && (
+											<span className="inline-flex items-center gap-0.5 text-xs font-medium text-orange-600 dark:text-orange-400">
+												{ERROR_TYPE_MAP["inaccuracy"]}
+												{topicInaccuracies}
+											</span>
+										)}
+										{topicMissedWins > 0 && (
+											<span className="inline-flex items-center gap-0.5 text-xs font-medium text-orange-600 dark:text-orange-400">
+												{ERROR_TYPE_MAP["missedWin"]}
+												{topicMissedWins}
+											</span>
+										)}
+										{topicMistakes > 0 && (
+											<span className="inline-flex items-center gap-0.5 text-xs font-medium text-orange-600 dark:text-orange-400">
+												{ERROR_TYPE_MAP["mistake"]}
+												{topicMistakes}
+											</span>
+										)}
+									</span>
+								</li>
+							);
+						})}
+					</ul>
+				</div>
+			)}
+		</div>
+	);
+}
 
 const SPEAKER_COLORS: Record<string, string> = {
 	SPEAKER_00: "text-blue-600 dark:text-blue-400",
