@@ -9,7 +9,7 @@ export type LLMReportHint =
 			hintType: "error";
 			lineId: number;
 			topic: string;
-			errorType: "blunder" | "inaccuracy";
+			errorType: "blunder" | "inaccuracy" | "missedWin" | "mistake";
 			whyBad: string;
 			howToFix: string;
 	  }
