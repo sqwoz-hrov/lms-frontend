@@ -9,7 +9,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { VideoPlayer, type VideoPlayerHandle } from "@/components/video/VideoPlayer";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, ArrowUpToLine, Loader2, Pin, PinOff, Play } from "lucide-react";
+import { ArrowDown, ArrowLeft, ArrowUpToLine, Loader2, Pin, PinOff, Play } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link, useParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -601,7 +601,16 @@ export default function InterviewTranscriptionDetailsPage() {
 
 					<Card>
 						<CardHeader className="flex flex-row items-center justify-between gap-2 pb-3">
-							<CardTitle className="text-lg">Готовая транскрибация</CardTitle>
+							<div className="flex items-baseline gap-4">
+								<CardTitle className="text-lg">{transcriptViewMode === 'detailed' ? 'Транскрибация с подсветкой ошибок' : 'Сводка по интервью'}</CardTitle>
+								{transcription.transcription_url && (
+									<Button asChild variant="link" size="sm" className="h-auto p-0 text-xs leading-none">
+										<a href={transcription.transcription_url} target="_blank" rel="noreferrer">
+											Скачать транскрибацию<ArrowDown />
+										</a>
+									</Button>
+								)}
+							</div>
 							{/* View mode toggle */}
 							<div className="inline-flex items-center rounded-lg border bg-muted/50 p-0.5 text-xs">
 								<button
@@ -672,21 +681,14 @@ export default function InterviewTranscriptionDetailsPage() {
 									Транскрибация завершена, но ссылка с текстом ещё не готова. Попробуйте обновить страницу позже.
 								</div>
 							)}
-							{transcription.transcription_url && (
-								<Button asChild variant="outline" size="sm">
-									<a href={transcription.transcription_url} target="_blank" rel="noreferrer">
-										Скачать исходный файл
-									</a>
-								</Button>
-							)}
 						</CardContent>
 					</Card>
 
-					<ErrorNavigator
+					{transcriptViewMode === 'detailed' && <ErrorNavigator
 						errorLineIds={errorLineIds}
 						playerMode={playerMode}
 						visible={playerOutOfView && errorLineIds.length > 0}
-					/>
+					/>}
 				</>
 			)}
 		</div>
@@ -734,7 +736,7 @@ function TranscriptSummary({ hints }: { hints: LLMReportHint[] | null }) {
 							<span className="text-2xl font-bold text-destructive tabular-nums mt-2">{blunders.length}</span>
 						</div>
 					</TooltipTrigger>
-					<TooltipContent side="bottom">Blunder — грубая ошибка, серьёзно навредила ответу</TooltipContent>
+					<TooltipContent side="bottom">Как "зевок" в шахматах – грубая ошибка, серьёзно навредившая вашей позиции на собеседовании</TooltipContent>
 				</Tooltip>
 				<Tooltip>
 					<TooltipTrigger asChild>
@@ -746,19 +748,19 @@ function TranscriptSummary({ hints }: { hints: LLMReportHint[] | null }) {
 							<span className="text-2xl font-bold text-destructive tabular-nums mt-2">{mistakes.length}</span>
 						</div>
 					</TooltipTrigger>
-					<TooltipContent side="bottom">Mistake — ошибка, заметно снизила качество ответа</TooltipContent>
+					<TooltipContent side="bottom">Ошибка. Этот вопрос лучше подготовить</TooltipContent>
 				</Tooltip>
 				<Tooltip>
 					<TooltipTrigger asChild>
 						<div className="rounded-lg border border-orange-400/40 bg-orange-50/40 dark:bg-orange-950/20 p-3 flex flex-col justify-between min-h-[5rem] cursor-default">
 							<span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wide my-auto">
 								{ERROR_TYPE_MAP["missedWin"]}
-								Не идеально
+								Не дожал
 							</span>
 							<span className="text-2xl font-bold text-orange-600 dark:text-orange-400 tabular-nums mt-2">{missedWins.length}</span>
 						</div>
 					</TooltipTrigger>
-					<TooltipContent side="bottom">Missed Win — упущенная возможность выделиться</TooltipContent>
+					<TooltipContent side="bottom">Упущенная возможность выделиться</TooltipContent>
 				</Tooltip>
 				<Tooltip>
 					<TooltipTrigger asChild>
@@ -770,7 +772,7 @@ function TranscriptSummary({ hints }: { hints: LLMReportHint[] | null }) {
 							<span className="text-2xl font-bold text-orange-600 dark:text-orange-400 tabular-nums mt-2">{inaccuracies.length}</span>
 						</div>
 					</TooltipTrigger>
-					<TooltipContent side="bottom">Inaccuracy — небольшая неточность, можно было чуть лучше</TooltipContent>
+					<TooltipContent side="bottom">Небольшая неточность, можно было чуть лучше</TooltipContent>
 				</Tooltip>
 			</div>
 
