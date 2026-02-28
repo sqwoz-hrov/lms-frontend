@@ -6,6 +6,7 @@ import { TranscriptionStatusBadge } from "@/components/interview-transcriptions/
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { VideoPlayer, type VideoPlayerHandle } from "@/components/video/VideoPlayer";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, ArrowUpToLine, Loader2, Pin, PinOff, Play } from "lucide-react";
@@ -723,34 +724,54 @@ function TranscriptSummary({ hints }: { hints: LLMReportHint[] | null }) {
 		<div className="space-y-4">
 			{/* Error severity counters */}
 			<div className="grid grid-cols-2 sm:grid-cols-4 gap-3 items-stretch">
-				<div className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 flex flex-col justify-between min-h-[5rem]">
-					<span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wide my-auto">
-						{ERROR_TYPE_MAP["blunder"]}
-						Критические ошибки
-					</span>
-					<span className="text-2xl font-bold text-destructive tabular-nums mt-2">{blunders.length}</span>
-				</div>
-				<div className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 flex flex-col justify-between min-h-[5rem]">
-					<span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wide my-auto">
-						{ERROR_TYPE_MAP["mistake"]}
-						Серьёзные ошибки
-					</span>
-					<span className="text-2xl font-bold text-destructive tabular-nums mt-2">{mistakes.length}</span>
-				</div>
-				<div className="rounded-lg border border-orange-400/40 bg-orange-50/40 dark:bg-orange-950/20 p-3 flex flex-col justify-between min-h-[5rem]">
-					<span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wide my-auto">
-						{ERROR_TYPE_MAP["missedWin"]}
-						Не идеально
-					</span>
-					<span className="text-2xl font-bold text-orange-600 dark:text-orange-400 tabular-nums mt-2">{missedWins.length}</span>
-				</div>
-				<div className="rounded-lg border border-orange-400/40 bg-orange-50/40 dark:bg-orange-950/20 p-3 flex flex-col justify-between min-h-[5rem]">
-					<span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wide my-auto">
-						{ERROR_TYPE_MAP["inaccuracy"]}
-						Неточности
-					</span>
-					<span className="text-2xl font-bold text-orange-600 dark:text-orange-400 tabular-nums mt-2">{inaccuracies.length}</span>
-				</div>
+				<Tooltip>
+					<TooltipTrigger asChild>
+						<div className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 flex flex-col justify-between min-h-[5rem] cursor-default">
+							<span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wide my-auto">
+								{ERROR_TYPE_MAP["blunder"]}
+								Критические ошибки
+							</span>
+							<span className="text-2xl font-bold text-destructive tabular-nums mt-2">{blunders.length}</span>
+						</div>
+					</TooltipTrigger>
+					<TooltipContent side="bottom">Blunder — грубая ошибка, серьёзно навредила ответу</TooltipContent>
+				</Tooltip>
+				<Tooltip>
+					<TooltipTrigger asChild>
+						<div className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 flex flex-col justify-between min-h-[5rem] cursor-default">
+							<span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wide my-auto">
+								{ERROR_TYPE_MAP["mistake"]}
+								Серьёзные ошибки
+							</span>
+							<span className="text-2xl font-bold text-destructive tabular-nums mt-2">{mistakes.length}</span>
+						</div>
+					</TooltipTrigger>
+					<TooltipContent side="bottom">Mistake — ошибка, заметно снизила качество ответа</TooltipContent>
+				</Tooltip>
+				<Tooltip>
+					<TooltipTrigger asChild>
+						<div className="rounded-lg border border-orange-400/40 bg-orange-50/40 dark:bg-orange-950/20 p-3 flex flex-col justify-between min-h-[5rem] cursor-default">
+							<span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wide my-auto">
+								{ERROR_TYPE_MAP["missedWin"]}
+								Не идеально
+							</span>
+							<span className="text-2xl font-bold text-orange-600 dark:text-orange-400 tabular-nums mt-2">{missedWins.length}</span>
+						</div>
+					</TooltipTrigger>
+					<TooltipContent side="bottom">Missed Win — упущенная возможность выделиться</TooltipContent>
+				</Tooltip>
+				<Tooltip>
+					<TooltipTrigger asChild>
+						<div className="rounded-lg border border-orange-400/40 bg-orange-50/40 dark:bg-orange-950/20 p-3 flex flex-col justify-between min-h-[5rem] cursor-default">
+							<span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wide my-auto">
+								{ERROR_TYPE_MAP["inaccuracy"]}
+								Неточности
+							</span>
+							<span className="text-2xl font-bold text-orange-600 dark:text-orange-400 tabular-nums mt-2">{inaccuracies.length}</span>
+						</div>
+					</TooltipTrigger>
+					<TooltipContent side="bottom">Inaccuracy — небольшая неточность, можно было чуть лучше</TooltipContent>
+				</Tooltip>
 			</div>
 
 			{/* Topics with errors */}
@@ -772,28 +793,48 @@ function TranscriptSummary({ hints }: { hints: LLMReportHint[] | null }) {
 									<span className="capitalize">{topic}</span>
 									<span className="flex items-center gap-1.5 shrink-0">
 										{topicBlunders > 0 && (
-											<span className="inline-flex items-center gap-0.5 text-xs font-medium text-destructive">
-												{ERROR_TYPE_MAP["blunder"]}
-												{topicBlunders}
-											</span>
-										)}
-										{topicInaccuracies > 0 && (
-											<span className="inline-flex items-center gap-0.5 text-xs font-medium text-orange-600 dark:text-orange-400">
-												{ERROR_TYPE_MAP["inaccuracy"]}
-												{topicInaccuracies}
-											</span>
-										)}
-										{topicMissedWins > 0 && (
-											<span className="inline-flex items-center gap-0.5 text-xs font-medium text-orange-600 dark:text-orange-400">
-												{ERROR_TYPE_MAP["missedWin"]}
-												{topicMissedWins}
-											</span>
+											<Tooltip>
+												<TooltipTrigger asChild>
+													<span className="inline-flex items-center gap-0.5 text-xs font-medium text-destructive cursor-default">
+														{ERROR_TYPE_MAP["blunder"]}
+														{topicBlunders}
+													</span>
+												</TooltipTrigger>
+												<TooltipContent>Зевок — ошибка, которая могла стоить интервью</TooltipContent>
+											</Tooltip>
 										)}
 										{topicMistakes > 0 && (
-											<span className="inline-flex items-center gap-0.5 text-xs font-medium text-orange-600 dark:text-orange-400">
-												{ERROR_TYPE_MAP["mistake"]}
-												{topicMistakes}
-											</span>
+											<Tooltip>
+												<TooltipTrigger asChild>
+													<span className="inline-flex items-center gap-0.5 text-xs font-medium text-destructive cursor-default">
+														{ERROR_TYPE_MAP["mistake"]}
+														{topicMistakes}
+													</span>
+												</TooltipTrigger>
+												<TooltipContent>Серьёзная ошибка</TooltipContent>
+											</Tooltip>
+										)}
+										{topicMissedWins > 0 && (
+											<Tooltip>
+												<TooltipTrigger asChild>
+													<span className="inline-flex items-center gap-0.5 text-xs font-medium text-orange-600 dark:text-orange-400 cursor-default">
+														{ERROR_TYPE_MAP["missedWin"]}
+														{topicMissedWins}
+													</span>
+												</TooltipTrigger>
+												<TooltipContent>Упущенная возможность выделиться</TooltipContent>
+											</Tooltip>
+										)}
+										{topicInaccuracies > 0 && (
+											<Tooltip>
+												<TooltipTrigger asChild>
+													<span className="inline-flex items-center gap-0.5 text-xs font-medium text-orange-600 dark:text-orange-400 cursor-default">
+														{ERROR_TYPE_MAP["inaccuracy"]}
+														{topicInaccuracies}
+													</span>
+												</TooltipTrigger>
+												<TooltipContent>Неточный ответ</TooltipContent>
+											</Tooltip>
 										)}
 									</span>
 								</li>
