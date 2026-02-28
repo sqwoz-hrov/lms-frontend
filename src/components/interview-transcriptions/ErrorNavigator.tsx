@@ -1,5 +1,5 @@
 import { ChevronDown, ChevronUp } from "lucide-react";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { PlayerMode } from "@/pages/InterviewTranscriptions/InterviewTranscriptionsPage/InterviewTranscriptionDetailsPage";
 
 export type ErrorNavigatorProps = {
@@ -110,6 +110,25 @@ export function ErrorNavigator({ errorLineIds, playerMode, visible }: ErrorNavig
 		setCurrentIdx(prev);
 		scrollToLine(prev);
 	}, [currentIdx, total, scrollToLine]);
+
+	// Keyboard navigation: ArrowRight → next error, ArrowLeft → previous error
+	useEffect(() => {
+		if (!visible || total === 0) return;
+		const handler = (e: KeyboardEvent) => {
+			// Don't hijack shortcuts when the user is typing in an input/textarea
+			const target = e.target as HTMLElement;
+			if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable) return;
+			if (e.key === "ArrowRight") {
+				e.preventDefault();
+				goNext();
+			} else if (e.key === "ArrowLeft") {
+				e.preventDefault();
+				goPrev();
+			}
+		};
+		window.addEventListener("keydown", handler);
+		return () => window.removeEventListener("keydown", handler);
+	}, [visible, total, goNext, goPrev]);
 
 	if (!visible || total === 0) return null;
 
