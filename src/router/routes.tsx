@@ -18,6 +18,7 @@ import { SubscriptionTierUpsertPage } from "@/pages/Subscription/SubscriptionTie
 import { SettingsPage } from "@/pages/Settings/SettingsPage";
 import { PostUpsertPage } from "@/pages/Posts/PostUpsertPage";
 import { ListPostsPage } from "@/pages/Posts/ListPostsPage";
+import { ViewPostPage } from "@/pages/Posts/ViewPostPage";
 import InterviewTranscriptionsPage from "@/pages/InterviewTranscriptions/InterviewTranscriptionsPage";
 import InterviewTranscriptionDetailsPage from "@/pages/InterviewTranscriptions/InterviewTranscriptionsPage/InterviewTranscriptionDetailsPage";
 import UploadInterviewTranscriptionPage from "@/pages/InterviewTranscriptions/InterviewTranscriptionsPage/UploadInterviewTranscription";
@@ -57,6 +58,7 @@ export function AppRoutes() {
 				{/* приватные роуты */}
 				<Route element={<ProtectedRoute />}>
 					<Route path="/posts" element={<ListPostsPage />} />
+					<Route path="/posts/:id" element={<ViewPostPage />} />
 					<Route path="/materials" element={<ListMaterialsPage />} />
 					<Route path="/materials/:id" element={<ViewMaterial />} />
 					<Route path="/subjects" element={<ListSubjectsPage />} />

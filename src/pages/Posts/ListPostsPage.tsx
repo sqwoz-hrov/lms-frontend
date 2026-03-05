@@ -7,13 +7,27 @@ import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import { CalendarClock, Film, Lock, RefreshCcw } from "lucide-react";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+
+function getPreviewText(markdown: string): string {
+	const noCode = markdown.replace(/```[\s\S]*?```/g, " ");
+	const noInlineCode = noCode.replace(/`[^`]*`/g, " ");
+	const noImages = noInlineCode.replace(/!\[[^\]]*\]\([^)]*\)/g, " ");
+	const noLinks = noImages.replace(/\[([^\]]+)\]\([^)]*\)/g, "$1");
+	const noMd = noLinks.replace(/[>#*_~\-]+/g, " ");
+	return noMd.replace(/\s+/g, " ").trim();
+}
 
 export function ListPostsPage() {
 	const navigate = useNavigate();
 	const { user } = useAuth();
 	const isAdmin = user?.role === "admin";
+	const [expandedPostIds, setExpandedPostIds] = useState<string[]>([]);
+
+	function toggleExpanded(postId: string) {
+		setExpandedPostIds(prev => (prev.includes(postId) ? prev.filter(id => id !== postId) : [...prev, postId]));
+	}
 
 	const {
 		data: posts,
@@ -75,6 +89,8 @@ export function ListPostsPage() {
 					{sorted.map(post => {
 						const isLocked = Boolean(post.locked_preview);
 						const formattedDate = new Date(post.created_at).toLocaleString();
+						const isExpanded = expandedPostIds.includes(post.id);
+						const previewText = getPreviewText(post.markdown_content);
 
 						return (
 							<Card
@@ -91,10 +107,14 @@ export function ListPostsPage() {
 											</Button>
 										)}
 									</div>
-									<CardTitle className="text-2xl font-semibold leading-snug tracking-tight">{post.title}</CardTitle>
+									<CardTitle className="text-2xl font-semibold leading-snug tracking-tight">
+										<Link className="hover:underline underline-offset-4" to={`/posts/${post.id}`}>
+											{post.title}
+										</Link>
+									</CardTitle>
 								</CardHeader>
 								<CardContent className="relative z-10 space-y-5 pt-0 pb-6">
-									{isLocked && post.locked_preview?.has_video && (
+									{isExpanded && isLocked && post.locked_preview?.has_video && (
 										<div className="flex flex-wrap items-center gap-3 rounded-2xl border border-amber-200/70 bg-amber-50/80 px-4 py-3 text-sm text-amber-900">
 											<Film className="h-5 w-5" />
 											<span className="flex-1">
@@ -106,7 +126,8 @@ export function ListPostsPage() {
 										</div>
 									)}
 
-									{isLocked ? (
+									{isExpanded ? (
+										isLocked ? (
 										<div className="space-y-6 rounded-2xl border border-dashed border-rose-400/40 bg-rose-100/20 p-6 backdrop-blur">
 											<div className="relative overflow-hidden rounded-xl border border-rose-200/70 bg-white/60 p-5">
 												<div
@@ -136,9 +157,38 @@ export function ListPostsPage() {
 												</Button>
 											</div>
 										</div>
+										) : (
+											<MarkdownRenderer markdown={post.markdown_content} mode="full" />
+										)
 									) : (
-										<MarkdownRenderer markdown={post.markdown_content} mode="full" />
+										<div className="space-y-2">
+											<p
+												className="text-sm text-muted-foreground"
+												style={{
+													display: "-webkit-box",
+													WebkitLineClamp: 3,
+													WebkitBoxOrient: "vertical",
+													overflow: "hidden",
+												}}
+											>
+												{previewText || "Контент поста доступен после раскрытия."}
+											</p>
+											{isLocked && (
+												<div className="flex items-center gap-2 text-xs text-muted-foreground">
+													<Lock className="h-3.5 w-3.5 text-rose-500" />
+													<span>Часть контента закрыта подпиской.</span>
+												</div>
+											)}
+										</div>
 									)}
+									<button
+										type="button"
+										onClick={() => toggleExpanded(post.id)}
+										className="w-fit text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground"
+										aria-expanded={isExpanded}
+									>
+										{isExpanded ? "Свернуть" : "Развернуть"}
+									</button>
 
 									<div className="flex items-center gap-2 text-xs text-muted-foreground">
 										<CalendarClock className="h-3.5 w-3.5" />
