@@ -50,7 +50,6 @@ export function ListPostsPage() {
 			<div className="mb-6 flex flex-wrap items-center justify-between gap-3">
 				<div>
 					<h1 className="text-2xl font-semibold tracking-tight">Посты</h1>
-					<p className="text-sm text-muted-foreground">Новости и обновления курсов для подписчиков.</p>
 				</div>
 				<div className="flex items-center gap-2">
 					<Button
