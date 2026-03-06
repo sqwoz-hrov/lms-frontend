@@ -135,7 +135,7 @@ export function SignupPage() {
 		}
 		await finishOtp(emailForOtp, numericOtp, { flow: "signup" });
 		clearSignupProgress();
-		navigate("/materials");
+		navigate("/");
 	}
 
 	function handleBotConfirmed() {

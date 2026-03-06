@@ -24,8 +24,7 @@ export function LoginPage() {
 
 	async function handleOtpSubmit(otp: string) {
 		await finishOtp(email, Number(otp));
-		// после успешного логина можно редиректнуть на главную
-		navigate("/materials");
+		navigate("/");
 	}
 
 	return (

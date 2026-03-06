@@ -16,6 +16,7 @@ import { SubscriptionPage } from "@/pages/Subscription/SubscriptionPage";
 import { ListSubscriptionTiersPage } from "@/pages/Subscription/ListSubscriptionTiersPage";
 import { SubscriptionTierUpsertPage } from "@/pages/Subscription/SubscriptionTierUpsertPage";
 import { SettingsPage } from "@/pages/Settings/SettingsPage";
+import { HomePage } from "@/pages/Home/HomePage";
 import { PostUpsertPage } from "@/pages/Posts/PostUpsertPage";
 import { ListPostsPage } from "@/pages/Posts/ListPostsPage";
 import { ViewPostPage } from "@/pages/Posts/ViewPostPage";
@@ -41,7 +42,7 @@ export function AppRoutes() {
 				<Route
 					path="/login"
 					element={
-						<PublicOnly to="/tasks">
+						<PublicOnly to="/">
 							<LoginPage />
 						</PublicOnly>
 					}
@@ -49,7 +50,7 @@ export function AppRoutes() {
 				<Route
 					path="/signup"
 					element={
-						<PublicOnly to="/tasks">
+						<PublicOnly to="/">
 							<SignupPage />
 						</PublicOnly>
 					}
@@ -64,6 +65,7 @@ export function AppRoutes() {
 					<Route path="/subjects" element={<ListSubjectsPage />} />
 					<Route path="/subscription" element={<SubscriptionPage />} />
 					<Route path="/settings" element={<SettingsPage />} />
+					<Route path="/home" element={<HomePage />} />
 					<Route path="/interviews/upload" element={<UploadInterviewTranscriptionPage />} />
 					<Route path="/interviews/progress-view" element={<InterviewTranscriptionsPage />} />
 				</Route>

@@ -1,6 +1,7 @@
 // src/api/usersApi.ts
 import apiClient from "./client";
 import type { SubscriptionTierResponseDto } from "./subscriptionTiersApi";
+import type { UserSettingsDto } from "./userSettingsApi";
 
 export type AskLoginDto = {
 	email: string;
@@ -44,6 +45,7 @@ export type UserResponse = {
 	active_until?: string | null;
 	is_billable?: boolean;
 	is_archived?: boolean;
+	settings: UserSettingsDto;
 };
 
 type OkWithTtls = {
