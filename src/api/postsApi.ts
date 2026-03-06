@@ -1,4 +1,5 @@
 // api/postsApi.ts — CRUD wrapper for /posts
+import axios from "axios";
 import apiClient from "./client";
 
 // ===== Types (из OpenAPI) =====
@@ -96,12 +97,19 @@ export async function listPosts(params?: ListPostsParams): Promise<PostListRespo
 }
 
 /**
- * Временный helper до появления /posts/:id
- * Реализовано через list()+find(). Вернёт null, если не найден.
+ * Получает пост по id
+ * GET /posts/:id
  */
 export async function getPostById(id: string): Promise<PostResponseDto | null> {
-	const response = await listPosts();
-	return response.items.find(p => p.id === id) ?? null;
+	try {
+		const res = await apiClient.get<PostResponseDto>(`${POSTS}/${id}`);
+		return res.data;
+	} catch (error) {
+		if (axios.isAxiosError(error) && error.response?.status === 404) {
+			return null;
+		}
+		throw error;
+	}
 }
 
 export async function openPostForTiers(id: string, data: OpenPostForTiersDto): Promise<Record<string, unknown>> {
