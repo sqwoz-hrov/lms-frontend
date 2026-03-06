@@ -77,7 +77,7 @@ export function ViewPostPage() {
 	if (!id) {
 		return (
 			<div className="min-h-[60vh] grid place-items-center text-muted-foreground">
-				Некорректный адрес страницы: отсутствует id поста.
+				Упс! Пост не найден. Вероятно, вы перешли по некорректной ссылке или пост был удалён
 			</div>
 		);
 	}
