@@ -176,7 +176,7 @@ export function ViewPostPage() {
 						<>
 							{hasMarkdown && (
 								<article className="prose max-w-none prose-headings:scroll-mt-24">
-									<MarkdownRenderer markdown={post.markdown_content} mode="full" />
+									<MarkdownRenderer markdown={post.markdown_content ?? ""} mode="full" />
 								</article>
 							)}
 							{hasVideo && (

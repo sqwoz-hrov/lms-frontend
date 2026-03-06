@@ -10,6 +10,19 @@ export function HomeGate() {
 		return <Navigate to="/login" replace />;
 	}
 
-	const defaultPath = user.role === "subscriber" ? "/materials" : "/tasks";
+	const preferredHomepage = user.settings?.homepage;
+
+	const defaultPath =
+		preferredHomepage === "posts"
+			? "/posts"
+			: preferredHomepage === "home"
+				? "/home"
+				: preferredHomepage === "transcriptions"
+					? user.role === "admin"
+						? "/interview-transcriptions"
+						: "/interviews/progress-view"
+					: user.role === "subscriber"
+						? "/materials"
+						: "/tasks";
 	return <Navigate to={defaultPath} replace />;
 }

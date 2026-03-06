@@ -5,9 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
-import { useQuery } from "@tanstack/react-query";
-import { CalendarClock, Film, Lock, RefreshCcw } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useInfiniteQuery } from "@tanstack/react-query";
+import { ArrowUp, CalendarClock, Film, Lock, RefreshCcw } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 function getPreviewText(markdown: string): string {
@@ -24,26 +24,69 @@ export function ListPostsPage() {
 	const { user } = useAuth();
 	const isAdmin = user?.role === "admin";
 	const [expandedPostIds, setExpandedPostIds] = useState<string[]>([]);
+	const [showGoTopButton, setShowGoTopButton] = useState(false);
 
 	function toggleExpanded(postId: string) {
 		setExpandedPostIds(prev => (prev.includes(postId) ? prev.filter(id => id !== postId) : [...prev, postId]));
 	}
 
+	const loadMoreRef = useRef<HTMLDivElement | null>(null);
+
 	const {
-		data: posts,
+		data,
 		isLoading,
 		isError,
 		isRefetching,
+		isFetchingNextPage,
+		hasNextPage,
+		fetchNextPage,
 		refetch,
-	} = useQuery<PostResponseDto[]>({
+	} = useInfiniteQuery({
 		queryKey: ["posts"],
-		queryFn: () => PostsApi.list(),
+		queryFn: ({ pageParam }) => PostsApi.list({ before: pageParam, limit: 5 }),
+		initialPageParam: undefined as string | undefined,
+		getNextPageParam: lastPage => lastPage.next_cursor,
 		staleTime: 30_000,
 	});
 
-	const sorted = useMemo(() => {
-		return [...(posts ?? [])].sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
-	}, [posts]);
+	useEffect(() => {
+		const target = loadMoreRef.current;
+		if (!target || !hasNextPage) return;
+
+		const observer = new IntersectionObserver(
+			entries => {
+				const [entry] = entries;
+				if (entry?.isIntersecting && hasNextPage && !isFetchingNextPage) {
+					void fetchNextPage();
+				}
+			},
+			{ rootMargin: "300px 0px" },
+		);
+
+		observer.observe(target);
+		return () => observer.disconnect();
+	}, [fetchNextPage, hasNextPage, isFetchingNextPage]);
+
+	useEffect(() => {
+		const onScroll = () => {
+			setShowGoTopButton(window.scrollY > 600);
+		};
+
+		onScroll();
+		window.addEventListener("scroll", onScroll, { passive: true });
+		return () => window.removeEventListener("scroll", onScroll);
+	}, []);
+
+	const sorted = useMemo<PostResponseDto[]>(() => {
+		const items = data?.pages.flatMap(page => page.items) ?? [];
+		const deduped = new Map<string, PostResponseDto>();
+		for (const item of items) {
+			if (!deduped.has(item.id)) {
+				deduped.set(item.id, item);
+			}
+		}
+		return Array.from(deduped.values());
+	}, [data]);
 
 	return (
 		<div className="container mx-auto max-w-6xl px-4 py-6">
@@ -89,7 +132,7 @@ export function ListPostsPage() {
 						const isLocked = Boolean(post.locked_preview);
 						const formattedDate = new Date(post.created_at).toLocaleString();
 						const isExpanded = expandedPostIds.includes(post.id);
-						const previewText = getPreviewText(post.markdown_content);
+						const previewText = getPreviewText(post.markdown_content ?? "");
 
 						return (
 							<Card
@@ -156,8 +199,10 @@ export function ListPostsPage() {
 												</Button>
 											</div>
 										</div>
-										) : (
+										) : post.markdown_content?.trim() ? (
 											<MarkdownRenderer markdown={post.markdown_content} mode="full" />
+										) : (
+											<p className="text-sm text-muted-foreground">В посте нет текстового контента.</p>
 										)
 									) : (
 										<div className="space-y-2">
@@ -197,7 +242,27 @@ export function ListPostsPage() {
 							</Card>
 						);
 					})}
+
+					<div ref={loadMoreRef} className="flex min-h-14 items-center justify-center text-sm text-muted-foreground">
+						{isFetchingNextPage
+							? "Загружаем еще посты..."
+							: hasNextPage
+								? "Прокрутите ниже, чтобы загрузить еще"
+								: "Посты закончились :("}
+					</div>
 				</div>
+			)}
+			{showGoTopButton && (
+				<Button
+					type="button"
+					size="icon"
+					className="fixed bottom-6 right-6 z-50 h-11 w-11 rounded-full shadow-lg"
+					onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+					title="Наверх"
+					aria-label="Наверх"
+				>
+					<ArrowUp className="h-5 w-5" />
+				</Button>
 			)}
 		</div>
 	);

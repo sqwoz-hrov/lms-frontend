@@ -114,7 +114,9 @@ export function useAuth(): UseAuthReturn {
 				await qc.refetchQueries({ queryKey: ["currentUser"] });
 			} catch (e) {
 				const fallbackMessage = options?.flow === "signup" ? "Ошибка при завершении регистрации" : "Ошибка при входе";
-				setActionError(e instanceof Error ? e.message : fallbackMessage);
+				const message = e instanceof Error ? e.message : fallbackMessage;
+				setActionError(message);
+				throw new Error(message);
 			} finally {
 				setActionLoading(false);
 			}
