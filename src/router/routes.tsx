@@ -23,17 +23,22 @@ import { ViewPostPage } from "@/pages/Posts/ViewPostPage";
 import InterviewTranscriptionsPage from "@/pages/InterviewTranscriptions/InterviewTranscriptionsPage";
 import InterviewTranscriptionDetailsPage from "@/pages/InterviewTranscriptions/InterviewTranscriptionsPage/InterviewTranscriptionDetailsPage";
 import UploadInterviewTranscriptionPage from "@/pages/InterviewTranscriptions/InterviewTranscriptionsPage/UploadInterviewTranscription";
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { AdminRoute } from "./components/AdminRoute";
 import { HomeGate } from "./components/HomeGate";
 import { PublicOnly } from "./components/PublicOnly";
 import { NonSubscriberRoute } from "./components/NonSubscriberRoute";
+import { useAuth } from "@/hooks/useAuth";
 
 export function AppRoutes() {
+	const location = useLocation();
+	const { isAuthenticated } = useAuth();
+	const hideNavbar = !isAuthenticated && location.pathname === "/";
+
 	return (
 		<>
-			<Navbar />
+			{!hideNavbar && <Navbar />}
 			<Routes>
 				{/* при заходе на "/" решаем, куда отправить */}
 				<Route path="/" element={<HomeGate />} />

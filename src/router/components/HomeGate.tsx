@@ -1,13 +1,14 @@
 // src/router/components/HomeGate.tsx
 import { Navigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { NotLoggedInHomePage } from "@/pages/Home/NotLoggedInHomePage";
 
 export function HomeGate() {
 	const { user, userLoading } = useAuth();
 
 	if (userLoading) return <p className="text-center p-6">Загрузка...</p>;
 	if (!user) {
-		return <Navigate to="/login" replace />;
+		return <NotLoggedInHomePage />;
 	}
 
 	const preferredHomepage = user.settings?.homepage;
