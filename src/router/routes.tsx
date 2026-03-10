@@ -32,9 +32,8 @@ import { NonSubscriberRoute } from "./components/NonSubscriberRoute";
 import { useAuth } from "@/hooks/useAuth";
 
 export function AppRoutes() {
-	const location = useLocation();
 	const { isAuthenticated } = useAuth();
-	const hideNavbar = !isAuthenticated && location.pathname === "/";
+	const hideNavbar = !isAuthenticated;
 
 	return (
 		<>
