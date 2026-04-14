@@ -1,4 +1,8 @@
-import { InterviewTranscriptionsApi, type InterviewTranscriptionResponseDto } from "@/api/interviewTranscriptionsApi";
+import {
+	InterviewTranscriptionsApi,
+	type InterviewTranscriptionResponseDto,
+	type InterviewTranscriptionStatus,
+} from "@/api/interviewTranscriptionsApi";
 import { interviewTranscriptionsReportApi, type LLMReportHint } from "@/api/interviewTranscriptionsReportApi";
 import { VideosApi } from "@/api/videosApi";
 import { ErrorNavigator } from "@/components/interview-transcriptions/ErrorNavigator";
@@ -61,6 +65,13 @@ type RetryQuotesSessionSnapshot = {
 	retryVideoId: string | null;
 	retryCompletedId: string | null;
 };
+
+const FINAL_TRANSCRIPTION_STATUSES = new Set<InterviewTranscriptionStatus>(["done", "failed", "cancelled"]);
+
+function isFinalTranscriptionStatus(status?: InterviewTranscriptionStatus | null): boolean {
+	if (!status) return false;
+	return FINAL_TRANSCRIPTION_STATUSES.has(status);
+}
 
 // ---------------------------------------------------------------------------
 // SRT parsing
@@ -375,7 +386,7 @@ export default function InterviewTranscriptionDetailsPage() {
 			return InterviewTranscriptionsApi.getById(transcriptionId);
 		},
 		initialData: cachedItem,
-		refetchInterval: query => (query.state.data?.status === "done" ? false : 10_000),
+		refetchInterval: query => (isFinalTranscriptionStatus(query.state.data?.status) ? false : 10_000),
 	});
 
 	// TODO: get the SSE event about the report being saved and add to "enabled" condition
@@ -412,7 +423,7 @@ export default function InterviewTranscriptionDetailsPage() {
 		queryKey: ["interview-transcriptions", "retry-watch", "id", retryTranscriptionId],
 		enabled: isRetrySessionActive && Boolean(retryTranscriptionId),
 		queryFn: () => InterviewTranscriptionsApi.getById(retryTranscriptionId!),
-		refetchInterval: query => (query.state.data?.status === "done" ? false : 5_000),
+		refetchInterval: query => (isFinalTranscriptionStatus(query.state.data?.status) ? false : 5_000),
 		retry: 1,
 	});
 
@@ -420,7 +431,7 @@ export default function InterviewTranscriptionDetailsPage() {
 		queryKey: ["interview-transcriptions", "retry-watch", "video", retryVideoId],
 		enabled: isRetrySessionActive && Boolean(retryVideoId),
 		queryFn: () => InterviewTranscriptionsApi.getByVideoId(retryVideoId!),
-		refetchInterval: query => (query.state.data?.status === "done" ? false : 5_000),
+		refetchInterval: query => (isFinalTranscriptionStatus(query.state.data?.status) ? false : 5_000),
 		retry: 1,
 	});
 
@@ -445,9 +456,11 @@ export default function InterviewTranscriptionDetailsPage() {
 
 
 	const isRestartActionPending = restartMutation.isPending || isRetrySessionActive;
-	const controlsLocked = isRestartActionPending || transcription?.status !== "done";
-	const analysisViewLocked = transcription?.status === "processing";
-	const isAutoRefreshActive = transcription?.status !== "done" || isRetrySessionActive;
+	const isFinalStatus = isFinalTranscriptionStatus(transcription?.status);
+	const controlsLocked = isRestartActionPending || !isFinalStatus;
+	const analysisViewLocked = !isFinalStatus;
+	const isAutoRefreshActive = !isFinalStatus || isRetrySessionActive;
+	const showRefreshButton = !isFinalStatus || isRetrySessionActive;
 
 	useEffect(() => {
 		if (!transcriptionId) {
@@ -557,7 +570,7 @@ export default function InterviewTranscriptionDetailsPage() {
 	useEffect(() => {
 		if (!isRetrySessionActive || retryCompletedId) return;
 		const tracked = retryTrackingByIdQuery.data ?? retryTrackingByVideoQuery.data;
-		if (!tracked || tracked.status !== "done") return;
+		if (!tracked || !isFinalTranscriptionStatus(tracked.status)) return;
 		const completedId = normalizeId(tracked.id) ?? retryTranscriptionId;
 		if (!completedId) return;
 		setRetryCompletedId(completedId);
@@ -580,6 +593,7 @@ export default function InterviewTranscriptionDetailsPage() {
 	const [fullText, setFullText] = useState<string | null>(null);
 	const [textError, setTextError] = useState<string | null>(null);
 	const [textLoading, setTextLoading] = useState(false);
+	const showTranscriptViewSwitch = Boolean(fullText || transcriptionReport);
 
 	/** Parsed SRT lines – derived from fullText, kept in memory for report mapping */
 	const transcriptLines = useMemo<TranscriptLine[]>(() => {
@@ -704,21 +718,17 @@ export default function InterviewTranscriptionDetailsPage() {
 			) : (
 				<>
 					<Card>
-						<CardHeader className="flex flex-wrap items-center justify-between gap-2 pb-3">
+						<CardHeader className="space-y-3 pb-3">
 							<CardTitle className="text-xl">{"Транскрибация интервью " + (videoDetails?.filename ?? "")}</CardTitle>
-							<div className="space-y-2">
-								<div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+							<div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+								<span>
+									Старт расшифровки: <span className="text-foreground">{formatDateTime(transcription.created_at)}</span>
+								</span>
+								{transcription.video?.created_at && (
 									<span>
-										Старт расшифровки:{" "}
-										<span className="text-foreground">{formatDateTime(transcription.created_at)}</span>
+										Видео загружено: <span className="text-foreground">{formatDateTime(transcription.video.created_at)}</span>
 									</span>
-									{transcription.video?.created_at && (
-										<span>
-											Видео загружено:{" "}
-											<span className="text-foreground">{formatDateTime(transcription.video.created_at)}</span>
-										</span>
-									)}
-								</div>
+								)}
 							</div>
 							<div className="flex flex-wrap items-center gap-2">
 								<TranscriptionStatusBadge status={transcription.status} />
@@ -737,23 +747,29 @@ export default function InterviewTranscriptionDetailsPage() {
 												<CircleHelp className="size-4" />
 											</span>
 										</TooltipTrigger>
-										<TooltipContent side="bottom">Ожидайте завершения обработки</TooltipContent>
+										<TooltipContent side="bottom">Кнопка станет активной, когда текущая обработка завершится</TooltipContent>
 									</Tooltip>
 								)}
-								<Button
-									variant="outline"
-									size="sm"
-									onClick={() => transcriptionQuery.refetch()}
-									disabled={transcriptionQuery.isFetching}
-									className={isAutoRefreshActive ? "refresh-attention-button" + (transcriptionQuery.isFetching ? " frozen" : "") : undefined}
-								>
-									{transcriptionQuery.isFetching && <Loader2 className="mr-2 size-4 animate-spin" />}
-									Обновить
-								</Button>
+								{showRefreshButton && (
+									<Button
+										variant="outline"
+										size="sm"
+										onClick={() => transcriptionQuery.refetch()}
+										disabled={transcriptionQuery.isFetching}
+										className={
+											isAutoRefreshActive
+												? "refresh-attention-button" + (transcriptionQuery.isFetching ? " frozen" : "")
+												: undefined
+										}
+									>
+										{transcriptionQuery.isFetching && <Loader2 className="mr-2 size-4 animate-spin" />}
+										Обновить
+									</Button>
+								)}
 							</div>
 							<div className="flex items-center gap-2">
 								{videoDetailsLoading && (
-									<span className="text-xs text-muted-foreground flex items-center gap-1">
+									<span className="flex items-center gap-1 text-xs text-muted-foreground">
 										<Loader2 className="size-3 animate-spin" /> Загрузка ссылки…
 									</span>
 								)}
@@ -793,34 +809,35 @@ export default function InterviewTranscriptionDetailsPage() {
 									</Button>
 								)}
 							</div>
-							{/* View mode toggle */}
-							<div className="inline-flex items-center rounded-lg border bg-muted/50 p-0.5 text-xs">
-								<button
-									type="button"
-									disabled={analysisViewLocked}
-									onClick={() => setTranscriptViewMode("detailed")}
-									className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 font-medium transition-colors ${
-										transcriptViewMode === "detailed"
-											? "bg-background text-foreground shadow-sm"
-											: "text-muted-foreground hover:text-foreground"
-									} ${analysisViewLocked ? "cursor-not-allowed opacity-50" : ""}`}
-								>
-									Подробно
-								</button>
-								<button
-									type="button"
-									disabled={analysisViewLocked}
-									onClick={() => setTranscriptViewMode("summary")}
-									className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 font-medium transition-colors ${
-										transcriptViewMode === "summary"
-											? "bg-background text-foreground shadow-sm"
-											: "text-muted-foreground hover:text-foreground"
-									} ${analysisViewLocked ? "cursor-not-allowed opacity-50" : ""}`}
-								>
-									Кратко
-								</button>
-							</div>
-							{analysisViewLocked && (
+							{showTranscriptViewSwitch && (
+								<div className="inline-flex items-center rounded-lg border bg-muted/50 p-0.5 text-xs">
+									<button
+										type="button"
+										disabled={analysisViewLocked}
+										onClick={() => setTranscriptViewMode("detailed")}
+										className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 font-medium transition-colors ${
+											transcriptViewMode === "detailed"
+												? "bg-background text-foreground shadow-sm"
+												: "text-muted-foreground hover:text-foreground"
+										} ${analysisViewLocked ? "cursor-not-allowed opacity-50" : ""}`}
+									>
+										Подробно
+									</button>
+									<button
+										type="button"
+										disabled={analysisViewLocked}
+										onClick={() => setTranscriptViewMode("summary")}
+										className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 font-medium transition-colors ${
+											transcriptViewMode === "summary"
+												? "bg-background text-foreground shadow-sm"
+												: "text-muted-foreground hover:text-foreground"
+										} ${analysisViewLocked ? "cursor-not-allowed opacity-50" : ""}`}
+									>
+										Кратко
+									</button>
+								</div>
+							)}
+							{analysisViewLocked && showTranscriptViewSwitch && (
 								<Tooltip>
 									<TooltipTrigger asChild>
 										<span
@@ -843,7 +860,15 @@ export default function InterviewTranscriptionDetailsPage() {
 								</div>
 							) : textError ? (
 								<div className="rounded-md border border-destructive/50 bg-destructive/5 p-3 text-sm text-destructive">
-									{textError}
+									Не получилось загрузить текст. Попробуйте еще раз чуть позже.
+								</div>
+							) : transcription.status === "failed" ? (
+								<div className="rounded-md border border-destructive/50 bg-destructive/5 p-3 text-sm text-destructive">
+									Упс, при расшифровке произошла ошибка. Нажмите "Перезапустить", и попробуем снова.
+								</div>
+							) : transcription.status === "cancelled" ? (
+								<div className="rounded-md border bg-muted/40 p-3 text-sm text-muted-foreground">
+									Расшифровку остановили. Если хотите продолжить, нажмите "Перезапустить".
 								</div>
 							) : fullText ? (
 								<>
@@ -874,11 +899,12 @@ export default function InterviewTranscriptionDetailsPage() {
 									</a>
 									.
 								</div>
-							) : (
+								) : transcription.status === "done" ? (
 								<div className="text-sm text-muted-foreground">
-									Транскрибация завершена, но ссылка с текстом ещё не готова. Попробуйте обновить страницу позже.
+										Расшифровка уже готова, но текст пока не подтянулся. Попробуйте обновить страницу чуть позже.
 								</div>
-							)}
+								) : null}
+
 						</CardContent>
 					</Card>)}
 
