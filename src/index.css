@@ -139,3 +139,55 @@
   margin-top: 0.25rem;
   margin-bottom: 0.25rem;
 }
+
+
+
+@keyframes refresh-ring-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 hsl(var(--primary) / 0.12), 0 0 0 1px hsl(var(--primary) / 0.32);
+  }
+  50% {
+    box-shadow: 0 0 0 3px hsl(var(--primary) / 0.2), 0 0 18px 2px hsl(var(--primary) / 0.32);
+  }
+}
+
+@property --angle {
+  syntax: "<angle>";
+  initial-value: 0turn;
+  inherits: true;
+}
+
+@keyframes rotate {
+  to {
+    --angle: 1turn;
+  }
+}
+
+@layer utilities {
+  .refresh-attention-button {
+    position: relative;
+    isolation: isolate;
+    border-color: hsl(var(--primary) / 0.55);
+  }
+
+
+  .refresh-attention-button {
+    color: black;
+    padding: 0.5em 1.25em;
+    border-radius: 100vw;
+
+    border: 2px solid transparent;
+    background: linear-gradient(white 0 0) padding-box,
+      conic-gradient(from var(--angle), navy, purple, orange, purple, blue, lightblue, blue)
+        border-box;
+
+    animation: rotate 3s linear infinite;
+    animation-play-state: running;
+  }
+
+  .refresh-attention-button .frozen {
+    animation-play-state: paused;
+  }
+
+}

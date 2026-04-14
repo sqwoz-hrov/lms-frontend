@@ -8,11 +8,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { VideoPlayer, type VideoPlayerHandle } from "@/components/video/VideoPlayer";
+import { QUOTES, estimateDisplayDurationMs } from "./lib";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowDown, ArrowLeft, ArrowUpToLine, Loader2, Pin, PinOff, Play } from "lucide-react";
+import { ArrowDown, ArrowLeft, ArrowUpToLine, CircleHelp, Loader2, Pin, PinOff, Play } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
+import { QuotesPanel } from "./components/AfterUpload/QuotesPanel";
 import { formatDateTime } from "../utils";
 
 const ERROR_TYPE_MAP = {
@@ -27,6 +29,7 @@ const ERROR_TYPE_MAP = {
 		<img src="/public/mistake.png" alt="Mistake" title="Mistake: ошибка" className="size-4" />
 	)
 };
+
 /** Maps backend video phases to the VideoPlayer phase prop */
 function toPlayerPhase(p?: string | null): NonNullable<React.ComponentProps<typeof VideoPlayer>["phase"]> {
 	switch (p) {
@@ -43,6 +46,21 @@ function toPlayerPhase(p?: string | null): NonNullable<React.ComponentProps<type
 			return "receiving";
 	}
 }
+
+function normalizeId(value: string | null | undefined): string | null {
+	if (!value) return null;
+	const trimmed = value.trim();
+	if (!trimmed || trimmed === "undefined" || trimmed === "null") return null;
+	return trimmed;
+}
+
+type RetryQuotesSessionSnapshot = {
+	isRetryQuotesVisible: boolean;
+	activeRetryQuoteIndex: number;
+	retryTranscriptionId: string | null;
+	retryVideoId: string | null;
+	retryCompletedId: string | null;
+};
 
 // ---------------------------------------------------------------------------
 // SRT parsing
@@ -314,6 +332,7 @@ function VideoPlayerContainer({
 
 export default function InterviewTranscriptionDetailsPage() {
 	const params = useParams<{ id: string }>();
+	const navigate = useNavigate();
 	const transcriptionId = params.id ?? "";
 	const queryClient = useQueryClient();
 	const videoPlayerRef = useRef<VideoPlayerHandle>(null);
@@ -324,6 +343,15 @@ export default function InterviewTranscriptionDetailsPage() {
 
 	/** Controls which view is shown in the transcript card */
 	const [transcriptViewMode, setTranscriptViewMode] = useState<"detailed" | "summary">("detailed");
+	const [isRetryQuotesVisible, setIsRetryQuotesVisible] = useState(false);
+	const [activeRetryQuoteIndex, setActiveRetryQuoteIndex] = useState(0);
+	const [retryTranscriptionId, setRetryTranscriptionId] = useState<string | null>(null);
+	const [retryVideoId, setRetryVideoId] = useState<string | null>(null);
+	const [retryCompletedId, setRetryCompletedId] = useState<string | null>(null);
+	const [retrySessionRestored, setRetrySessionRestored] = useState(false);
+	const retrySessionStorageKey = useMemo(() => `interview-transcription-retry-session:${transcriptionId}`, [transcriptionId]);
+
+	const isRetrySessionActive = isRetryQuotesVisible && !retryCompletedId;
 
 	const cachedItem = useMemo(() => {
 		const lists = queryClient.getQueriesData<InterviewTranscriptionResponseDto[]>({
@@ -380,6 +408,22 @@ export default function InterviewTranscriptionDetailsPage() {
 		retry: 1,
 	});
 
+	const retryTrackingByIdQuery = useQuery({
+		queryKey: ["interview-transcriptions", "retry-watch", "id", retryTranscriptionId],
+		enabled: isRetrySessionActive && Boolean(retryTranscriptionId),
+		queryFn: () => InterviewTranscriptionsApi.getById(retryTranscriptionId!),
+		refetchInterval: query => (query.state.data?.status === "done" ? false : 5_000),
+		retry: 1,
+	});
+
+	const retryTrackingByVideoQuery = useQuery({
+		queryKey: ["interview-transcriptions", "retry-watch", "video", retryVideoId],
+		enabled: isRetrySessionActive && Boolean(retryVideoId),
+		queryFn: () => InterviewTranscriptionsApi.getByVideoId(retryVideoId!),
+		refetchInterval: query => (query.state.data?.status === "done" ? false : 5_000),
+		retry: 1,
+	});
+
 	const restartMutation = useMutation({
 		mutationFn: async () => {
 			if (!transcriptionId) throw new Error("Не указан идентификатор расшифровки");
@@ -395,15 +439,143 @@ export default function InterviewTranscriptionDetailsPage() {
 				},
 			);
 			queryClient.invalidateQueries({ queryKey: ["interview-transcriptions"] });
-			toast.success("Расшифровка перезапущена", {
-				description: "Мы повторно запустили расшифровку этого интервью.",
-			});
-		},
-		onError: error => {
-			const description = error instanceof Error ? error.message : "Не удалось выполнить запрос. Попробуйте ещё раз.";
-			toast.error("Не удалось перезапустить расшифровку", { description });
 		},
 	});
+
+
+
+	const isRestartActionPending = restartMutation.isPending || isRetrySessionActive;
+	const controlsLocked = isRestartActionPending || transcription?.status !== "done";
+	const analysisViewLocked = transcription?.status === "processing";
+	const isAutoRefreshActive = transcription?.status !== "done" || isRetrySessionActive;
+
+	useEffect(() => {
+		if (!transcriptionId) {
+			setRetrySessionRestored(true);
+			return;
+		}
+
+		try {
+			const raw = window.sessionStorage.getItem(retrySessionStorageKey);
+			if (raw) {
+				const parsed = JSON.parse(raw) as Partial<RetryQuotesSessionSnapshot>;
+				setIsRetryQuotesVisible(Boolean(parsed.isRetryQuotesVisible));
+				setActiveRetryQuoteIndex(
+					typeof parsed.activeRetryQuoteIndex === "number" && Number.isFinite(parsed.activeRetryQuoteIndex)
+						? parsed.activeRetryQuoteIndex
+						: 0,
+				);
+				setRetryTranscriptionId(normalizeId(parsed.retryTranscriptionId));
+				setRetryVideoId(normalizeId(parsed.retryVideoId));
+				setRetryCompletedId(normalizeId(parsed.retryCompletedId));
+			}
+		} catch {
+			window.sessionStorage.removeItem(retrySessionStorageKey);
+		}
+
+		setRetrySessionRestored(true);
+	}, [retrySessionStorageKey, transcriptionId]);
+
+	useEffect(() => {
+		if (!retrySessionRestored) return;
+
+		const hasAnyState =
+			isRetryQuotesVisible ||
+			retryTranscriptionId != null ||
+			retryVideoId != null ||
+			retryCompletedId != null;
+
+		if (!hasAnyState) {
+			window.sessionStorage.removeItem(retrySessionStorageKey);
+			return;
+		}
+
+		const snapshot: RetryQuotesSessionSnapshot = {
+			isRetryQuotesVisible,
+			activeRetryQuoteIndex,
+			retryTranscriptionId,
+			retryVideoId,
+			retryCompletedId,
+		};
+		window.sessionStorage.setItem(retrySessionStorageKey, JSON.stringify(snapshot));
+	}, [
+		retrySessionRestored,
+		retrySessionStorageKey,
+		isRetryQuotesVisible,
+		activeRetryQuoteIndex,
+		retryTranscriptionId,
+		retryVideoId,
+		retryCompletedId,
+	]);
+
+	const resetRetrySession = useCallback(() => {
+		setIsRetryQuotesVisible(false);
+		setActiveRetryQuoteIndex(0);
+		setRetryTranscriptionId(null);
+		setRetryVideoId(null);
+		setRetryCompletedId(null);
+		window.sessionStorage.removeItem(retrySessionStorageKey);
+	}, [retrySessionStorageKey]);
+
+	const handleRestartFullFlow = useCallback(async () => {
+		try {
+			const data = await restartMutation.mutateAsync();
+			const nextVideoId = normalizeId(data.video_id) ?? normalizeId(videoId);
+			const nextTranscriptionId = normalizeId(data.id);
+			if (!nextVideoId) {
+				throw new Error("Не удалось определить видео для повторной расшифровки");
+			}
+
+			setActiveRetryQuoteIndex(0);
+			setRetryCompletedId(null);
+			setRetryVideoId(nextVideoId);
+			setRetryTranscriptionId(nextTranscriptionId);
+			setIsRetryQuotesVisible(true);
+			toast.success("Повторная расшифровка запущена");
+		} catch (error) {
+			const description = error instanceof Error ? error.message : "Не удалось выполнить запрос. Попробуйте ещё раз.";
+			toast.error("Не удалось перезапустить расшифровку", { description });
+		}
+	}, [restartMutation, videoId]);
+
+	useEffect(() => {
+		if (!isRetrySessionActive) return;
+		const currentQuote = QUOTES[activeRetryQuoteIndex] ?? "";
+		const timer = window.setTimeout(() => {
+			setActiveRetryQuoteIndex(prev => (prev + 1) % QUOTES.length);
+		}, estimateDisplayDurationMs(currentQuote));
+		return () => window.clearTimeout(timer);
+	}, [activeRetryQuoteIndex, isRetrySessionActive]);
+
+	useEffect(() => {
+		if (!isRetrySessionActive) return;
+		const discoveredId = normalizeId(retryTrackingByVideoQuery.data?.id);
+		if (!discoveredId || discoveredId === retryTranscriptionId) return;
+		setRetryTranscriptionId(discoveredId);
+	}, [isRetrySessionActive, retryTrackingByVideoQuery.data?.id, retryTranscriptionId]);
+
+	useEffect(() => {
+		if (!isRetrySessionActive || retryCompletedId) return;
+		const tracked = retryTrackingByIdQuery.data ?? retryTrackingByVideoQuery.data;
+		if (!tracked || tracked.status !== "done") return;
+		const completedId = normalizeId(tracked.id) ?? retryTranscriptionId;
+		if (!completedId) return;
+		setRetryCompletedId(completedId);
+	}, [
+		isRetrySessionActive,
+		retryCompletedId,
+		retryTrackingByIdQuery.data,
+		retryTrackingByVideoQuery.data,
+		retryTranscriptionId,
+	]);
+
+	useEffect(() => {
+		if (!retryCompletedId) return;
+		if (retryCompletedId !== transcriptionId) {
+			navigate(`/interview-transcriptions/${retryCompletedId}`, { replace: true });
+		}
+		resetRetrySession();
+	}, [navigate, resetRetrySession, retryCompletedId, transcriptionId]);
 
 	const [fullText, setFullText] = useState<string | null>(null);
 	const [textError, setTextError] = useState<string | null>(null);
@@ -550,20 +722,30 @@ export default function InterviewTranscriptionDetailsPage() {
 							</div>
 							<div className="flex flex-wrap items-center gap-2">
 								<TranscriptionStatusBadge status={transcription.status} />
-								<Button
-									variant="outline"
-									size="sm"
-									onClick={() => restartMutation.mutate()}
-									disabled={restartMutation.isPending}
-								>
-									{restartMutation.isPending && <Loader2 className="mr-2 size-4 animate-spin" />}
+								<Button variant="outline" size="sm" disabled={controlsLocked} onClick={() => void handleRestartFullFlow()}>
+									{isRestartActionPending && <Loader2 className="mr-2 size-4 animate-spin" />}
 									Перезапустить
 								</Button>
+								{controlsLocked && (
+									<Tooltip>
+										<TooltipTrigger asChild>
+											<span
+												role="img"
+												aria-label="Причина блокировки действий"
+												className="inline-flex items-center text-muted-foreground"
+											>
+												<CircleHelp className="size-4" />
+											</span>
+										</TooltipTrigger>
+										<TooltipContent side="bottom">Ожидайте завершения обработки</TooltipContent>
+									</Tooltip>
+								)}
 								<Button
 									variant="outline"
 									size="sm"
 									onClick={() => transcriptionQuery.refetch()}
 									disabled={transcriptionQuery.isFetching}
+									className={isAutoRefreshActive ? "refresh-attention-button" + (transcriptionQuery.isFetching ? " frozen" : "") : undefined}
 								>
 									{transcriptionQuery.isFetching && <Loader2 className="mr-2 size-4 animate-spin" />}
 									Обновить
@@ -599,7 +781,7 @@ export default function InterviewTranscriptionDetailsPage() {
 						</CardContent>
 					</Card>
 
-					<Card>
+					{!isRetrySessionActive && (<Card>
 						<CardHeader className="flex flex-row items-center justify-between gap-2 pb-3">
 							<div className="flex items-baseline gap-4">
 								<CardTitle className="text-lg">{transcriptViewMode === 'detailed' ? 'Транскрибация с подсветкой ошибок' : 'Сводка по интервью'}</CardTitle>
@@ -615,27 +797,43 @@ export default function InterviewTranscriptionDetailsPage() {
 							<div className="inline-flex items-center rounded-lg border bg-muted/50 p-0.5 text-xs">
 								<button
 									type="button"
+									disabled={analysisViewLocked}
 									onClick={() => setTranscriptViewMode("detailed")}
 									className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 font-medium transition-colors ${
 										transcriptViewMode === "detailed"
 											? "bg-background text-foreground shadow-sm"
 											: "text-muted-foreground hover:text-foreground"
-									}`}
+									} ${analysisViewLocked ? "cursor-not-allowed opacity-50" : ""}`}
 								>
 									Подробно
 								</button>
 								<button
 									type="button"
+									disabled={analysisViewLocked}
 									onClick={() => setTranscriptViewMode("summary")}
 									className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 font-medium transition-colors ${
 										transcriptViewMode === "summary"
 											? "bg-background text-foreground shadow-sm"
 											: "text-muted-foreground hover:text-foreground"
-									}`}
+									} ${analysisViewLocked ? "cursor-not-allowed opacity-50" : ""}`}
 								>
 									Кратко
 								</button>
 							</div>
+							{analysisViewLocked && (
+								<Tooltip>
+									<TooltipTrigger asChild>
+										<span
+											role="img"
+											aria-label="Причина блокировки переключателя"
+											className="inline-flex items-center text-muted-foreground"
+										>
+											<CircleHelp className="size-4" />
+										</span>
+									</TooltipTrigger>
+									<TooltipContent side="bottom">Ожидайте завершения обработки</TooltipContent>
+								</Tooltip>
+							)}
 						</CardHeader>
 						<CardContent className="space-y-3">
 							{textLoading ? (
@@ -682,13 +880,24 @@ export default function InterviewTranscriptionDetailsPage() {
 								</div>
 							)}
 						</CardContent>
-					</Card>
+					</Card>)}
 
 					{transcriptViewMode === 'detailed' && <ErrorNavigator
 						errorLineIds={errorLineIds}
 						playerMode={playerMode}
 						visible={playerOutOfView && errorLineIds.length > 0}
 					/>}
+
+					{isRetrySessionActive && (
+						<div className="mx-auto w-full md:w-3/5">
+							<QuotesPanel
+								quotes={QUOTES}
+								activeIndex={activeRetryQuoteIndex}
+								onNext={() => setActiveRetryQuoteIndex(idx => (idx + 1) % QUOTES.length)}
+								onPrev={() => setActiveRetryQuoteIndex(idx => (idx - 1 + QUOTES.length) % QUOTES.length)}
+							/>
+						</div>
+					)}
 				</>
 			)}
 		</div>

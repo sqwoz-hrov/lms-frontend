@@ -132,16 +132,16 @@ function InterviewTranscriptionsPageContent({ isAdmin }: InterviewTranscriptions
 								<TableBody>
 									{transcriptions.map(item => (
 										<TableRow key={item.id}>
-											<TableCell className="align-top">
+											<TableCell className="align-middle">
 												<VideoCell item={item} showOwner={isAdmin} usersById={usersById} />
 											</TableCell>
-											<TableCell className="align-top">
+											<TableCell className="align-middle">
 												<TranscriptionStatusBadge status={item.status} />
 											</TableCell>
-											<TableCell className="align-top text-sm text-muted-foreground">
+											<TableCell className="align-middle text-sm text-muted-foreground">
 												{formatDateTime(item.created_at)}
 											</TableCell>
-											<TableCell className="text-right align-top">
+											<TableCell className="text-right align-middle">
 												<Button asChild size="sm" variant="outline">
 													<Link to={`/interview-transcriptions/${item.id}`}>Открыть</Link>
 												</Button>

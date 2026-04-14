@@ -18,7 +18,7 @@ export function App() {
 						<AppRoutes />
 					</BrowserRouter>
 				</SseProvider>
-				<Toaster />
+				<Toaster position="bottom-right" />
 			</AppThemeProvider>
 		</QueryClientProvider>
 	);
