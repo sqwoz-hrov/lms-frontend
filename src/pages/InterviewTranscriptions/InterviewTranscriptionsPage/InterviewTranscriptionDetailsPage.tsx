@@ -14,7 +14,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { VideoPlayer, type VideoPlayerHandle } from "@/components/video/VideoPlayer";
 import { QUOTES, estimateDisplayDurationMs } from "./lib";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowDown, ArrowLeft, ArrowUpToLine, CircleHelp, Loader2, Pin, PinOff, Play } from "lucide-react";
+import { ArrowDown, ArrowLeft, ArrowUpToLine, CircleHelp, Clipboard, Loader2, Pin, PinOff, Play } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -22,15 +22,15 @@ import { QuotesPanel } from "./components/AfterUpload/QuotesPanel";
 import { formatDateTime } from "../utils";
 
 const ERROR_TYPE_MAP = {
-	blunder: <img src="/public/blunder.png" alt="Blunder" title="Blunder: грубая ошибка" className="size-4" />,
+	blunder: <img src="/blunder.png" alt="Blunder" title="Blunder: грубая ошибка" className="size-4" />,
 	inaccuracy: (
-		<img src="/public/inaccuracy.png" alt="Inaccuracy" title="Inaccuracy: неточный ответ, можно было чуть лучше" className="size-4" />
+		<img src="/inaccuracy.png" alt="Inaccuracy" title="Inaccuracy: неточный ответ, можно было чуть лучше" className="size-4" />
 	),
 	missedWin: (
-		<img src="/public/missed-win.png" alt="Missed Win" title="Missed Win: упущенная возможность выделиться" className="size-4" />
+		<img src="/missed-win.png" alt="Missed Win" title="Missed Win: упущенная возможность выделиться" className="size-4" />
 	),
 	mistake: (
-		<img src="/public/mistake.png" alt="Mistake" title="Mistake: ошибка" className="size-4" />
+		<img src="/mistake.png" alt="Mistake" title="Mistake: ошибка" className="size-4" />
 	)
 };
 
@@ -1145,6 +1145,32 @@ function TranscriptView({
 		return `Интервьюер ${idx}`;
 	}
 
+	function getLineCopyText(line: TranscriptLine): string {
+		return line.text;
+	}
+
+	async function copyLine(line: TranscriptLine): Promise<void> {
+		const textToCopy = getLineCopyText(line);
+		try {
+			if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+				await navigator.clipboard.writeText(textToCopy);
+			} else {
+				const textarea = document.createElement("textarea");
+				textarea.value = textToCopy;
+				textarea.setAttribute("readonly", "");
+				textarea.style.position = "fixed";
+				textarea.style.opacity = "0";
+				document.body.appendChild(textarea);
+				textarea.select();
+				document.execCommand("copy");
+				document.body.removeChild(textarea);
+			}
+			toast.success("Строка скопирована");
+		} catch {
+			toast.error("Не удалось скопировать строку");
+		}
+	}
+
 	const drawerHints = drawerLine ? (hintsByLineId?.get(drawerLine.id) ?? []) : [];
 
 	return (
@@ -1193,6 +1219,28 @@ function TranscriptView({
 									</span>
 								</span>
 
+								<span className="shrink-0 w-5 flex items-center justify-center">
+									<span
+										role="button"
+										tabIndex={0}
+										aria-label="Скопировать строку"
+										title="Скопировать строку"
+										className="invisible group-hover:visible inline-flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+										onClick={e => {
+											e.stopPropagation();
+											void copyLine(line);
+										}}
+										onKeyDown={e => {
+											if (e.key !== "Enter" && e.key !== " ") return;
+											e.preventDefault();
+											e.stopPropagation();
+											void copyLine(line);
+										}}
+									>
+										<Clipboard className="size-3.5" />
+									</span>
+								</span>
+
 								{/* Fixed-width icon slot so all lines stay left-aligned */}
 								<span className="shrink-0 w-4 flex items-center justify-center">
 									{hasError ? ERROR_TYPE_MAP[errorHints[0].errorType] : null}
@@ -1221,7 +1269,7 @@ function TranscriptView({
 			>
 				<SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto">
 					<SheetHeader className="mb-4">
-						<SheetTitle className="text-base">
+						<SheetTitle className="text-base flex items-center gap-2">
 							{drawerLine && resolveSpeakerLabel(drawerLine.speaker)}
 							{drawerLine && (
 								<button
@@ -1232,6 +1280,19 @@ function TranscriptView({
 									}}
 								>
 									{formatTimecode(drawerLine.start)}
+								</button>
+							)}
+							{drawerLine && (
+								<button
+									type="button"
+									aria-label="Скопировать строку"
+									title="Скопировать строку"
+									className="text-muted-foreground hover:text-foreground transition-colors"
+									onClick={() => {
+										void copyLine(drawerLine);
+									}}
+								>
+									<Clipboard className="size-4" />
 								</button>
 							)}
 						</SheetTitle>
