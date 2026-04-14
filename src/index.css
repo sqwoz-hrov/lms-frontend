@@ -173,12 +173,12 @@
 
 
   .refresh-attention-button {
-    color: black;
+    color: hsl(var(--foreground));
     padding: 0.5em 1.25em;
     border-radius: 100vw;
 
     border: 2px solid transparent;
-    background: linear-gradient(white 0 0) padding-box,
+    background: linear-gradient(hsl(var(--background)) 0 0) padding-box,
       conic-gradient(from var(--angle), navy, purple, orange, purple, blue, lightblue, blue)
         border-box;
 
@@ -186,7 +186,14 @@
     animation-play-state: running;
   }
 
-  .refresh-attention-button .frozen {
+  .refresh-attention-button:hover,
+  .refresh-attention-button:focus-visible {
+    /* Neutralize outline variant hover fill so only the animated border is visible. */
+    background-color: transparent !important;
+    color: hsl(var(--foreground));
+  }
+
+  .refresh-attention-button.frozen {
     animation-play-state: paused;
   }
 

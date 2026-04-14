@@ -758,7 +758,8 @@ export default function InterviewTranscriptionDetailsPage() {
 										disabled={transcriptionQuery.isFetching}
 										className={
 											isAutoRefreshActive
-												? "refresh-attention-button" + (transcriptionQuery.isFetching ? " frozen" : "")
+												? "refresh-attention-button !hover:bg-transparent !hover:text-foreground"
+													+ (transcriptionQuery.isFetching ? " frozen" : "")
 												: undefined
 										}
 									>
