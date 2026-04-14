@@ -5,7 +5,13 @@ export type StartInterviewTranscriptionDto = {
 	video_id: string;
 };
 
-export type InterviewTranscriptionStatus = "created" | "processing" | "restarted" | "done";
+export type InterviewTranscriptionStatus =
+	| "created"
+	| "processing"
+	| "restarted"
+	| "done"
+	| "failed"
+	| "cancelled";
 
 export type InterviewTranscriptionResponseDto = {
 	id: string;
