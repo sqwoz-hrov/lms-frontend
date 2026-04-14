@@ -16,23 +16,28 @@ import { SubscriptionPage } from "@/pages/Subscription/SubscriptionPage";
 import { ListSubscriptionTiersPage } from "@/pages/Subscription/ListSubscriptionTiersPage";
 import { SubscriptionTierUpsertPage } from "@/pages/Subscription/SubscriptionTierUpsertPage";
 import { SettingsPage } from "@/pages/Settings/SettingsPage";
+import { HomePage } from "@/pages/Home/HomePage";
 import { PostUpsertPage } from "@/pages/Posts/PostUpsertPage";
 import { ListPostsPage } from "@/pages/Posts/ListPostsPage";
 import { ViewPostPage } from "@/pages/Posts/ViewPostPage";
 import InterviewTranscriptionsPage from "@/pages/InterviewTranscriptions/InterviewTranscriptionsPage";
 import InterviewTranscriptionDetailsPage from "@/pages/InterviewTranscriptions/InterviewTranscriptionsPage/InterviewTranscriptionDetailsPage";
 import UploadInterviewTranscriptionPage from "@/pages/InterviewTranscriptions/InterviewTranscriptionsPage/UploadInterviewTranscription";
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { AdminRoute } from "./components/AdminRoute";
 import { HomeGate } from "./components/HomeGate";
 import { PublicOnly } from "./components/PublicOnly";
 import { NonSubscriberRoute } from "./components/NonSubscriberRoute";
+import { useAuth } from "@/hooks/useAuth";
 
 export function AppRoutes() {
+	const { isAuthenticated } = useAuth();
+	const hideNavbar = !isAuthenticated;
+
 	return (
 		<>
-			<Navbar />
+			{!hideNavbar && <Navbar />}
 			<Routes>
 				{/* при заходе на "/" решаем, куда отправить */}
 				<Route path="/" element={<HomeGate />} />
@@ -41,7 +46,7 @@ export function AppRoutes() {
 				<Route
 					path="/login"
 					element={
-						<PublicOnly to="/tasks">
+						<PublicOnly to="/">
 							<LoginPage />
 						</PublicOnly>
 					}
@@ -49,7 +54,7 @@ export function AppRoutes() {
 				<Route
 					path="/signup"
 					element={
-						<PublicOnly to="/tasks">
+						<PublicOnly to="/">
 							<SignupPage />
 						</PublicOnly>
 					}
@@ -64,6 +69,7 @@ export function AppRoutes() {
 					<Route path="/subjects" element={<ListSubjectsPage />} />
 					<Route path="/subscription" element={<SubscriptionPage />} />
 					<Route path="/settings" element={<SettingsPage />} />
+					<Route path="/home" element={<HomePage />} />
 					<Route path="/interviews/upload" element={<UploadInterviewTranscriptionPage />} />
 					<Route path="/interviews/progress-view" element={<InterviewTranscriptionsPage />} />
 				</Route>

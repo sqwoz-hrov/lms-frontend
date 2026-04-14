@@ -2,9 +2,11 @@
 import apiClient from "./client";
 
 export type ThemePreference = "dark" | "light";
+export type HomepagePreference = "posts" | "home" | "transcriptions";
 
 export type UserSettingsDto = {
 	theme: ThemePreference;
+	homepage: HomepagePreference;
 };
 
 const USERS_SETTINGS = "/users/settings";

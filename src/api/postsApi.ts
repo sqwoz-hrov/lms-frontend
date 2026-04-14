@@ -1,4 +1,5 @@
 // api/postsApi.ts — CRUD wrapper for /posts
+import axios from "axios";
 import apiClient from "./client";
 
 // ===== Types (из OpenAPI) =====
@@ -13,11 +14,17 @@ export type PostResponseDto = {
 	id: string;
 	title: string;
 	markdown_content_id: string;
-	markdown_content: string;
+	markdown_content?: string;
 	video_id?: PostVideoReference;
 	created_at: string; // ISO date-time
 	locked_preview?: LockedPostPreviewDto;
 	subscription_tier_ids?: string[];
+};
+
+export type PostListResponseDto = {
+	items: PostResponseDto[];
+	next_cursor?: string;
+	prev_cursor?: string;
 };
 
 export type CreatePostDto = {
@@ -84,18 +91,25 @@ export async function deletePost(id: string): Promise<PostResponseDto> {
  * Получает список постов
  * GET /posts?after=&before=&limit=&subscription_tier_id=
  */
-export async function listPosts(params?: ListPostsParams): Promise<PostResponseDto[]> {
-	const res = await apiClient.get<PostResponseDto[]>(POSTS, { params });
+export async function listPosts(params?: ListPostsParams): Promise<PostListResponseDto> {
+	const res = await apiClient.get<PostListResponseDto>(POSTS, { params });
 	return res.data;
 }
 
 /**
- * Временный helper до появления /posts/:id
- * Реализовано через list()+find(). Вернёт null, если не найден.
+ * Получает пост по id
+ * GET /posts/:id
  */
 export async function getPostById(id: string): Promise<PostResponseDto | null> {
-	const items = await listPosts();
-	return items.find(p => p.id === id) ?? null;
+	try {
+		const res = await apiClient.get<PostResponseDto>(`${POSTS}/${id}`);
+		return res.data;
+	} catch (error) {
+		if (axios.isAxiosError(error) && error.response?.status === 404) {
+			return null;
+		}
+		throw error;
+	}
 }
 
 export async function openPostForTiers(id: string, data: OpenPostForTiersDto): Promise<Record<string, unknown>> {

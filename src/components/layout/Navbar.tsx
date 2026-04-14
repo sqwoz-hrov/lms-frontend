@@ -25,7 +25,7 @@ export function Navbar() {
 			await logout(); // серверный /users/logout, кук-ориентированный
 		} finally {
 			setPending(false);
-			navigate("/login", { replace: true });
+			navigate("/", { replace: true });
 		}
 	};
 
@@ -33,6 +33,13 @@ export function Navbar() {
 		<nav className="flex items-center gap-2 p-4 border-b">
 			{isAuthenticated && (
 				<>
+					<Link to="/home" aria-label="SQWOZ home" className="inline-flex items-center">
+						<img
+							src="/sqwoz_platform_logo.png"
+							alt="Сквозь platform logo"
+							className="h-14 w-35 " // brightness-0 invert
+						/>
+					</Link>
 					<NavLink to="/subjects" className={linkCls}>
 						Темы
 					</NavLink>
