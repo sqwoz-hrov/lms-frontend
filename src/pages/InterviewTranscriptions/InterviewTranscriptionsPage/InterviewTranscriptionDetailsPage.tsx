@@ -7,12 +7,14 @@ import { interviewTranscriptionsReportApi, type LLMReportHint } from "@/api/inte
 import { VideosApi } from "@/api/videosApi";
 import { ErrorNavigator } from "@/components/interview-transcriptions/ErrorNavigator";
 import { TranscriptionStatusBadge } from "@/components/interview-transcriptions/TranscriptionStatusBadge";
+import { UsageLimitReachedBanner } from "@/components/interview-transcriptions/UsageLimitReachedBanner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { VideoPlayer, type VideoPlayerHandle } from "@/components/video/VideoPlayer";
 import { QUOTES, estimateDisplayDurationMs } from "./lib";
+import { useInterviewTranscriptionLimitReached } from "@/hooks/useInterviewTranscriptionLimitReached";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowDown, ArrowLeft, ArrowUpToLine, CircleHelp, Clipboard, Loader2, Pin, PinOff, Play } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
@@ -347,6 +349,7 @@ export default function InterviewTranscriptionDetailsPage() {
 	const transcriptionId = params.id ?? "";
 	const queryClient = useQueryClient();
 	const videoPlayerRef = useRef<VideoPlayerHandle>(null);
+	const { isLimitReached, whichExceeded } = useInterviewTranscriptionLimitReached();
 
 	// Lifted state for VideoPlayerContainer
 	const [playerMode, setPlayerMode] = useState<PlayerMode>("sticky");
@@ -457,7 +460,7 @@ export default function InterviewTranscriptionDetailsPage() {
 
 	const isRestartActionPending = restartMutation.isPending || isRetrySessionActive;
 	const isFinalStatus = isFinalTranscriptionStatus(transcription?.status);
-	const controlsLocked = isRestartActionPending || !isFinalStatus;
+	const controlsLocked = isLimitReached || isRestartActionPending || !isFinalStatus;
 	const analysisViewLocked = !isFinalStatus;
 	const isAutoRefreshActive = !isFinalStatus || isRetrySessionActive;
 	const showRefreshButton = !isFinalStatus || isRetrySessionActive;
@@ -692,6 +695,8 @@ export default function InterviewTranscriptionDetailsPage() {
 				</Button>
 			</div>
 
+			{isLimitReached && <UsageLimitReachedBanner exceededLimits={whichExceeded ?? []} />}
+
 			{!transcriptionId ? (
 				<Card>
 					<CardContent className="py-6 text-sm text-destructive">
@@ -747,7 +752,11 @@ export default function InterviewTranscriptionDetailsPage() {
 												<CircleHelp className="size-4" />
 											</span>
 										</TooltipTrigger>
-										<TooltipContent side="bottom">Кнопка станет активной, когда текущая обработка завершится</TooltipContent>
+										<TooltipContent side="bottom">
+											{isLimitReached
+												? "Достигнут лимит использования. Оформите подписку или попробуйте завтра."
+												: "Кнопка станет активной, когда текущая обработка завершится"}
+										</TooltipContent>
 									</Tooltip>
 								)}
 								{showRefreshButton && (

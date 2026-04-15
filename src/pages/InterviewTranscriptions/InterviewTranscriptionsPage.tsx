@@ -4,6 +4,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { Loader2, RefreshCcw } from "lucide-react";
 import { InterviewTranscriptionsApi, type InterviewTranscriptionResponseDto } from "@/api/interviewTranscriptionsApi";
 import type { UserResponse } from "@/api/usersApi";
+import { UsageLimitReachedBanner } from "@/components/interview-transcriptions/UsageLimitReachedBanner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -12,6 +13,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { UsersLoader, useUsersLoader } from "@/components/users/UsersLoader";
 import { UserSelectFilter } from "@/components/users/UserSelectFilter";
 import { useUsersById } from "@/hooks/useUsersById";
+import { useInterviewTranscriptionLimitReached } from "@/hooks/useInterviewTranscriptionLimitReached";
 import { describeVideoPhase, formatDateTime, formatFileSizeFromString } from "./utils";
 
 export default function InterviewTranscriptionsPage() {
@@ -28,6 +30,7 @@ type InterviewTranscriptionsPageContentProps = {
 };
 
 function InterviewTranscriptionsPageContent({ isAdmin }: InterviewTranscriptionsPageContentProps) {
+	const { isLimitReached, whichExceeded } = useInterviewTranscriptionLimitReached();
 	const [searchParams, setSearchParams] = useSearchParams();
 	const selectedUserId = isAdmin ? (searchParams.get("user_id") ?? undefined) : undefined;
 
@@ -69,6 +72,8 @@ function InterviewTranscriptionsPageContent({ isAdmin }: InterviewTranscriptions
 						Обновить
 					</Button>
 				</header>
+
+				{isLimitReached && <UsageLimitReachedBanner exceededLimits={whichExceeded ?? []} />}
 
 				{isAdmin && (
 					<Card>
@@ -155,9 +160,15 @@ function InterviewTranscriptionsPageContent({ isAdmin }: InterviewTranscriptions
 				)}
 			</div>
 			<div className="fixed bottom-4 right-4 z-10 sm:bottom-6 sm:right-6">
-				<Button asChild size="lg" className="shadow-lg">
-					<Link to="/interviews/upload">Разобрать собеседование</Link>
-				</Button>
+				{isLimitReached ? (
+					<Button size="lg" className="shadow-lg" disabled>
+						Разобрать собеседование
+					</Button>
+				) : (
+					<Button asChild size="lg" className="shadow-lg">
+						<Link to="/interviews/upload">Разобрать собеседование</Link>
+					</Button>
+				)}
 			</div>
 		</>
 	);
