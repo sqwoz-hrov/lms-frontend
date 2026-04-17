@@ -2,7 +2,9 @@ import { InterviewTranscriptionsApi } from "@/api/interviewTranscriptionsApi";
 import { interviewTranscriptionsReportApi } from "@/api/interviewTranscriptionsReportApi";
 import { VideosApi, type GetByIdVideoResponseDto } from "@/api/videosApi";
 import { Button } from "@/components/ui/button";
+import { UsageLimitReachedBanner } from "@/components/interview-transcriptions/UsageLimitReachedBanner";
 import { useResumableVideoUpload } from "@/hooks/useResumableVideoUpload";
+import { useInterviewTranscriptionLimitReached } from "@/hooks/useInterviewTranscriptionLimitReached";
 import { useSse } from "@/providers/SseProvider";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -25,6 +27,7 @@ import {
 export default function UploadInterviewTranscriptionPage() {
 	const navigate = useNavigate();
 	const { events: sseEvents } = useSse();
+	const { isLimitReached, whichExceeded } = useInterviewTranscriptionLimitReached();
 
 	const [speakerCount, setSpeakerCount] = useState<string>("lazy");
 	const [interviewType, setInterviewType] = useState<InterviewType | undefined>(undefined);
@@ -88,11 +91,12 @@ export default function UploadInterviewTranscriptionPage() {
 	});
 
 	const isUploading = uploadStatus === "uploading" || uploadStatus === "paused";
-	const canStart = Boolean(uploadedVideo?.id && interviewType);
+	const canStart = Boolean(uploadedVideo?.id && interviewType) && !isLimitReached;
 	const isAwaitingCompletion = Boolean(startedTranscriptionId && !completedTranscriptionId);
 
 	const handleFileSelected = useCallback(
 		async (file: File) => {
+			if (isLimitReached) return;
 			try {
 				setShowQuotes(false);
 				setActiveQuoteIndex(0);
@@ -104,11 +108,11 @@ export default function UploadInterviewTranscriptionPage() {
 				toast.error(err instanceof Error ? err.message : "Не удалось загрузить видео");
 			}
 		},
-		[startUpload],
+		[startUpload, isLimitReached],
 	);
 
 	const handleStartTranscription = async () => {
-		if (!uploadedVideo?.id || !interviewType) return;
+		if (!uploadedVideo?.id || !interviewType || isLimitReached) return;
 		setShowQuotes(true);
 		setActiveQuoteIndex(0);
 		setStartedVideoId(uploadedVideo.id);
@@ -211,7 +215,10 @@ export default function UploadInterviewTranscriptionPage() {
 				</p>
 			</header>
 
+			{isLimitReached && <UsageLimitReachedBanner exceededLimits={whichExceeded ?? []} />}
+
 			<VideoDropZone
+				disabled={isLimitReached}
 				isUploading={isUploading}
 				progressPct={progress.pct}
 				uploadError={uploadError}

@@ -8,6 +8,8 @@ import type { GetByIdVideoResponseDto } from "@/api/videosApi";
 import type { UploadPhase } from "../../lib";
 
 export type VideoDropZoneProps = {
+	/** Whether upload interactions are disabled (for example, by usage limits) */
+	disabled?: boolean;
 	/** Whether an upload is currently in progress */
 	isUploading: boolean;
 	/** Upload progress 0–100 */
@@ -25,6 +27,7 @@ export type VideoDropZoneProps = {
 };
 
 export function VideoDropZone({
+	disabled = false,
 	isUploading,
 	progressPct,
 	uploadError,
@@ -37,15 +40,20 @@ export function VideoDropZone({
 	const fileInputRef = useRef<HTMLInputElement | null>(null);
 	const [isDragActive, setIsDragActive] = useState(false);
 
-	const openPicker = () => fileInputRef.current?.click();
+	const openPicker = () => {
+		if (disabled) return;
+		fileInputRef.current?.click();
+	};
 
 	const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+		if (disabled) return;
 		const file = event.target.files?.[0];
 		if (file) onFileSelected(file);
 		if (event.target) event.target.value = "";
 	};
 
 	const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+		if (disabled) return;
 		if (event.key === "Enter" || event.key === " ") {
 			event.preventDefault();
 			openPicker();
@@ -53,6 +61,7 @@ export function VideoDropZone({
 	};
 
 	const handleDragOver = (event: React.DragEvent<HTMLDivElement>) => {
+		if (disabled) return;
 		event.preventDefault();
 		event.stopPropagation();
 		setIsDragActive(true);
@@ -60,12 +69,14 @@ export function VideoDropZone({
 	};
 
 	const handleDragLeave = (event: React.DragEvent<HTMLDivElement>) => {
+		if (disabled) return;
 		event.preventDefault();
 		event.stopPropagation();
 		setIsDragActive(false);
 	};
 
 	const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
+		if (disabled) return;
 		event.preventDefault();
 		event.stopPropagation();
 		setIsDragActive(false);
@@ -89,7 +100,7 @@ export function VideoDropZone({
 				<CardTitle className="text-lg">Видео интервью</CardTitle>
 			</CardHeader>
 			<CardContent className="space-y-5">
-				<input ref={fileInputRef} type="file" accept="video/*" className="hidden" onChange={handleInputChange} />
+				<input ref={fileInputRef} type="file" accept="video/*" className="hidden" onChange={handleInputChange} disabled={disabled} />
 
 				{hasUploadedVideo ? (
 					<VideoProcessingPreview
@@ -103,7 +114,7 @@ export function VideoDropZone({
 						helperTextTone={previewError ? "error" : "default"}
 						actions={
 							<>
-								<Button size="sm" variant="outline" onClick={openPicker}>
+								<Button size="sm" variant="outline" onClick={openPicker} disabled={disabled}>
 									<UploadCloud className="mr-2 size-4" />
 									Заменить видео
 								</Button>
@@ -114,9 +125,11 @@ export function VideoDropZone({
 					<>
 						<div
 							role="button"
-							tabIndex={0}
+							tabIndex={disabled ? -1 : 0}
+							aria-disabled={disabled}
 							className={cn(
 								"border-muted-foreground/30 hover:border-muted-foreground/60 bg-card text-card-foreground flex flex-col items-center justify-center rounded-xl border-2 border-dashed px-6 py-10 text-center transition-colors",
+								disabled && "cursor-not-allowed opacity-60",
 								isDragActive && "border-primary bg-primary/5",
 							)}
 							onClick={openPicker}
@@ -128,7 +141,7 @@ export function VideoDropZone({
 							<UploadCloud className="mb-3 size-10 text-muted-foreground" />
 							<p className="text-base font-medium">Перетащите видео сюда или выберите файл</p>
 							<p className="text-sm text-muted-foreground">Разрешены все форматы видео, размер ограничен тарифом.</p>
-							<Button className="mt-4" type="button" variant="outline">
+							<Button className="mt-4" type="button" variant="outline" disabled={disabled}>
 								Выбрать файл
 							</Button>
 						</div>

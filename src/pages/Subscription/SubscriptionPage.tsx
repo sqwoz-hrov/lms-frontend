@@ -142,7 +142,7 @@ export function SubscriptionPage() {
 		return <Navigate to="/login" replace />;
 	}
 
-	if (user.role !== "subscriber") {
+	if (user.role !== "subscriber" && user.role !== "admin") {
 		return <Navigate to="/materials" replace />;
 	}
 
