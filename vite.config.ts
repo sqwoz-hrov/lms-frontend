@@ -3,11 +3,37 @@ import react from "@vitejs/plugin-react";
 import tailwind from "@tailwindcss/vite";
 import path from "node:path";
 
+function serveStaticLanding() {
+	const rewrite = (req: { url?: string }) => {
+		if (!req.url) return;
+		const [pathname, query] = req.url.split("?");
+		if (pathname === "/lms/landing" || pathname === "/lms/landing/") {
+			req.url = `/lms/landing/index.html${query ? `?${query}` : ""}`;
+		}
+	};
+
+	return {
+		name: "serve-static-landing",
+		configureServer(server: { middlewares: { use: (fn: (req: { url?: string }, _res: unknown, next: () => void) => void) => void } }) {
+			server.middlewares.use((req, _res, next) => {
+				rewrite(req);
+				next();
+			});
+		},
+		configurePreviewServer(server: { middlewares: { use: (fn: (req: { url?: string }, _res: unknown, next: () => void) => void) => void } }) {
+			server.middlewares.use((req, _res, next) => {
+				rewrite(req);
+				next();
+			});
+		},
+	};
+}
+
 const devPort = Number(process.env.DEV_PORT ?? 5173);
 const host = process.env.HMR_HOST ?? "127.0.0.1";
 
 export default defineConfig({
-	plugins: [react(), tailwind()],
+	plugins: [react(), tailwind(), serveStaticLanding()],
 	server: {
 		host: true,
 		port: devPort,
@@ -21,10 +47,11 @@ export default defineConfig({
 			path: "/lms",
 		},
 		proxy: {
+			// Proxy API to stage in dev to avoid CORS.
 			"/lms-api": {
-				target: "http://127.0.0.1:3000",
+				target: "https://stage.sqwoz-hrov.ru",
 				changeOrigin: true,
-				rewrite: path => path.replace(/^\/lms-api/, ""),
+				secure: true,
 			},
 		},
 		watch: { usePolling: process.env.CHOKIDAR_USEPOLLING === "true" },
@@ -32,16 +59,6 @@ export default defineConfig({
 	resolve: {
 		alias: {
 			"@": path.resolve(__dirname, "./src"),
-		},
-	},
-	server: {
-		proxy: {
-			// Проксируем API на stage, чтобы в dev избежать CORS и работать с нужным бэкендом.
-			"/lms-api": {
-				target: "https://stage.sqwoz-hrov.ru",
-				changeOrigin: true,
-				secure: true,
-			},
 		},
 	},
 });
