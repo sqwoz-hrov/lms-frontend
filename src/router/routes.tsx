@@ -30,14 +30,18 @@ import { HomeGate } from "./components/HomeGate";
 import { PublicOnly } from "./components/PublicOnly";
 import { NonSubscriberRoute } from "./components/NonSubscriberRoute";
 import { useAuth } from "@/hooks/useAuth";
+import { SupportRequestButton } from "@/components/common/SupportRequestButton";
 
 export function AppRoutes() {
 	const { isAuthenticated } = useAuth();
+	const location = useLocation();
 	const hideNavbar = !isAuthenticated;
+	const showSupportButton = isAuthenticated || location.pathname.startsWith("/login");
 
 	return (
 		<>
 			{!hideNavbar && <Navbar />}
+			{showSupportButton && <SupportRequestButton />}
 			<Routes>
 				{/* при заходе на "/" решаем, куда отправить */}
 				<Route path="/" element={<HomeGate />} />
