@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+
+<html class="light" lang="ru">
+
+<head>
+  <meta charset="utf-8" />
+  <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+  <title>Сквозь Эйчаров — Анализ интервью с помощью ИИ</title>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700;800;900&amp;family=Inter:wght@300;400;500;600;700;800&amp;display=swap"
+    rel="stylesheet" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+    rel="stylesheet" />
+  <script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "surface": "#fdf6e3",
+            "surface-dim": "#eee8d5",
+            "on-primary-fixed-variant": "#004a76",
+            "on-secondary-container": "#00716a",
+            "secondary-fixed": "#89f5ea",
+            "surface-variant": "#e9e2d0",
+            "primary-fixed-dim": "#97cbff",
+            "on-tertiary-container": "#fffbff",
+            "on-tertiary": "#ffffff",
+            "on-background": "#073642",
+            "on-primary-fixed": "#001d33",
+            "surface-container-lowest": "#ffffff",
+            "primary-container": "#268bd2",
+            "on-tertiary-fixed-variant": "#8d0050",
+            "on-secondary-fixed": "#00201e",
+            "on-primary": "#ffffff",
+            "tertiary": "#d33682",
+            "on-tertiary-fixed": "#3e0020",
+            "outline": "#586e75",
+            "on-primary-container": "#fdfcff",
+            "inverse-primary": "#97cbff",
+            "secondary": "#2aa198",
+            "outline-variant": "#93a1a1",
+            "on-error": "#ffffff",
+            "surface-container": "#eee8d5",
+            "secondary-fixed-dim": "#6cd8ce",
+            "on-surface-variant": "#586e75",
+            "primary": "#268bd2",
+            "tertiary-fixed-dim": "#ffb0cc",
+            "error": "#dc322f",
+            "on-surface": "#073642",
+            "surface-tint": "#268bd2",
+            "surface-container-high": "#e4ddcc",
+            "surface-container-low": "#fdf6e3",
+            "tertiary-container": "#d33682",
+            "inverse-surface": "#002b36",
+            "on-secondary-fixed-variant": "#00504b",
+            "surface-container-highest": "#eee8d5",
+            "inverse-on-surface": "#fdf6e3",
+            "primary-fixed": "#cee5ff",
+            "on-error-container": "#93000a",
+            "secondary-container": "#89f5ea",
+            "on-secondary": "#ffffff",
+            "error-container": "#ffdad6",
+            "surface-bright": "#fdf6e3",
+            "tertiary-fixed": "#ffd9e4",
+            "background": "#fdf6e3"
+          },
+          fontFamily: {
+            "headline": ["Space Grotesk"],
+            "body": ["Inter"],
+            "label": ["Inter"]
+          },
+          borderRadius: { "DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem" },
+        },
+      },
+    }
+  </script>
+  <style>
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
+    }
+
+    .glass-nav {
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+    }
+
+    .arch-gradient {
+      background: linear-gradient(135deg, #268bd2 0%, #2aa198 100%);
+    }
+
+    .solarized-card {
+      background-color: #eee8d5;
+      border: 1px solid rgba(147, 161, 161, 0.2);
+    }
+
+    .signature-font {
+      font-family: 'Inter', sans-serif;
+      font-style: italic;
+      opacity: 0.8;
+    }
+
+    .step-connector {
+      stroke-dasharray: 8 4;
+      animation: dash 20s linear infinite;
+    }
+
+    @keyframes dash {
+      to {
+        stroke-dashoffset: -100;
+      }
+    }
+  </style>
+</head>
+
+<body class="bg-surface text-on-surface font-body selection:bg-primary-fixed selection:text-on-primary-fixed">
+
+  <!-- TopNavBar -->
+  <nav class="bg-surface/80 backdrop-blur-md sticky top-0 z-50 border-b border-outline-variant/30">
+    <div class="flex justify-between items-center w-full px-8 h-20 max-w-7xl mx-auto">
+      <div class="text-xl font-black text-on-surface tracking-tighter font-headline"><img alt="Сквозь Эйчаров"
+          class="w-auto object-contain h-12" src="/lms/landing/dotted-logo.png" style="" /></div>
+      <div class="hidden md:flex items-center h-full">
+        <div
+          class="font-headline font-bold tracking-tight cursor-default h-full flex items-center justify-center bg-on-tertiary-fixed-variant text-surface text-2xl px-16"
+          style="">   Платформа   </div>
+      </div>
+      <div class="flex items-center gap-4">
+        <button
+          class="px-5 py-2 text-on-surface-variant font-bold hover:opacity-80 active:scale-95 duration-150 transition-opacity"
+          style="">Вход</button>
+        <button
+          class="px-6 py-2 arch-gradient text-on-primary font-bold rounded-md active:scale-95 duration-150 shadow-sm"
+          style="">Регистрация</button>
+      </div>
+    </div>
+  </nav>
+  <main>
+    <!-- Hero Section -->
+    <section class="relative pt-24 pb-32 px-8 max-w-7xl mx-auto overflow-hidden min-h-screen">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+        <div class="lg:col-span-7">
+          <span
+            class="inline-block px-3 py-1 bg-tertiary/10 text-tertiary text-xs font-bold tracking-widest rounded-full mb-6 uppercase tracking-wider"
+            style="">Альфа-доступ</span>
+          <h1 class="font-headline text-6xl md:text-7xl font-black text-on-surface leading-[0.9] tracking-tighter mb-8"
+            style="">
+            Разбирайте собеседования и скрининги быстрее.
+          </h1>
+          <p class="text-on-surface-variant text-xl max-w-xl mb-12 leading-relaxed" style="">
+            Мы переводим собеседования и скрининги в текст, связываем его с видео при помощи удобного интерфейса и подсвечиваем плохие ответы. Вот как это выглядит ->
+            <br>
+            <br>
+            Перестаньте тратить часы на
+            пересмотр записей
+          </p>
+          <div class="flex flex-wrap gap-4">
+            <button
+              class="arch-gradient text-on-primary px-10 py-5 rounded-md font-bold text-lg hover:opacity-90 transition-all active:scale-95"
+              style="">Разобрать бесплатно</button>
+            <button
+              class="bg-surface-container-highest border border-outline-variant/20 text-primary px-10 py-5 rounded-md font-bold text-lg hover:bg-surface-variant transition-all active:scale-95 flex items-center gap-2"
+              style="">
+              <span class="material-symbols-outlined" style="">play_circle</span> Смотреть демо
+            </button>
+          </div>
+        </div>
+        <div class="lg:col-span-5 relative">
+          <div
+            class="bg-surface-container-lowest p-4 rounded-xl shadow-2xl shadow-on-surface/5 border border-outline-variant/15 rotate-2">
+            <img alt="Интерфейс анализа интервью" class="rounded-lg"
+              src="https://lh3.googleusercontent.com/aida-public/AB6AXuA2zkc-S0wGK1EUwKRlm50OJ1Lq5MFkC64ecR1pNxskFGxHEziMmSzMS_PJEkYBexoaa28al1zs73ypBrTg6lpKNmCiVtQwQ5dMRP-Tp8cYJIrTdSgQUNTYG9pF3nAlct8medZDAFHxaUBK9cvKo3Y-AiLs3Dgk156IZ7VqtKKMJvgsBV1IB1dtpnQng57mnWs0JFm5y0RxPJYzJvPNFXBio92gvJEwCFlBbLMZ4TWaSso6mDBhkTOC3XyIJoRY5meTrEauq7H5C-o"
+              style="" />
+            <div
+              class="absolute -bottom-6 -left-6 bg-secondary text-on-secondary p-6 rounded-lg shadow-xl max-w-[220px]">
+              <p class="text-sm font-bold leading-tight" style="">"ИИ обнаружил пробел в навыках Python рекурсии."</p>
+              <span class="text-[10px] opacity-70 mt-2 block italic" style="">Таймкод: 14:22</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+    <!-- Problem/Solution Section TODO rework -->
+    <section class="py-24 px-8 bg-inverse-surface">
+      <div class="max-w-7xl mx-auto">
+        <div class="mb-20 text-center">
+          <h2 class="font-headline text-4xl md:text-5xl font-black tracking-tighter mb-4 text-surface" style="">Проблема
+            ручного разбора</h2>
+          <p class="text-lg text-surface" style="">Каждый час интервью требует два часа на разбор. Мы это
+            исправили</p>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-16">
+          <div class="space-y-8">
+            <div class="p-8 bg-white/5 border border-error/30 rounded-xl relative overflow-hidden backdrop-blur-sm">
+              <div class="absolute top-0 right-0 p-4 opacity-20">
+                <span class="material-symbols-outlined text-6xl text-error" style="">timer_off</span>
+              </div>
+              <h3 class="font-headline text-2xl font-bold mb-4 text-error-container" style="">Как было раньше</h3>
+              <ul class="space-y-4">
+                <li class="flex items-start gap-3 text-surface-variant" style="">
+                  <span class="material-symbols-outlined text-error mt-1" style="">close</span>
+                  <span class="" style="">Бесконечные паузы для написания заметок вручную</span>
+                </li>
+                <li class="flex items-start gap-3 text-surface-variant" style="">
+                  <span class="material-symbols-outlined text-error mt-1" style="">close</span>
+                  <span class="" style="">Размытая обратная связь "по ощущениям"</span>
+                </li>
+                <li class="flex items-start gap-3 text-surface-variant" style="">
+                  <span class="material-symbols-outlined text-error mt-1" style="">close</span>
+                  <span class="" style="">Контекст теряется при передаче между менеджерами</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+          <div class="space-y-8">
+            <div
+              class="p-8 bg-white/10 border border-secondary/30 rounded-xl shadow-xl relative overflow-hidden backdrop-blur-sm">
+              <div class="absolute top-0 right-0 p-4 opacity-20">
+                <span class="material-symbols-outlined text-6xl text-secondary-fixed" style="">bolt</span>
+              </div>
+              <h3 class="font-headline text-2xl font-bold mb-4 text-secondary-fixed" style="">Как стало сейчас</h3>
+              <ul class="space-y-4">
+                <li class="flex items-start gap-3 text-surface" style="">
+                  <span class="material-symbols-outlined text-secondary-fixed mt-1" style="">check_circle</span>
+                  <span class="" style="">Автоматический точный транскрипт с разделением спикеров</span>
+                </li>
+                <li class="flex items-start gap-3 text-surface" style="">
+                  <span class="material-symbols-outlined text-secondary-fixed mt-1" style="">check_circle</span>
+                  <span class="" style="">Нажмите на текст, чтобы перейти к моменту в видео</span>
+                </li>
+                <li class="flex items-start gap-3 text-surface" style="">
+                  <span class="material-symbols-outlined text-secondary-fixed mt-1" style="">check_circle</span>
+                  <span class="" style="">Объективное резюме навыков от языковой модели</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+    <!-- Pipeline Section -->
+    <section class="py-24 px-8 max-w-7xl mx-auto overflow-hidden">
+      <div class="text-center mb-16">
+        <h2 class="font-headline text-5xl font-black tracking-tighter mb-4" style="">Как это работает</h2>
+        <p class="text-on-surface-variant text-lg" style="">Процесс обработки ваших данных от загрузки записи до результата</p>
+      </div>
+      <div class="relative max-w-5xl mx-auto">
+        <!-- Redesigned Grid Layout with Reduced Spacing -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-y-12 md:gap-y-16 items-center">
+          <!-- Step 1 -->
+          <div class="md:pr-12 relative z-10">
+            <div
+              class="bg-surface-container p-7 rounded-2xl border border-outline-variant/10 shadow-sm group hover:shadow-md transition-shadow">
+              <div
+                class="w-14 h-14 bg-primary/10 rounded-xl flex items-center justify-center mb-4 border border-primary/20 group-hover:bg-primary/20 transition-all">
+                <span class="material-symbols-outlined text-primary text-3xl" style="">cloud_upload</span>
+              </div>
+              <h4 class="font-headline text-xl font-bold mb-2" style="">Загрузка видео</h4>
+              <p class="text-on-surface-variant text-sm leading-relaxed" style="">Вы заливаете видос, который кладётся в приватный бакет в S3. Он наш, никуда больше видео не улетает и вы можете удалить его, если захотите</p>
+            </div>
+          </div>
+          <!-- Spacer/Connection 1 Area -->
+          <div class="hidden md:block relative h-full"><svg
+              class="absolute top-0 left-0 w-full h-[140%] overflow-visible pointer-events-none"
+              preserveaspectratio="none" viewbox="0 0 100 100">
+              <defs>
+                <marker id="pipeline-arrow-primary" markerWidth="10" markerHeight="10" refX="8" refY="5"
+                  orient="auto" markerUnits="userSpaceOnUse">
+                  <path d="M 0,0 L 10,5 L 0,10 Z" fill="currentColor"></path>
+                </marker>
+              </defs>
+              <path class="step-connector text-primary/40" d="M 0,18 L 44,18 L 44,92 L 124,92 L 124,115 L 100,115"
+                fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
+                marker-end="url(#pipeline-arrow-primary)"></path>
+            </svg></div>
+          <!-- Spacer/Connection 2 Area -->
+          <div class="hidden md:block relative h-full"><svg
+              class="absolute top-[-20%] right-0 w-full h-[140%] overflow-visible pointer-events-none"
+              preserveaspectratio="none" viewbox="0 0 100 100">
+              <defs>
+                <marker id="pipeline-arrow-secondary" markerWidth="10" markerHeight="10" refX="8" refY="5"
+                  orient="auto" markerUnits="userSpaceOnUse">
+                  <path d="M 0,0 L 10,5 L 0,10 Z" fill="currentColor"></path>
+                </marker>
+              </defs>
+              <path class="step-connector text-secondary/40" d="M 100,20 L 58,20 L 58,72 L -24,72 L -24,100 L 0,100"
+                fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
+                marker-end="url(#pipeline-arrow-secondary)"></path>
+            </svg></div>
+          <!-- Step 2 -->
+          <div class="md:pl-12 relative z-10">
+            <div
+              class="bg-surface-container p-7 rounded-2xl border border-outline-variant/10 shadow-sm group hover:shadow-md transition-shadow">
+              <div
+                class="w-14 h-14 bg-secondary/10 rounded-xl flex items-center justify-center mb-4 border border-secondary/20 group-hover:bg-secondary/20 transition-all">
+                <span class="material-symbols-outlined text-secondary text-3xl" style="">memory</span>
+              </div>
+              <h4 class="font-headline text-xl font-bold mb-2" style="">Транскрибация</h4>
+              <p class="text-on-surface-variant text-sm leading-relaxed" style="">Мы крутим open-source модельку на своих виртуалках с GPU, она транскрибирует собесы. Дальше мы нормализуем и форматируем текст, а потом сшиваем его с видео в кастомном плеере</p>
+            </div>
+          </div>
+          <!-- Step 3 -->
+          <div class="md:pr-12 relative z-10">
+            <div
+              class="bg-surface-container p-7 rounded-2xl border border-outline-variant/10 shadow-sm group hover:shadow-md transition-shadow">
+              <div
+                class="w-14 h-14 bg-tertiary/10 rounded-xl flex items-center justify-center mb-4 border border-tertiary/20 group-hover:bg-tertiary/20 transition-all">
+                <span class="material-symbols-outlined text-tertiary text-3xl" style="">psychology</span>
+              </div>
+              <h4 class="font-headline text-xl font-bold mb-2" style="">LLM Аналитика</h4>
+              <p class="text-on-surface-variant text-sm leading-relaxed" style="">ИИ анализирует глубину и точность ответов, а мы структурируем и показываем её в понятном формате</p>
+            </div>
+          </div>
+          <!-- Empty space for layout -->
+          <div class="hidden md:block"></div>
+        </div>
+      </div>
+      <div class="mt-20 p-6 solarized-card rounded-xl text-center max-w-3xl mx-auto">
+        <p class="text-on-surface-variant text-sm italic" style="">Используем локальные серверы и автоматическое скрытие
+          персональных данных для вашей безопасности.</p>
+      </div>
+    </section>
+    <!-- PERSONAL NOTE SECTION -->
+    <section class="py-24 px-8 bg-on-tertiary-fixed-variant">
+      <div class="max-w-7xl mx-auto">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+          <!-- Quote Block -->
+          <div
+            class="order-2 lg:order-1 relative p-10 md:p-14 bg-white/5 border border-white/10 rounded-3xl backdrop-blur-sm">
+            <span class="material-symbols-outlined absolute top-6 left-6 text-7xl select-none text-surface/10"
+              style="">format_quote</span>
+            <div class="relative z-10">
+              <h2 class="font-headline text-3xl md:text-4xl font-black tracking-tighter mb-8 text-surface" style="">
+                Создано менторами для менторов</h2>
+              <div class="space-y-6 text-lg leading-relaxed italic text-surface-variant">
+                <p class="" style="">“Сквозь Эйчаров” – это я, Лев, и мой друг Артём. Мы менторим, но писать свои
+                  велосипеды у нас получается гораздо лучше: LMS, CMS, и наконец это.</p>
+                <p class="" style="">Раньше мы разбирали собесы по полтора часа, а с нашим новым сервисом справляемся за
+                  15 минут. А вы наверняка сможете ещё быстрее.</p>
+              </div>
+              <div class="mt-10 flex items-center gap-4">
+                <div class="signature-font font-bold text-surface text-xl" style="">— Лев и Артём, основатели</div>
+              </div>
+            </div>
+          </div>
+          <!-- Founders Photo -->
+          <div class="order-1 lg:order-2 flex justify-center">
+            <div
+              class="relative w-full max-w-md aspect-square rounded-3xl overflow-hidden shadow-2xl rotate-3 bg-surface-dim/20 border border-white/10 group">
+              <div class="absolute inset-0 flex items-center justify-center text-surface/20">
+                <span class="material-symbols-outlined text-9xl" style="">groups</span>
+              </div>
+              <img alt="Лев и Артём"
+                class="w-full h-full object-cover opacity-80 mix-blend-overlay group-hover:opacity-100 group-hover:mix-blend-normal transition-all duration-500"
+                src="https://lh3.googleusercontent.com/aida-public/AB6AXuAJpioTtk0nZBlUISmhTqjFhdqFrxVZDjmFjh09K3eizPrPKqIeHM1ZwZ892zp7jTWTR19s0UacHcJDqUTca_gGuzeFAzwZq6SnmvAXtwcvAj4gXVkBrd8fpporVJMtCQ7fROhGfH92RSdE8rYOo8TuoBU9Mf8RlKLm8al30KabQeCU5odzQeD-R-eyYtU5haMJ0mq1DWmkyPyg3LPm8XSLUDYke252fcVLgM1bQJp3LovA2Uklmf0Q-m_zzg56wxmm67FO6crDIUg"
+                style="" />
+              <div
+                class="absolute bottom-6 left-6 right-6 p-4 bg-black/40 backdrop-blur-md rounded-xl border border-white/10">
+                <p class="text-white text-sm font-medium" style="">Лев и Артём в процессе разработки первой версии
+                  платформы</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="mt-20 text-center">
+          <h3 class="text-2xl font-headline font-bold mb-8 text-surface" style="">Попробуйте сейчас. Бесплатно и без
+            привязки карточки</h3>
+          <button
+            class="px-12 py-5 rounded-md font-bold text-xl hover:shadow-2xl hover:-translate-y-1 transition-all active:scale-95 bg-tertiary text-white shadow-lg shadow-tertiary/20"
+            style=""> Начать использовать </button>
+        </div>
+      </div>
+    </section>
+    <!-- WHY US SECTION -->
+    <section class="py-24 px-8 max-w-7xl mx-auto">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+        <div>
+          <h2 class="font-headline text-4xl md:text-5xl font-black tracking-tighter mb-8 leading-[1.1]" style="">Почему
+            бы просто не использовать буквально любой сервис транскрибации?</h2>
+          <div class="space-y-6">
+            <div class="flex gap-4">
+              <div class="flex-shrink-0 w-10 h-10 bg-primary/10 rounded flex items-center justify-center text-primary">
+                <span class="material-symbols-outlined font-bold" style="">settings_input_component</span>
+              </div>
+              <div>
+                <h4 class="font-bold text-lg mb-1" style="">Удобно для собесов</h4>
+                <p class="text-on-surface-variant" style="">Вы получаете не просто файл с транскрибацией, а интерфейс, из которого можно быстро отсмотреть ключевые моменты собеседования и ошибки ученика, и сразу дать ему обратную связь</p>
+              </div>
+            </div>
+            <div class="flex gap-4">
+              <div
+                class="flex-shrink-0 w-10 h-10 bg-secondary/10 rounded flex items-center justify-center text-secondary">
+                <span class="material-symbols-outlined font-bold" style="">code_blocks</span>
+              </div>
+              <div>
+                <h4 class="font-bold text-lg mb-1" style="">Техническая заточенность</h4>
+                <p class="text-on-surface-variant" style="">Наш транскрибатор понимает сленг и назвния технологий. А ещё он различает, что сказал кандидат, а что спросил интервьюер</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="bg-surface-dim p-8 rounded-2xl border border-outline-variant/10">
+          <p class="text-on-surface-variant mb-6 text-lg italic" style="">Самое главное – мы слушаем ваш фидбэк и строим платформу для вас. Мы делали фичи под свой флоу, а теперь делаем под ваш</p>
+          <div class="grid grid-cols-2 gap-4">
+            <div class="h-32 bg-surface rounded shadow-inner flex items-center justify-center text-outline-variant/30">
+              <span class="material-symbols-outlined text-4xl" style="">analytics</span></div>
+            <div
+              class="h-32 bg-primary/5 rounded border border-primary/20 flex items-center justify-center text-primary/40">
+              <span class="material-symbols-outlined text-4xl" style="">dashboard</span></div>
+            <div
+              class="h-32 bg-secondary/5 rounded border border-secondary/20 flex items-center justify-center text-secondary/40">
+              <span class="material-symbols-outlined text-4xl" style="">rebase_edit</span></div>
+            <div
+              class="h-32 bg-tertiary/5 rounded border border-tertiary/20 flex items-center justify-center text-tertiary/40">
+              <span class="material-symbols-outlined text-4xl" style="">auto_graph</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+    <!-- QUALITY & TRUST SECTION -->
+    <section class="bg-inverse-surface py-20 px-8 text-surface">
+      <div class="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-12 gap-12 items-center">
+        <div class="md:col-span-7">
+          <h2 class="font-headline text-4xl font-bold mb-6 text-surface" style="">Что если вам не
+            понравится?</h2>
+          <p class="text-surface-variant text-xl leading-relaxed mb-8" style="">
+            Если с платформой что-то не так, вам не нравится качество транскрибации или аналитики – пишите сюда. Мы возвращаем деньги,
+            если вас не устраивает качество – это буквально прописано в <a
+              class="underline hover:text-primary transition-colors" href="#" style="">оферте</a>.
+          </p>
+          <div class="flex items-center gap-6">
+            <div class="flex items-center gap-2">
+              <span class="material-symbols-outlined text-secondary" style="">verified_user</span>
+              <span class="text-sm font-bold uppercase tracking-widest opacity-80" style="">Гарантия возврата</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="material-symbols-outlined text-secondary" style="">support_agent</span>
+              <span class="text-sm font-bold uppercase tracking-widest opacity-80" style="">Прямая связь</span>
+            </div>
+          </div>
+        </div>
+        <div class="md:col-span-5">
+          <div class="bg-surface/5 p-8 rounded-xl border border-surface/10 backdrop-blur-sm">
+            <div class="flex items-center gap-4 mb-6">
+              <div class="w-12 h-12 bg-primary rounded-full flex items-center justify-center text-white">
+                <span class="material-symbols-outlined" style="">mail</span>
+              </div>
+              <div>
+                <div class="text-sm opacity-60" style="">Есть вопрос?</div>
+                <div class="font-bold" style="">support@skvoz-hr.ru</div>
+              </div>
+            </div>
+            <p class="text-sm text-surface-variant" style="">Мы отвечаем в течение часа в рабочее время. Никаких ботов,
+              только живое общение с разработчиками.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+    <!-- Community Section -->
+    <section class="py-24 px-8 max-w-7xl mx-auto">
+      <div
+        class="bg-primary text-on-primary p-12 rounded-2xl flex flex-col md:flex-row gap-12 items-center relative overflow-hidden">
+        <div class="flex-1 z-10">
+          <h2 class="font-headline text-4xl font-bold mb-6" style="">Присоединяйтесь к сообществу экспертов</h2>
+          <p class="text-primary-fixed text-lg mb-8 opacity-90 max-w-lg" style="">Получите доступ к закрытым инсайтам,
+            шаблонам оценки интервью и обсуждению будущего HR-технологий в кругу профессионалов.</p>
+          <button
+            class="bg-surface text-primary px-8 py-4 rounded-md font-bold hover:bg-surface-variant transition-all active:scale-95"
+            style="">Вступить в сообщество</button>
+        </div>
+        <div class="flex-shrink-0 w-full md:w-80 z-10">
+          <div class="grid grid-cols-3 gap-2">
+            <img class="w-full h-24 object-cover rounded-md"
+              src="https://lh3.googleusercontent.com/aida-public/AB6AXuCnYuipSV_R5KlYNMmb8Fbylm-k6BvyqyXX6slaqO1Nu46yDB9X2wMoHZYue_86jzYJzTbkl6KmTwM1nxAMQIbHfvbimZ623GohyQYPWcRkmXjK2xAyjQrjuShX7XAL2gKbsOR67SXXHlPFuVAxyeATe-eobvt0ITLfjvzgbj1Yu661gBjJsxhT80wl3yUp1KzsqoXGfx127KSwy6gYPgt-sDJqOCW1zvtHkTk_DV8YBRXEGRrfWYoKDLxm-cYXgj8H76ucz2Tk56c"
+              style="" />
+            <img class="w-full h-24 object-cover rounded-md"
+              src="https://lh3.googleusercontent.com/aida-public/AB6AXuAO2-pDfslwkUdeilRvJhSz-tk8zdqew5Wm5RX8t834qJUs6JP1cY5Ez5zuVI9CD5hmqG70Z9IkbSqM9cfXkPkZDuzqFCMV0oQJ6tXAAHf1xkUA14Rki3BMUS7AwkBXqrLAGeb09xuARTKxOHgWwsXt9Wx8FFvgwH6N1lfFI13mpR1hLXBEVdrrIOUc6WjatsxY7LjDZOmio4IssO2lUC1ftT-gONYGvDf_ZK7OzAoXBagQwNVg5DRwjB2YQsMorpymQZAbi4AjBW8"
+              style="" />
+            <img class="w-full h-24 object-cover rounded-md"
+              src="https://lh3.googleusercontent.com/aida-public/AB6AXuAJpioTtk0nZBlUISmhTqjFhdqFrxVZDjmFjh09K3eizPrPKqIeHM1ZwZ892zp7jTWTR19s0UacHcJDqUTca_gGuzeFAzwZq6SnmvAXtwcvAj4gXVkBrd8fpporVJMtCQ7fROhGfH92RSdE8rYOo8TuoBU9Mf8RlKLm8al30KabQeCU5odzQeD-R-eyYtU5haMJ0mq1DWmkyPyg3LPm8XSLUDYke252fcVLgM1bQJp3LovA2Uklmf0Q-m_zzg56wxmm67FO6crDIUg"
+              style="" />
+            <img class="w-full h-24 object-cover rounded-md"
+              src="https://lh3.googleusercontent.com/aida-public/AB6AXuAxqHjGHixYeY_mJj9rNBnIbD74LmLtlsRNuTMQvVQ6mgX6LhxhHRVEhQwOlt8BcXI9ySF-2aq3sBGerszwKLvY9yei-Au65fvFzzpUbHPGhrvr4xx93wmVYH_tcJypSrBMtSn994xRXTfMhUlbSXZR8dN6j2cFDV_1U5yg9dr_mjXAoZDUKEmjML06HlCCf-H9uzhl3FyZ7t6F9wDvdMLF0U5NZ2xLzP4kIWnFgERUHWs3ILH-zwYYYY25J8OKQ0_ClQDUCd3Q7ZM"
+              style="" />
+            <div
+              class="w-full h-24 bg-tertiary rounded-md flex items-center justify-center font-bold text-xl text-white"
+              style="">+42</div>
+            <img class="w-full h-24 object-cover rounded-md"
+              src="https://lh3.googleusercontent.com/aida-public/AB6AXuDGc5Ne4M7-_owjEPrWKi5fVEBb45oi_j0SOs9McndTfeNeYMSDxQSTqfnygEGUZ7d7Tg3Y5U-qnwYBHemPTBaFO03ktN3j6ViW9NKh1u3T_v3LDSNdm2fQ5ef6hWimT1kHrkFTGuG8tjOpLHBACZDFzbjJGS_H_Nu6NRVE7GosdrHArv7cP0dOqH2hoyMxDZgPifZCT-7ZZPgisV4L39nq78t_BCjzPMYD2bj-9XFz08U8SAoXk_2SfuPXA3lxIryz4JD8Fk-EbaA"
+              style="" />
+          </div>
+        </div>
+        <!-- Decorative background elements -->
+        <div class="absolute top-0 right-0 w-64 h-64 bg-secondary/20 rounded-full blur-3xl -mr-32 -mt-32"></div>
+      </div>
+    </section>
+  </main>
+  <!-- Footer -->
+  <footer class="bg-surface-container py-20 border-t border-outline-variant/10">
+    <div class="max-w-7xl mx-auto px-8">
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-12 mb-16">
+        <div class="col-span-1 md:col-span-1">
+          <div class="text-2xl font-black text-on-surface font-headline tracking-tighter mb-6">Сквозь Эйчаров</div>
+          <p class="text-sm text-on-surface-variant leading-relaxed mb-6 opacity-80 font-body">
+            © 2024 Сквозь Эйчаров.<br />Все права защищены.
+          </p>
+          <div class="flex items-center gap-4">
+            <a class="w-10 h-10 bg-on-surface/5 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-red-600 hover:text-white transition-all"
+              href="#">
+              <svg class="w-5 h-5 fill-current" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path
+                d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z">
+              </path>
+              </svg>
+            </a>
+            <a class="w-10 h-10 bg-on-surface/5 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-primary hover:text-white transition-all"
+              href="#">
+                <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"><title>telegram_fill</title><g id="tg-1" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd"><g id="Brand" transform="translate(-672.000000, -48.000000)"><g id="telegram_fill" transform="translate(672.000000, 48.000000)"><path d="M24,0 L24,24 L0,24 L0,0 L24,0 Z M12.5934901,23.257841 L12.5819402,23.2595131 L12.5108777,23.2950439 L12.4918791,23.2987469 L12.4918791,23.2987469 L12.4767152,23.2950439 L12.4056548,23.2595131 C12.3958229,23.2563662 12.3870493,23.2590235 12.3821421,23.2649074 L12.3780323,23.275831 L12.360941,23.7031097 L12.3658947,23.7234994 L12.3769048,23.7357139 L12.4804777,23.8096931 L12.4953491,23.8136134 L12.4953491,23.8136134 L12.5071152,23.8096931 L12.6106902,23.7357139 L12.6232938,23.7196733 L12.6232938,23.7196733 L12.6266527,23.7031097 L12.609561,23.275831 C12.6075724,23.2657013 12.6010112,23.2592993 12.5934901,23.257841 L12.5934901,23.257841 Z M12.8583906,23.1452862 L12.8445485,23.1473072 L12.6598443,23.2396597 L12.6498822,23.2499052 L12.6498822,23.2499052 L12.6471943,23.2611114 L12.6650943,23.6906389 L12.6699349,23.7034178 L12.6699349,23.7034178 L12.678386,23.7104931 L12.8793402,23.8032389 C12.8914285,23.8068999 12.9022333,23.8029875 12.9078286,23.7952264 L12.9118235,23.7811639 L12.8776777,23.1665331 C12.8752882,23.1545897 12.8674102,23.1470016 12.8583906,23.1452862 L12.8583906,23.1452862 Z M12.1430473,23.1473072 C12.1332178,23.1423925 12.1221763,23.1452606 12.1156365,23.1525954 L12.1099173,23.1665331 L12.0757714,23.7811639 C12.0751323,23.7926639 12.0828099,23.8018602 12.0926481,23.8045676 L12.108256,23.8032389 L12.3092106,23.7104931 L12.3186497,23.7024347 L12.3186497,23.7024347 L12.3225043,23.6906389 L12.340401,23.2611114 L12.337245,23.2485176 L12.337245,23.2485176 L12.3277531,23.2396597 L12.1430473,23.1473072 Z" id="MingCute" fill-rule="nonzero"></path><path class="fill-current transition-colors" d="M19.7773,4.42984 C20.8652,3.97177 22.0315,4.8917 21.8394,6.05639 L19.5705,19.8131 C19.3517,21.1395 17.8949,21.9006 16.678,21.2396 C15.6597,20.6865 14.1489,19.8352 12.7873,18.9455 C12.1074,18.5012 10.0255,17.0766 10.2814,16.0625 C10.5002,15.1954 14.0001,11.9375 16.0001,10 C16.7857,9.23893 16.4279,8.79926 15.5001,9.5 C13.1985,11.2383 9.50332,13.8812 8.28136,14.625 C7.20323,15.2812 6.64031,15.3932 5.96886,15.2812 C4.74273,15.0769 3.60596,14.7605 2.67788,14.3758 C1.42351,13.8558 1.48461,12.132 2.67703,11.63 L19.7773,4.42984 Z" id="tg"></path></g></g></g></g></svg>
+            </a>
+          </div>
+        </div>
+        <div>
+          <h4 class="text-xs font-bold uppercase tracking-widest text-on-surface/40 mb-6">Контакты</h4>
+          <div class="space-y-4 font-body">
+            <div class="flex items-center gap-3 text-on-surface-variant">
+              <span class="material-symbols-outlined text-xl opacity-60">mail</span>
+              <a class="hover:text-primary transition-colors text-sm" href="mailto:me@zalupa.me">me@zalupa.me</a>
+            </div>
+            <p class="text-xs text-on-surface-variant opacity-60 leading-relaxed">
+              Отвечаем в течение часа в рабочее время.
+            </p>
+          </div>
+        </div>
+        <div>
+          <h4 class="text-xs font-bold uppercase tracking-widest text-on-surface/40 mb-6">Юридическая информация</h4>
+          <div class="space-y-3 text-sm text-on-surface-variant font-body">
+            <p>ИНН 2281337</p>
+            <p>ИП Егор Егоренко Егорович</p>
+          </div>
+        </div>
+        <div class="md:text-right flex flex-col md:items-end">
+          <h4 class="text-xs font-bold uppercase tracking-widest text-on-surface/40 mb-6">Документы</h4>
+          <div class="flex flex-col gap-3 text-sm font-medium text-on-surface-variant font-body">
+            <a class="hover:text-primary transition-colors" href="#">Оферта</a>
+            <a class="hover:text-primary transition-colors" href="#">Политика конфиденциальности</a>
+          </div>
+        </div>
+      </div>
+      <div class="pt-8 border-t border-outline-variant/10 text-center">
+        <p class="text-[10px] text-on-surface-variant uppercase tracking-[0.2em] font-bold opacity-30">По ту сторону трудоустройства</p>
+      </div>
+    </div>
+  </footer>
+</body>
+
+</html>
