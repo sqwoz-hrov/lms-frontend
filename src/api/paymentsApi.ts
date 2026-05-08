@@ -23,6 +23,7 @@ export type PaymentMethodResponseDto = {
 	last4: Record<string, string | null> | string | null;
 	createdAt: string;
 	updatedAt: string;
+	nextBillingAt?: string | null;
 };
 
 export type PaymentMethodConfirmationResponseDto = {

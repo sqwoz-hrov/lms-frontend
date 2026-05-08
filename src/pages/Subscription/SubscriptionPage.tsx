@@ -17,6 +17,7 @@ import { ConfirmDeletionDialog } from "@/components/common/dialogs/ConfirmDeleti
 import { SubscriptionTierCard } from "@/components/subscriptions/SubscriptionTierCard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/useAuth";
 import { Loader2, RefreshCcw } from "lucide-react";
 
@@ -169,6 +170,19 @@ export function SubscriptionPage() {
 		return null;
 	}, [activePaymentMethod]);
 
+	const nextBillingDate = useMemo(() => {
+		if (!activePaymentMethod) return null;
+		if (!activePaymentMethod.nextBillingAt) return null;
+
+		const candidate = activePaymentMethod.nextBillingAt;
+		const parsedDate = new Date(candidate);
+		if (!Number.isNaN(parsedDate.getTime())) {
+			return parsedDate;
+		}
+
+		return null;
+	}, [activePaymentMethod, user.active_until]);
+
 	const paymentMethodMetadata = useMemo(() => {
 		if (!activePaymentMethod) return [];
 		const items: Array<{ label: string; value: string }> = [];
@@ -182,9 +196,18 @@ export function SubscriptionPage() {
 					year: "numeric",
 				}),
 			});
+			items.push({
+				label: "Следующее списание",
+				value: nextBillingDate?.toLocaleDateString("ru-RU", {
+					day: "2-digit",
+					month: "long",
+					year: "numeric",
+				}) ?? "не запланировано",
+			});
 		}
+
 		return items;
-	}, [activePaymentMethod]);
+	}, [activePaymentMethod, nextBillingDate]);
 
 	const hasPaymentMethod = Boolean(activePaymentMethod);
 
@@ -261,27 +284,36 @@ export function SubscriptionPage() {
 										Перенаправление…
 									</>
 								) : (
-									"Привязать карту"
+									hasPaymentMethod ? "Сменить карту" : "Привязать карту"
 								)}
 							</Button>
-							<Button
-								variant="outline"
-								size="sm"
-								disabled={!activePaymentMethod || deletePaymentMethodMutation.isPending}
-								onClick={() => {
-									if (!activePaymentMethod || deletePaymentMethodMutation.isPending) return;
-									setDeletePaymentMethodDialogOpen(true);
-								}}
-							>
-								{deletePaymentMethodMutation.isPending ? (
-									<>
-										<Loader2 className="mr-2 h-4 w-4 animate-spin" />
-										Удаление…
-									</>
-								) : (
-									"Удалить"
-								)}
-							</Button>
+							<Tooltip>
+								<TooltipTrigger asChild>
+									<span className="inline-flex">
+										<Button
+											variant="outline"
+											size="sm"
+											disabled={!activePaymentMethod || deletePaymentMethodMutation.isPending}
+											onClick={() => {
+												if (!activePaymentMethod || deletePaymentMethodMutation.isPending) return;
+												setDeletePaymentMethodDialogOpen(true);
+											}}
+										>
+											{deletePaymentMethodMutation.isPending ? (
+												<>
+													<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+													Отвязка…
+												</>
+											) : (
+												"Отвязать карту"
+											)}
+										</Button>
+									</span>
+								</TooltipTrigger>
+								<TooltipContent side="bottom">
+									Отвязка способа оплаты отменяет все дальнейшие списания
+								</TooltipContent>
+							</Tooltip>
 						</div>
 					</div>
 
@@ -322,7 +354,9 @@ export function SubscriptionPage() {
 									</div>
 								)}
 								<p className="text-xs text-muted-foreground">
-									Этот способ будет использован для следующего автопродления. Его можно изменить при новой оплате.
+									Этот способ будет использован для следующего автопродления. Его можно изменить при новой
+									оплате. Если хотите отменить подписку, просто нажмите отвязать карту и списания
+									прекратятся
 								</p>
 							</div>
 						</div>
@@ -411,7 +445,7 @@ export function SubscriptionPage() {
 
 			<ConfirmDeletionDialog
 				entityName="способ оплаты"
-				description="Сохранённый способ оплаты будет отвязан. Автопродление остановится, пока вы не добавите новый способ."
+				description="Сохранённый способ оплаты будет отвязан. Автопродление остановится, а уже оплаченная подписка продолжит работать"
 				open={deletePaymentMethodDialogOpen}
 				onOpenChange={setDeletePaymentMethodDialogOpen}
 				onConfirm={() => {
