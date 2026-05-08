@@ -267,7 +267,7 @@ export function SignupPage() {
 							<div className="space-y-2 text-center text-sm text-muted-foreground">
 								<p>Заявка отправлена — осталось подтвердить аккаунт.</p>
 								<p>
-									Напишите боту <span className="font-medium">{displayBotName}</span> в Telegram и следуйте его
+									Напишите <span className="font-medium"><a href={botLink} target="_blank" rel="noopener noreferrer">{displayBotName}</a></span> в Telegram и следуйте его
 									инструкциям, чтобы получить одноразовый код.
 								</p>
 							</div>
