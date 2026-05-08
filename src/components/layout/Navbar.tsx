@@ -7,7 +7,7 @@ import {
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/hooks/useAuth";
-import { ChevronDown, CreditCard, Loader2, Settings } from "lucide-react";
+import { ChevronDown, CreditCard, Lightbulb, Loader2, Settings } from "lucide-react";
 import { useState } from "react";
 import { Link, NavLink, useNavigate } from "react-router-dom";
 
@@ -85,12 +85,6 @@ export function Navbar() {
 									</Button>
 								</DropdownMenuTrigger>
 								<DropdownMenuContent align="end" className="w-44">
-									<DropdownMenuItem asChild>
-										<Link to="/settings" className="flex w-full items-center gap-2">
-											<Settings className="h-4 w-4 text-muted-foreground" />
-											<span>Настройки</span>
-										</Link>
-									</DropdownMenuItem>
 									{user.role === "subscriber" && (
 										<DropdownMenuItem asChild>
 											<Link to="/subscription" className="flex w-full items-center gap-2">
@@ -99,6 +93,18 @@ export function Navbar() {
 											</Link>
 										</DropdownMenuItem>
 									)}
+									<DropdownMenuItem asChild>
+										<Link to="/settings" className="flex w-full items-center gap-2">
+											<Settings className="h-4 w-4 text-muted-foreground" />
+											<span>Настройки</span>
+										</Link>
+									</DropdownMenuItem>
+									<DropdownMenuItem asChild>
+										<Link to="/faq" className="flex w-full items-center gap-2">
+											<Lightbulb className="h-4 w-4 text-muted-foreground" />
+											<span>Помощь</span>
+										</Link>
+									</DropdownMenuItem>
 								</DropdownMenuContent>
 							</DropdownMenu>
 						)}
