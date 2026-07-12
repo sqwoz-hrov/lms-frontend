@@ -18,12 +18,14 @@ export type YookassaPaymentMethodType =
 
 export type PaymentMethodResponseDto = {
 	userId: string;
-	paymentMethodId: string;
+	id?: string;
+	paymentMethodId?: string;
 	type: YookassaPaymentMethodType;
 	last4: Record<string, string | null> | string | null;
 	createdAt: string;
 	updatedAt: string;
 	nextBillingAt?: string | null;
+	problemsWithPaymentMethod?: boolean;
 };
 
 export type PaymentMethodConfirmationResponseDto = {
