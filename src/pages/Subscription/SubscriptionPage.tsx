@@ -29,6 +29,8 @@ import {
 	TIER_CACHE_TIME_MS,
 	formatDate,
 	formatPrice,
+	formatSubscriptionPeriodPrice,
+	formatSubscriptionPrice,
 	getTierName,
 	onlyDigits,
 	readDevPaymentMethod,
@@ -131,6 +133,13 @@ export function SubscriptionPage() {
 	const nextBillingDate = formatDate(subscription?.nextPayment.date);
 	const giftUntilDate = formatDate(subscription?.currentGiftTier?.until);
 	const currentTierUntilDate = formatDate(subscription?.currentTier.until);
+	const isCurrentAccessFree =
+		Boolean(subscription?.currentGiftTier) || currentTierPower === 0 || currentFullTier?.price_rubles === 0;
+	const isNextTierFree =
+		subscription?.nextPayment.amount === 0 ||
+		nextFullTier?.price_rubles === 0 ||
+		(typeof subscription?.nextTier.power === "number" && subscription.nextTier.power === 0);
+	const shouldShowNextBillingDate = Boolean(nextBillingDate) && !(isCurrentAccessFree && isNextTierFree);
 	const tierAfterGift =
 		subscription?.currentGiftTier &&
 		subscription.currentTier.until &&
@@ -327,11 +336,17 @@ export function SubscriptionPage() {
 
 					<div className="space-y-7 rounded-lg border p-6 sm:p-8">
 						<div className="space-y-1 text-base leading-relaxed text-foreground">
-							{nextBillingDate ? (
+							{shouldShowNextBillingDate ? (
 								<>
-									<p>
-										Следующее списание: {nextBillingDate} на {formatPrice(subscription.nextPayment.amount)}
-									</p>
+									{subscription.nextPayment.amount > 0 ? (
+										<p>
+											Следующее списание: {nextBillingDate} на {formatPrice(subscription.nextPayment.amount)}
+										</p>
+									) : (
+										<p>
+											Следующее изменение: {nextBillingDate}, {formatSubscriptionPrice(subscription.nextPayment.amount)}
+										</p>
+									)}
 									<p>Следующий уровень: {tierButton(nextFullTier ?? subscription.nextTier)}</p>
 								</>
 							) : (
@@ -342,7 +357,7 @@ export function SubscriptionPage() {
 									Подарок активен до: {giftUntilDate}. После подарка будет активен уровень {tierButton(tierAfterGift)}.
 								</p>
 							)}
-							{!subscription.currentGiftTier && currentTierUntilDate && !nextBillingDate && (
+							{!isCurrentAccessFree && currentTierUntilDate && !shouldShowNextBillingDate && (
 								<p>Текущий оплаченный период действует до: {currentTierUntilDate}.</p>
 							)}
 						</div>
@@ -387,7 +402,11 @@ export function SubscriptionPage() {
 				<DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
 					<DialogHeader>
 						<DialogTitle>{selectedTier?.tier}</DialogTitle>
-						<DialogDescription>{formatPrice(selectedTier?.price_rubles)} / мес</DialogDescription>
+						<DialogDescription>
+							{selectedTier?.id === subscription?.currentGiftTier?.id
+								? "Бесплатно"
+								: formatSubscriptionPeriodPrice(selectedTier?.price_rubles)}
+						</DialogDescription>
 					</DialogHeader>
 					{selectedTier?.markdown_description?.trim() ? (
 						<MarkdownRenderer markdown={selectedTier.markdown_description} mode="full" />

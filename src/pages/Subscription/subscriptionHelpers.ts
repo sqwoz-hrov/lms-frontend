@@ -48,6 +48,16 @@ export function formatPrice(value?: number | null, currency: "RUB" = "RUB") {
 	}).format(value);
 }
 
+export function formatSubscriptionPrice(value?: number | null, currency: "RUB" = "RUB") {
+	if (typeof value === "number" && value <= 0) return "Бесплатно";
+	return formatPrice(value, currency);
+}
+
+export function formatSubscriptionPeriodPrice(value?: number | null, period = "в месяц") {
+	const price = formatSubscriptionPrice(value);
+	return price === "Бесплатно" ? price : `${price} ${period}`;
+}
+
 export function getTierName(tier?: DisplayTier | null) {
 	return tier ? ("name" in tier ? tier.name : tier.tier) : "тариф";
 }

@@ -39,6 +39,8 @@ import {
 	formatDateTime,
 	formatPaymentMethodName,
 	formatPrice,
+	formatSubscriptionPeriodPrice,
+	formatSubscriptionPrice,
 	getTierName,
 	onlyDigits,
 	readDevPaymentMethod,
@@ -297,6 +299,13 @@ export function SubscriptionManagePage() {
 	const nextBillingDate = formatDate(subscription?.nextPayment.date);
 	const giftUntilDate = formatDate(subscription?.currentGiftTier?.until);
 	const currentTierUntilDate = formatDate(subscription?.currentTier.until);
+	const isCurrentAccessFree =
+		Boolean(subscription?.currentGiftTier) || currentTierPower === 0 || currentFullTier?.price_rubles === 0;
+	const isNextTierFree =
+		subscription?.nextPayment.amount === 0 ||
+		nextFullTier?.price_rubles === 0 ||
+		(typeof subscription?.nextTier.power === "number" && subscription.nextTier.power === 0);
+	const shouldShowNextBillingDate = Boolean(nextBillingDate) && !(isCurrentAccessFree && isNextTierFree);
 	const paymentMethodName = formatPaymentMethodName(activePaymentMethod);
 	const isLoading = subscriptionLoading || tiersLoading || paymentMethodLoading;
 	const hasLoadError = subscriptionError || tiersError;
@@ -483,7 +492,7 @@ export function SubscriptionManagePage() {
 											</p>
 										) : (
 											<p className="mt-1 text-sm text-muted-foreground">
-												{formatPrice(currentFullTier?.price_rubles)} в месяц
+												{formatSubscriptionPeriodPrice(currentFullTier?.price_rubles)}
 											</p>
 										)}
 									</button>
@@ -501,11 +510,17 @@ export function SubscriptionManagePage() {
 										<div className="mt-2 text-xl font-semibold">
 											{getTierName(nextFullTier ?? subscription.nextTier)}
 										</div>
-										{nextBillingDate ? (
-											<p className="mt-1 text-sm text-muted-foreground">
-												Списание {nextBillingDate} на {formatPrice(subscription.nextPayment.amount)}
-											</p>
-										) : currentTierUntilDate ? (
+										{shouldShowNextBillingDate ? (
+											subscription.nextPayment.amount > 0 ? (
+												<p className="mt-1 text-sm text-muted-foreground">
+													Списание {nextBillingDate} на {formatPrice(subscription.nextPayment.amount)}
+												</p>
+											) : (
+												<p className="mt-1 text-sm text-muted-foreground">
+													Изменение {nextBillingDate}: {formatSubscriptionPrice(subscription.nextPayment.amount)}
+												</p>
+											)
+										) : currentTierUntilDate && !isCurrentAccessFree ? (
 											<p className="mt-2 text-sm text-muted-foreground">
 												Оплаченный период действует до {currentTierUntilDate}
 											</p>
@@ -664,7 +679,11 @@ export function SubscriptionManagePage() {
 				<DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
 					<DialogHeader>
 						<DialogTitle>{selectedTier?.tier}</DialogTitle>
-						<DialogDescription>{formatPrice(selectedTier?.price_rubles)} / мес</DialogDescription>
+						<DialogDescription>
+							{selectedTier?.id === subscription?.currentGiftTier?.id
+								? "Бесплатно"
+								: formatSubscriptionPeriodPrice(selectedTier?.price_rubles)}
+						</DialogDescription>
 					</DialogHeader>
 					{selectedTier?.markdown_description?.trim() ? (
 						<MarkdownRenderer markdown={selectedTier.markdown_description} mode="full" />

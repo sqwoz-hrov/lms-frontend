@@ -13,16 +13,21 @@ import {
 } from "@/components/ui/card";
 import type { ReactNode } from "react";
 
+function formatTierPrice(value: number) {
+	return value <= 0 ? "Бесплатно" : `${value.toLocaleString("ru-RU")} ₽ / мес`;
+}
+
 export type SubscriptionTierCardProps = {
 	tier: SubscriptionTierResponseDto;
 	isCurrent?: boolean;
 	headerAction?: ReactNode;
 	footer?: ReactNode;
+	priceLabel?: ReactNode;
 	className?: string;
 };
 
 export function SubscriptionTierCard(props: SubscriptionTierCardProps) {
-	const { tier, isCurrent = false, headerAction, footer, className } = props;
+	const { tier, isCurrent = false, headerAction, footer, priceLabel, className } = props;
 	const markdownDescription = tier.markdown_description?.trim();
 
 	return (
@@ -36,7 +41,7 @@ export function SubscriptionTierCard(props: SubscriptionTierCardProps) {
 			<CardHeader className="items-start gap-2">
 				<div>
 					<CardTitle className="text-lg">{tier.tier}</CardTitle>
-					<CardDescription>{tier.price_rubles.toLocaleString("ru-RU")} ₽ / мес</CardDescription>
+					<CardDescription>{priceLabel ?? formatTierPrice(tier.price_rubles)}</CardDescription>
 				</div>
 				{(isCurrent || headerAction) && (
 					<CardAction>{headerAction ?? <Badge variant="secondary">Текущий тариф</Badge>}</CardAction>
