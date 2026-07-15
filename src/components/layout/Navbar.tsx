@@ -65,8 +65,8 @@ export function Navbar() {
 					{/* только админам */}
 					{!loading && user?.role === "admin" && (
 						<>
-							<NavLink to="/subscription-tiers" className={linkCls}>
-								Подписки
+							<NavLink to="/admin/subscription-tiers" className={linkCls}>
+								Тарифы
 							</NavLink>
 							<NavLink to="/users" className={linkCls}>
 								Пользователи

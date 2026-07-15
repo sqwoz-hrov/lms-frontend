@@ -1,7 +1,7 @@
-import { useMemo, useState } from "react";
-import { Navigate } from "react-router-dom";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { AlertTriangle, Gift, Loader2, RefreshCcw } from "lucide-react";
+import { useMemo, useState, type FormEvent } from "react";
+import { Navigate, useNavigate } from "react-router-dom";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { AlertTriangle, CreditCard, Gift, Loader2, RefreshCcw } from "lucide-react";
 
 import {
 	PaymentsApi,
@@ -10,7 +10,6 @@ import {
 } from "@/api/paymentsApi";
 import { SubscriptionsApi, type GetSubscriptionResponseDto } from "@/api/subscriptionsApi";
 import { SubscriptionTiersApi, type SubscriptionTierResponseDto } from "@/api/subscriptionTiersApi";
-import { ConfirmDeletionDialog } from "@/components/common/dialogs/ConfirmDeletionDialog";
 import { MarkdownRenderer } from "@/components/markdown/MarkdownRenderer";
 import { Button } from "@/components/ui/button";
 import {
@@ -21,43 +20,42 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/useAuth";
+import {
+	IS_DEV_PAYMENT_METHOD_FORM_ENABLED,
+	PAYMENT_METHOD_QUERY_KEY,
+	TIER_CACHE_TIME_MS,
+	formatDate,
+	formatPrice,
+	getTierName,
+	onlyDigits,
+	readDevPaymentMethod,
+	saveDevPaymentMethod,
+	type DisplayTier,
+} from "./subscriptionHelpers";
 
-const TIER_CACHE_TIME_MS = 60 * 60 * 1000;
-
-type DisplayTier =
-	| SubscriptionTierResponseDto
-	| GetSubscriptionResponseDto["currentTier"]
-	| GetSubscriptionResponseDto["nextTier"]
-	| NonNullable<GetSubscriptionResponseDto["currentGiftTier"]>;
-
-function formatDate(value?: string | null) {
-	if (!value) return null;
-	const date = new Date(value);
-	if (Number.isNaN(date.getTime())) return null;
-
-	return date.toLocaleDateString("ru-RU", {
-		day: "2-digit",
-		month: "long",
-		year: "numeric",
-	});
-}
-
-function formatPrice(value?: number | null) {
-	if (typeof value !== "number") return "0 ₽";
-	return `${value.toLocaleString("ru-RU")} ₽`;
-}
-
-function getTierName(tier?: DisplayTier | null) {
-	return tier ? ("name" in tier ? tier.name : tier.tier) : "тариф";
-}
+type DevPaymentMethodFormState = {
+	cardNumber: string;
+	expires: string;
+	cardholder: string;
+	cvc: string;
+};
 
 export function SubscriptionPage() {
 	const { user, userLoading } = useAuth();
+	const navigate = useNavigate();
+	const queryClient = useQueryClient();
 	const [paymentMethodActionError, setPaymentMethodActionError] = useState<string | null>(null);
-	const [manageDialogOpen, setManageDialogOpen] = useState(false);
-	const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+	const [devPaymentMethodDialogOpen, setDevPaymentMethodDialogOpen] = useState(false);
 	const [selectedTier, setSelectedTier] = useState<SubscriptionTierResponseDto | null>(null);
+	const [devPaymentMethodForm, setDevPaymentMethodForm] = useState<DevPaymentMethodFormState>({
+		cardNumber: "",
+		expires: "",
+		cardholder: "",
+		cvc: "",
+	});
 
 	const {
 		data: subscription,
@@ -89,8 +87,11 @@ export function SubscriptionPage() {
 		isLoading: paymentMethodLoading,
 		refetch: refetchPaymentMethod,
 	} = useQuery<PaymentMethodResponseDto | null>({
-		queryKey: ["subscriptions", "payment-method"],
-		queryFn: PaymentsApi.getActivePaymentMethod,
+		queryKey: PAYMENT_METHOD_QUERY_KEY,
+		queryFn: async () => {
+			const serverPaymentMethod = await PaymentsApi.getActivePaymentMethod();
+			return serverPaymentMethod ?? readDevPaymentMethod(user?.id);
+		},
 		enabled: Boolean(user?.id),
 		staleTime: 60_000,
 	});
@@ -108,19 +109,6 @@ export function SubscriptionPage() {
 		onError: () => {
 			setPaymentMethodActionError("Не удалось открыть изменение способа оплаты. Попробуйте позже.");
 		},
-	});
-
-	const deletePaymentMethodMutation = useMutation({
-		mutationFn: PaymentsApi.deletePaymentMethod,
-		onMutate: () => setPaymentMethodActionError(null),
-		onSuccess: async () => {
-			setManageDialogOpen(false);
-			await refetchPaymentMethod();
-		},
-		onError: () => {
-			setPaymentMethodActionError("Не удалось отменить автопродление. Попробуйте позже.");
-		},
-		onSettled: () => setCancelDialogOpen(false),
 	});
 
 	const tiersById = useMemo(() => {
@@ -174,7 +162,49 @@ export function SubscriptionPage() {
 
 	function handleChangePaymentMethod() {
 		if (addPaymentMethodMutation.isPending) return;
+		if (IS_DEV_PAYMENT_METHOD_FORM_ENABLED) {
+			setDevPaymentMethodDialogOpen(true);
+			return;
+		}
 		void addPaymentMethodMutation.mutateAsync();
+	}
+
+	function handleDevPaymentMethodSubmit(event: FormEvent<HTMLFormElement>) {
+		event.preventDefault();
+		if (!user) return;
+
+		const cardDigits = onlyDigits(devPaymentMethodForm.cardNumber);
+		const expiresDigits = onlyDigits(devPaymentMethodForm.expires);
+		const cvcDigits = onlyDigits(devPaymentMethodForm.cvc);
+
+		if (cardDigits.length < 12 || expiresDigits.length !== 4 || cvcDigits.length < 3) {
+			setPaymentMethodActionError("Проверьте тестовые данные карты и попробуйте снова.");
+			return;
+		}
+
+		const now = new Date().toISOString();
+		const method: PaymentMethodResponseDto = {
+			id: `dev-payment-method-${user.id}`,
+			userId: user.id,
+			paymentMethodId: `dev-payment-method-${user.id}`,
+			type: "bank_card",
+			last4: cardDigits.slice(-4),
+			createdAt: now,
+			updatedAt: now,
+			nextBillingAt: subscription?.nextPayment.date ?? null,
+			problemsWithPaymentMethod: false,
+		};
+
+		saveDevPaymentMethod(user.id, method);
+		queryClient.setQueryData<PaymentMethodResponseDto | null>(PAYMENT_METHOD_QUERY_KEY, method);
+		setPaymentMethodActionError(null);
+		setDevPaymentMethodDialogOpen(false);
+		setDevPaymentMethodForm({
+			cardNumber: "",
+			expires: "",
+			cardholder: "",
+			cvc: "",
+		});
 	}
 
 	if (userLoading) {
@@ -256,12 +286,30 @@ export function SubscriptionPage() {
 				</div>
 			)}
 
+			{!isLoading && !hasLoadError && !paymentMethodError && !activePaymentMethod && (
+				<div className="flex flex-col gap-3 rounded-lg border p-4 text-sm sm:flex-row sm:items-center sm:justify-between">
+					<div className="flex items-start gap-3">
+						<CreditCard className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+						<div className="space-y-1">
+							<p className="font-medium">Способ оплаты не привязан</p>
+							<p className="text-muted-foreground">
+								Добавьте способ оплаты, чтобы автопродление подписки сработало без ручных действий.
+							</p>
+						</div>
+					</div>
+					<Button size="sm" disabled={addPaymentMethodMutation.isPending} onClick={handleChangePaymentMethod}>
+						{addPaymentMethodMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+						Добавить способ оплаты
+					</Button>
+				</div>
+			)}
+
 			{!isLoading && !hasLoadError && subscription && isFreeTier && (
 				<section className="space-y-5">
 					<h1 className="text-3xl font-semibold tracking-normal">Сейчас вы не подписаны</h1>
 					<div className="max-w-4xl space-y-4 rounded-lg border p-6 text-base leading-relaxed text-foreground sm:p-8">
-						<p>Привяжите свою карту, чтобы начать пользоваться всеми плюшками сквозь эйчаров платформы уже сейчас</p>
-						<p>Если вам просто посмотреть: воспользуйтесь пробным периодом или возьмите и отмените подписку</p>
+						<p>Привяжите свою карту, чтобы начать пользоваться всеми плюшками платформы "Сквозь эйчаров" уже сейчас</p>
+						<p>Если вам просто посмотреть, воспользуйтесь пробным периодом или возьмите и отмените подписку</p>
 						<p>
 							Это безопасно: мы не храним ваши платёжные данные, а отменить подписку вы сможете в любой момент. Если
 							отмените, подписка будет действовать до конца оплаченного периода.
@@ -280,11 +328,12 @@ export function SubscriptionPage() {
 					<div className="space-y-7 rounded-lg border p-6 sm:p-8">
 						<div className="space-y-1 text-base leading-relaxed text-foreground">
 							{nextBillingDate ? (
-								<p>
-									Следующее списание: {nextBillingDate}. После него будет активен уровень{" "}
-									{tierButton(nextFullTier ?? subscription.nextTier)}, стоимость списания:{" "}
-									{formatPrice(subscription.nextPayment.amount)}.
-								</p>
+								<>
+									<p>
+										Следующее списание: {nextBillingDate} на {formatPrice(subscription.nextPayment.amount)}
+									</p>
+									<p>Следующий уровень: {tierButton(nextFullTier ?? subscription.nextTier)}</p>
+								</>
 							) : (
 								<p>Следующее списание не запланировано.</p>
 							)}
@@ -298,8 +347,22 @@ export function SubscriptionPage() {
 							)}
 						</div>
 
+						<div className="space-y-5">
+							<p className="max-w-4xl text-base leading-relaxed text-foreground">
+								Если вам нужно изменить или отменить подписку, нажмите на большую кнопку ниже. Подписка останется с вами
+								до конца оплаченного периода.
+							</p>
+							<Button size="lg" className="h-12 px-8 text-base" onClick={() => navigate("/subscription/manage")}>
+								Управлять подпиской
+							</Button>
+						</div>
+
 						<div className="space-y-3">
-							<h2 className="text-xl font-semibold">Вам доступно</h2>
+							{activeTierMarkdown || activeAccessTier?.permissions?.length ? (
+								<h2 className="text-xl font-semibold">Вам доступно</h2>
+							) : (
+								<></>
+							)}
 							{activeTierMarkdown ? (
 								<MarkdownRenderer
 									markdown={activeTierMarkdown}
@@ -313,18 +376,8 @@ export function SubscriptionPage() {
 									))}
 								</ul>
 							) : (
-								<p className="text-base text-muted-foreground">Описание тарифа пока не заполнено.</p>
+								""
 							)}
-						</div>
-
-						<div className="space-y-5">
-							<p className="max-w-4xl text-base leading-relaxed text-foreground">
-								Если вам нужно изменить или отменить подписку, нажмите на большую кнопку ниже. Подписка останется с вами
-								до конца оплаченного периода.
-							</p>
-							<Button size="lg" className="h-12 px-8 text-base" onClick={() => setManageDialogOpen(true)}>
-								Manage subscription
-							</Button>
 						</div>
 					</div>
 				</section>
@@ -350,41 +403,98 @@ export function SubscriptionPage() {
 				</DialogContent>
 			</Dialog>
 
-			<Dialog open={manageDialogOpen} onOpenChange={setManageDialogOpen}>
+			<Dialog open={devPaymentMethodDialogOpen} onOpenChange={setDevPaymentMethodDialogOpen}>
 				<DialogContent>
-					<DialogHeader>
-						<DialogTitle>Управление подпиской</DialogTitle>
-						<DialogDescription>
-							Можно изменить способ оплаты или отменить автопродление. Доступ останется до конца оплаченного периода.
-						</DialogDescription>
-					</DialogHeader>
-					<DialogFooter>
-						<Button
-							variant="outline"
-							disabled={deletePaymentMethodMutation.isPending || !activePaymentMethod}
-							onClick={() => setCancelDialogOpen(true)}
-						>
-							Отменить автопродление
-						</Button>
-						<Button disabled={addPaymentMethodMutation.isPending} onClick={handleChangePaymentMethod}>
-							{addPaymentMethodMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-							Изменить способ оплаты
-						</Button>
-					</DialogFooter>
+					<form className="space-y-5" onSubmit={handleDevPaymentMethodSubmit}>
+						<DialogHeader>
+							<DialogTitle>Тестовый способ оплаты</DialogTitle>
+							<DialogDescription>
+								Эта форма доступна только в dev-сборке и не отправляет данные в платёжный сервис.
+							</DialogDescription>
+						</DialogHeader>
+
+						<div className="grid gap-4">
+							<div className="space-y-2">
+								<Label htmlFor="dev-card-number">Номер карты</Label>
+								<Input
+									id="dev-card-number"
+									inputMode="numeric"
+									autoComplete="cc-number"
+									placeholder="4111 1111 1111 1111"
+									value={devPaymentMethodForm.cardNumber}
+									onChange={event =>
+										setDevPaymentMethodForm(prev => ({
+											...prev,
+											cardNumber: event.target.value,
+										}))
+									}
+								/>
+							</div>
+
+							<div className="grid gap-4 sm:grid-cols-2">
+								<div className="space-y-2">
+									<Label htmlFor="dev-card-expires">Срок действия</Label>
+									<Input
+										id="dev-card-expires"
+										inputMode="numeric"
+										autoComplete="cc-exp"
+										placeholder="12/30"
+										value={devPaymentMethodForm.expires}
+										onChange={event =>
+											setDevPaymentMethodForm(prev => ({
+												...prev,
+												expires: event.target.value,
+											}))
+										}
+									/>
+								</div>
+								<div className="space-y-2">
+									<Label htmlFor="dev-card-cvc">CVC</Label>
+									<Input
+										id="dev-card-cvc"
+										inputMode="numeric"
+										autoComplete="cc-csc"
+										placeholder="123"
+										value={devPaymentMethodForm.cvc}
+										onChange={event =>
+											setDevPaymentMethodForm(prev => ({
+												...prev,
+												cvc: event.target.value,
+											}))
+										}
+									/>
+								</div>
+							</div>
+
+							<div className="space-y-2">
+								<Label htmlFor="dev-cardholder">Имя на карте</Label>
+								<Input
+									id="dev-cardholder"
+									autoComplete="cc-name"
+									placeholder="IVAN IVANOV"
+									value={devPaymentMethodForm.cardholder}
+									onChange={event =>
+										setDevPaymentMethodForm(prev => ({
+											...prev,
+											cardholder: event.target.value,
+										}))
+									}
+								/>
+							</div>
+						</div>
+
+						<DialogFooter>
+							<Button type="button" variant="outline" onClick={() => setDevPaymentMethodDialogOpen(false)}>
+								Отмена
+							</Button>
+							<Button type="submit">
+								<CreditCard className="h-4 w-4" />
+								Сохранить способ оплаты
+							</Button>
+						</DialogFooter>
+					</form>
 				</DialogContent>
 			</Dialog>
-
-			<ConfirmDeletionDialog
-				entityName="автопродление"
-				description="Сохранённый способ оплаты будет отвязан. Уже оплаченная подписка продолжит работать до конца периода."
-				open={cancelDialogOpen}
-				onOpenChange={setCancelDialogOpen}
-				onConfirm={() => {
-					if (!activePaymentMethod || deletePaymentMethodMutation.isPending) return;
-					void deletePaymentMethodMutation.mutateAsync();
-				}}
-				pending={deletePaymentMethodMutation.isPending}
-			/>
 		</div>
 	);
 }

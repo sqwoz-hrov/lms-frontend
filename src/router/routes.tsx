@@ -13,6 +13,8 @@ import { ListTasksPage } from "@/pages/Tasks/ListTasksPage";
 import { CreateUserPage } from "@/pages/Users/CreateUserPage";
 import { ListUsersPage } from "@/pages/Users/ListUsersPage";
 import { SubscriptionPage } from "@/pages/Subscription/SubscriptionPage";
+import { SubscriptionManagePage } from "@/pages/Subscription/SubscriptionManagePage";
+import { SubscriptionPaymentHistoryPage } from "@/pages/Subscription/SubscriptionPaymentHistoryPage";
 import { ListSubscriptionTiersPage } from "@/pages/Subscription/ListSubscriptionTiersPage";
 import { SubscriptionTierUpsertPage } from "@/pages/Subscription/SubscriptionTierUpsertPage";
 import { SettingsPage } from "@/pages/Settings/SettingsPage";
@@ -72,6 +74,9 @@ export function AppRoutes() {
 					<Route path="/materials/:id" element={<ViewMaterial />} />
 					<Route path="/subjects" element={<ListSubjectsPage />} />
 					<Route path="/subscription" element={<SubscriptionPage />} />
+					<Route path="/subscription/manage" element={<SubscriptionManagePage />} />
+					<Route path="/subscription/history" element={<SubscriptionPaymentHistoryPage />} />
+					<Route path="/subscription-tiers" element={<ListSubscriptionTiersPage />} />
 					<Route path="/settings" element={<SettingsPage />} />
 					<Route path="/home" element={<HomePage />} />
 					<Route path="/interviews/upload" element={<UploadInterviewTranscriptionPage />} />
@@ -85,7 +90,9 @@ export function AppRoutes() {
 
 				{/* только для админов */}
 				<Route element={<AdminRoute />}>
-					<Route path="/subscription-tiers" element={<ListSubscriptionTiersPage />} />
+					<Route path="/admin/subscription-tiers" element={<ListSubscriptionTiersPage />} />
+					<Route path="/admin/subscription-tiers/new" element={<SubscriptionTierUpsertPage />} />
+					<Route path="/admin/subscription-tiers/:id/edit" element={<SubscriptionTierUpsertPage />} />
 					<Route path="/subscription-tiers/new" element={<SubscriptionTierUpsertPage />} />
 					<Route path="/subscription-tiers/:id/edit" element={<SubscriptionTierUpsertPage />} />
 					<Route path="/materials/new" element={<UpsertMaterialPage />} />

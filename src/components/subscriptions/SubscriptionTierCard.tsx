@@ -1,4 +1,5 @@
 import type { SubscriptionTierResponseDto } from "@/api/subscriptionTiersApi";
+import { MarkdownRenderer } from "@/components/markdown/MarkdownRenderer";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -22,6 +23,7 @@ export type SubscriptionTierCardProps = {
 
 export function SubscriptionTierCard(props: SubscriptionTierCardProps) {
 	const { tier, isCurrent = false, headerAction, footer, className } = props;
+	const markdownDescription = tier.markdown_description?.trim();
 
 	return (
 		<Card
@@ -34,15 +36,17 @@ export function SubscriptionTierCard(props: SubscriptionTierCardProps) {
 			<CardHeader className="items-start gap-2">
 				<div>
 					<CardTitle className="text-lg">{tier.tier}</CardTitle>
-					<CardDescription>{tier.price_rubles} ₽ / мес</CardDescription>
+					<CardDescription>{tier.price_rubles.toLocaleString("ru-RU")} ₽ / мес</CardDescription>
 				</div>
 				{(isCurrent || headerAction) && (
 					<CardAction>{headerAction ?? <Badge variant="secondary">Текущий тариф</Badge>}</CardAction>
 				)}
 			</CardHeader>
 
-			<CardContent>
-				{tier.permissions.length > 0 ? (
+			<CardContent className="flex-1">
+				{markdownDescription ? (
+					<MarkdownRenderer markdown={markdownDescription} mode="preview" />
+				) : tier.permissions.length > 0 ? (
 					<ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
 						{tier.permissions.map(permission => (
 							<li key={permission}>{permission}</li>
@@ -53,7 +57,7 @@ export function SubscriptionTierCard(props: SubscriptionTierCardProps) {
 				)}
 			</CardContent>
 
-			{footer && <CardFooter className="justify-end">{footer}</CardFooter>}
+			{footer && <CardFooter className="mt-auto justify-end">{footer}</CardFooter>}
 		</Card>
 	);
 }
