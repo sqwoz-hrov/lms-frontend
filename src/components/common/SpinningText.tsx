@@ -16,13 +16,17 @@ function getDecoyPool(character: string) {
 	return SHARED_SYMBOLS;
 }
 
-function createDecoys(character: string) {
-	const candidates = getDecoyPool(character).filter(symbol => symbol !== character);
-
+function fisherYatesShuffle(candidates: string[]) {
 	for (let index = candidates.length - 1; index > 0; index -= 1) {
 		const randomIndex = Math.floor(Math.random() * (index + 1));
 		[candidates[index], candidates[randomIndex]] = [candidates[randomIndex], candidates[index]];
 	}
+}
+
+function createDecoys(character: string) {
+	const candidates = getDecoyPool(character).filter(symbol => symbol !== character);
+
+	fisherYatesShuffle(candidates);
 
 	return candidates.slice(0, DECOY_COUNT);
 }
