@@ -14,7 +14,7 @@ import {
 import type { ReactNode } from "react";
 
 function formatTierPrice(value: number) {
-	return value <= 0 ? "Бесплатно" : `${value.toLocaleString("ru-RU")} ₽ / мес`;
+	return value <= 0 ? "Бесплатно" : `${value.toLocaleString("ru-RU")} ₽ / 30 дней`;
 }
 
 export type SubscriptionTierCardProps = {

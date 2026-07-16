@@ -54,6 +54,20 @@ export type GiftAcceptedResponseDto = {
 	giftTierId: string;
 };
 
+export type GiftSubscriptionDto = {
+	giftToUserId: string;
+	subscriptionTierId: string;
+	durationDays?: number;
+};
+
+export type GiftSubscriptionResponseDto = {
+	giftToUserId: string;
+	giftedToUsername: string;
+	giftedToEmail: string;
+	subscriptionTierName: string;
+	durationDays: number;
+};
+
 const GIFTS = "/gifts";
 const SUBSCRIPTION_GIFT = "/subscriptions/gift";
 
@@ -67,7 +81,13 @@ export async function acceptGift(giftId: string): Promise<GiftAcceptedResponseDt
 	return res.data;
 }
 
+export async function giftSubscription(data: GiftSubscriptionDto): Promise<GiftSubscriptionResponseDto | null> {
+	const res = await apiClient.post<GiftSubscriptionResponseDto | null>(SUBSCRIPTION_GIFT, data);
+	return res.data;
+}
+
 export const GiftsApi = {
 	list: listGifts,
 	accept: acceptGift,
+	gift: giftSubscription,
 };

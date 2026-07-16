@@ -1,7 +1,7 @@
-import { useMemo, useState, type FormEvent } from "react";
+import { useMemo, useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowRight, CalendarDays, CreditCard, Gift, History, Loader2, RefreshCcw, ShieldCheck } from "lucide-react";
+import { ArrowRight, CreditCard, History, Loader2, RefreshCcw, TrendingDown, TrendingUp, Crown, Calendar } from "lucide-react";
 
 import {
 	PaymentsApi,
@@ -14,6 +14,7 @@ import { SubscriptionsApi, type GetSubscriptionResponseDto } from "@/api/subscri
 import { SubscriptionTiersApi, type SubscriptionTierResponseDto } from "@/api/subscriptionTiersApi";
 import { ConfirmDeletionDialog } from "@/components/common/dialogs/ConfirmDeletionDialog";
 import { MarkdownRenderer } from "@/components/markdown/MarkdownRenderer";
+import { GiftAvailabilityBanner } from "@/components/subscriptions/GiftAvailabilityBanner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,67 +26,28 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useAuth } from "@/hooks/useAuth";
 import {
-	IS_DEV_PAYMENT_METHOD_FORM_ENABLED,
 	PAYMENT_METHOD_QUERY_KEY,
 	TIER_CACHE_TIME_MS,
-	deleteDevPaymentMethod,
+	LOWER_TIER_GIFT_MESSAGE,
+	canActivateGiftWithCurrentPower,
 	formatDate,
 	formatDateTime,
 	formatPaymentMethodName,
 	formatPrice,
 	formatSubscriptionPeriodPrice,
 	formatSubscriptionPrice,
+	getBestApplicableGift,
+	getGiftActivationErrorMessage,
+	getTierPower,
 	getTierName,
-	onlyDigits,
-	readDevPaymentMethod,
-	saveDevPaymentMethod,
-	type DisplayTier,
 } from "./subscriptionHelpers";
 import { toast } from "sonner";
 
 const HISTORY_PREVIEW_QUERY_KEY = ["payments", "history", { page: 1, pageSize: 5 }] as const;
-
-type DevPaymentMethodFormState = {
-	cardNumber: string;
-	expires: string;
-	cardholder: string;
-	cvc: string;
-};
-
-function GiftRow({
-	gift,
-	pending,
-	onAccept,
-}: {
-	gift: GiftListItemDto;
-	pending: boolean;
-	onAccept: (giftId: string) => void;
-}) {
-	return (
-		<div className="flex flex-col gap-3 rounded-lg border bg-muted/30 p-4 sm:flex-row sm:items-center sm:justify-between">
-			<div className="flex items-start gap-3">
-				<Gift className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-				<div>
-					<p className="font-medium">{gift.tier.tier}</p>
-					<p className="text-sm text-muted-foreground">
-						Подарок на {gift.durationDays} дн.
-						{gift.expiresAt ? `, доступен до ${formatDate(gift.expiresAt) ?? gift.expiresAt}` : ""}
-					</p>
-				</div>
-			</div>
-			<Button size="sm" variant="outline" disabled={pending} onClick={() => onAccept(gift.id)}>
-				{pending && <Loader2 className="h-4 w-4 animate-spin" />}
-				Активировать
-			</Button>
-		</div>
-	);
-}
 
 function PaymentHistoryPreview({
 	items,
@@ -156,16 +118,9 @@ export function SubscriptionManagePage() {
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
 	const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
-	const [devPaymentMethodDialogOpen, setDevPaymentMethodDialogOpen] = useState(false);
 	const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
 	const [paymentMethodActionError, setPaymentMethodActionError] = useState<string | null>(null);
 	const [selectedTier, setSelectedTier] = useState<SubscriptionTierResponseDto | null>(null);
-	const [devPaymentMethodForm, setDevPaymentMethodForm] = useState<DevPaymentMethodFormState>({
-		cardNumber: "",
-		expires: "",
-		cardholder: "",
-		cvc: "",
-	});
 
 	const {
 		data: subscription,
@@ -200,7 +155,7 @@ export function SubscriptionManagePage() {
 		queryKey: PAYMENT_METHOD_QUERY_KEY,
 		queryFn: async () => {
 			const serverPaymentMethod = await PaymentsApi.getActivePaymentMethod();
-			return serverPaymentMethod ?? readDevPaymentMethod(user?.id);
+			return serverPaymentMethod;
 		},
 		enabled: Boolean(user?.id),
 		staleTime: 60_000,
@@ -250,7 +205,6 @@ export function SubscriptionManagePage() {
 		onMutate: () => setPaymentMethodActionError(null),
 		onSuccess: async () => {
 			setPaymentDialogOpen(false);
-			deleteDevPaymentMethod(user?.id);
 			await refetchPaymentMethod();
 		},
 		onError: () => {
@@ -270,8 +224,10 @@ export function SubscriptionManagePage() {
 				refetchGifts(),
 			]);
 		},
-		onError: () => {
-			toast.error("Не удалось активировать подарок");
+		onError: error => {
+			toast.error("Не удалось активировать подарок", {
+				description: getGiftActivationErrorMessage(error),
+			});
 		},
 	});
 
@@ -285,12 +241,6 @@ export function SubscriptionManagePage() {
 	const activeAccessTier = subscription?.currentGiftTier
 		? (giftFullTier ?? subscription.currentGiftTier)
 		: (currentFullTier ?? subscription?.currentTier);
-	const tierAfterGift =
-		subscription?.currentGiftTier &&
-		subscription.currentTier.until &&
-		subscription.currentGiftTier.until > subscription.currentTier.until
-			? (nextFullTier ?? subscription.nextTier)
-			: (currentFullTier ?? subscription?.currentTier ?? null);
 	const currentTierPower =
 		typeof subscription?.currentTier.power === "number"
 			? subscription.currentTier.power
@@ -310,17 +260,20 @@ export function SubscriptionManagePage() {
 	const isLoading = subscriptionLoading || tiersLoading || paymentMethodLoading;
 	const hasLoadError = subscriptionError || tiersError;
 	const availableGifts = gifts?.available ?? [];
-	const isDevPaymentMethod =
-		IS_DEV_PAYMENT_METHOD_FORM_ENABLED &&
-		typeof activePaymentMethod?.paymentMethodId === "string" &&
-		activePaymentMethod.paymentMethodId.startsWith("dev-payment-method-");
+	const activeAccessTierPower = getTierPower(activeAccessTier);
+	const nextTierPower = getTierPower(nextFullTier ?? subscription?.nextTier);
+	const isNextTierDowngrade =
+		typeof activeAccessTierPower === "number" && typeof nextTierPower === "number"
+			? nextTierPower < activeAccessTierPower
+			: false;
+	const isSameTierPower = typeof activeAccessTierPower === "number" && typeof nextTierPower === "number"
+			? nextTierPower === activeAccessTierPower
+			: false
+	const NextTierTrendIcon = isNextTierDowngrade ? TrendingDown : isSameTierPower ? Calendar : TrendingUp;
+	const availableGiftSummary = getBestApplicableGift(availableGifts, activeAccessTierPower);
 
 	function handleChangePaymentMethod() {
 		if (addPaymentMethodMutation.isPending) return;
-		if (IS_DEV_PAYMENT_METHOD_FORM_ENABLED) {
-			setDevPaymentMethodDialogOpen(true);
-			return;
-		}
 		void addPaymentMethodMutation.mutateAsync();
 	}
 
@@ -330,73 +283,23 @@ export function SubscriptionManagePage() {
 		if (tier) setSelectedTier(tier);
 	}
 
-	function tierInlineButton(tier?: DisplayTier | null) {
-		if (!tier) return getTierName(tier);
-		const canOpen = tiersById.has(tier.id);
-
-		return (
-			<button
-				type="button"
-				className="font-medium text-primary underline-offset-4 hover:underline disabled:pointer-events-none disabled:text-foreground"
-				disabled={!canOpen}
-				onClick={() => showTierDetails(tier.id)}
-			>
-				{getTierName(tiersById.get(tier.id) ?? tier)}
-			</button>
-		);
-	}
-
 	function handleDeletePaymentMethod() {
-		if (!user || !activePaymentMethod || deletePaymentMethodMutation.isPending) return;
-
-		if (isDevPaymentMethod) {
-			deleteDevPaymentMethod(user.id);
-			queryClient.setQueryData<PaymentMethodResponseDto | null>(PAYMENT_METHOD_QUERY_KEY, null);
-			setCancelDialogOpen(false);
-			setPaymentDialogOpen(false);
-			return;
-		}
+		if (!activePaymentMethod || deletePaymentMethodMutation.isPending) return;
 
 		void deletePaymentMethodMutation.mutateAsync();
 	}
 
-	function handleDevPaymentMethodSubmit(event: FormEvent<HTMLFormElement>) {
-		event.preventDefault();
-		if (!user) return;
+	function handleAcceptGift(gift: GiftListItemDto) {
+		if (acceptGiftMutation.isPending) return;
 
-		const cardDigits = onlyDigits(devPaymentMethodForm.cardNumber);
-		const expiresDigits = onlyDigits(devPaymentMethodForm.expires);
-		const cvcDigits = onlyDigits(devPaymentMethodForm.cvc);
-
-		if (cardDigits.length < 12 || expiresDigits.length !== 4 || cvcDigits.length < 3) {
-			setPaymentMethodActionError("Проверьте тестовые данные карты и попробуйте снова.");
+		if (!canActivateGiftWithCurrentPower(gift, activeAccessTierPower)) {
+			toast.error("Не удалось активировать подарок", {
+				description: LOWER_TIER_GIFT_MESSAGE,
+			});
 			return;
 		}
 
-		const now = new Date().toISOString();
-		const method: PaymentMethodResponseDto = {
-			id: `dev-payment-method-${user.id}`,
-			userId: user.id,
-			paymentMethodId: `dev-payment-method-${user.id}`,
-			type: "bank_card",
-			last4: cardDigits.slice(-4),
-			createdAt: now,
-			updatedAt: now,
-			nextBillingAt: subscription?.nextPayment.date ?? null,
-			problemsWithPaymentMethod: false,
-		};
-
-		saveDevPaymentMethod(user.id, method);
-		queryClient.setQueryData<PaymentMethodResponseDto | null>(PAYMENT_METHOD_QUERY_KEY, method);
-		setPaymentMethodActionError(null);
-		setDevPaymentMethodDialogOpen(false);
-		setPaymentDialogOpen(false);
-		setDevPaymentMethodForm({
-			cardNumber: "",
-			expires: "",
-			cardholder: "",
-			cvc: "",
-		});
+		void acceptGiftMutation.mutateAsync(gift.id);
 	}
 
 	if (userLoading) {
@@ -474,24 +377,21 @@ export function SubscriptionManagePage() {
 								<div className="grid gap-4 sm:grid-cols-2">
 									<button
 										type="button"
-										className="rounded-lg border p-4 text-left transition-colors hover:border-muted-foreground/40 disabled:pointer-events-none"
+										className="flex h-full flex-col items-start rounded-lg border p-4 text-left transition-colors hover:border-muted-foreground/40 disabled:pointer-events-none"
 										disabled={!activeAccessTier?.id || !tiersById.has(activeAccessTier.id)}
 										onClick={() => showTierDetails(activeAccessTier?.id)}
 									>
-										<div className="flex items-center gap-2 text-sm text-muted-foreground">
-											<ShieldCheck className="h-4 w-4" />
-											Уровень
+										<div className="flex items-center gap-2 text-sm leading-none text-muted-foreground">
+											<Crown className="h-4 w-4 shrink-0" />
+											Текущий уровень
 										</div>
-										<div className="mt-2 flex items-center gap-2 text-xl font-semibold">
-											{subscription.currentGiftTier && <Gift className="h-5 w-5 text-primary" />}
-											<span>{getTierName(activeAccessTier)}</span>
-										</div>
+										<div className="mt-2 text-xl font-semibold leading-tight">{getTierName(activeAccessTier)}</div>
 										{subscription.currentGiftTier ? (
-											<p className="mt-1 text-sm text-muted-foreground">
+											<p className="mt-1 text-sm leading-relaxed text-muted-foreground">
 												Подарочная подписка{giftUntilDate ? ` до ${giftUntilDate}` : ""}
 											</p>
 										) : (
-											<p className="mt-1 text-sm text-muted-foreground">
+											<p className="mt-1 text-sm leading-relaxed text-muted-foreground">
 												{formatSubscriptionPeriodPrice(currentFullTier?.price_rubles)}
 											</p>
 										)}
@@ -499,43 +399,38 @@ export function SubscriptionManagePage() {
 
 									<button
 										type="button"
-										className="rounded-lg border p-4 text-left transition-colors hover:border-muted-foreground/40 disabled:pointer-events-none"
+										className="flex h-full flex-col items-start rounded-lg border p-4 text-left transition-colors hover:border-muted-foreground/40 disabled:pointer-events-none"
 										disabled={!subscription.nextTier.id || !tiersById.has(subscription.nextTier.id)}
 										onClick={() => showTierDetails(subscription.nextTier.id)}
 									>
-										<div className="flex items-center gap-2 text-sm text-muted-foreground">
-											<CalendarDays className="h-4 w-4" />
-											Далее
+										<div className="flex items-center gap-2 text-sm leading-none text-muted-foreground">
+											<NextTierTrendIcon className="h-4 w-4 shrink-0" />
+											Следующий уровень
 										</div>
-										<div className="mt-2 text-xl font-semibold">
+										<div className="mt-2 text-xl font-semibold leading-tight">
 											{getTierName(nextFullTier ?? subscription.nextTier)}
 										</div>
 										{shouldShowNextBillingDate ? (
 											subscription.nextPayment.amount > 0 ? (
-												<p className="mt-1 text-sm text-muted-foreground">
+												<p className="mt-1 text-sm leading-relaxed text-muted-foreground">
 													Списание {nextBillingDate} на {formatPrice(subscription.nextPayment.amount)}
 												</p>
 											) : (
-												<p className="mt-1 text-sm text-muted-foreground">
+												<p className="mt-1 text-sm leading-relaxed text-muted-foreground">
 													Изменение {nextBillingDate}: {formatSubscriptionPrice(subscription.nextPayment.amount)}
 												</p>
 											)
 										) : currentTierUntilDate && !isCurrentAccessFree ? (
-											<p className="mt-2 text-sm text-muted-foreground">
+											<p className="mt-1 text-sm leading-relaxed text-muted-foreground">
 												Оплаченный период действует до {currentTierUntilDate}
 											</p>
 										) : (
-											<p className="mt-2 text-sm text-muted-foreground">Следующее списание не запланировано.</p>
+											<p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+												Следующее списание не запланировано.
+											</p>
 										)}
 									</button>
 								</div>
-
-								{subscription.currentGiftTier && (
-									<div className="flex items-start gap-3 rounded-lg border bg-muted/30 p-4 text-sm">
-										<Gift className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-										<p>После подарочного периода будет активен уровень {tierInlineButton(tierAfterGift)}.</p>
-									</div>
-								)}
 
 								{giftsLoading && (
 									<div className="flex items-center gap-2 rounded-lg border bg-muted/30 p-4 text-sm text-muted-foreground">
@@ -554,18 +449,14 @@ export function SubscriptionManagePage() {
 									</div>
 								)}
 
-								{availableGifts.length > 0 && (
-									<div className="space-y-3">
-										<h3 className="text-base font-semibold">Вам доступны подарки</h3>
-										{availableGifts.map(gift => (
-											<GiftRow
-												key={gift.id}
-												gift={gift}
-												pending={acceptGiftMutation.isPending}
-												onAccept={giftId => void acceptGiftMutation.mutateAsync(giftId)}
-											/>
-										))}
-									</div>
+								{availableGiftSummary.bestGift && (
+									<GiftAvailabilityBanner
+										gift={availableGiftSummary.bestGift}
+										extraGiftCount={availableGiftSummary.extraGiftCount}
+										pending={acceptGiftMutation.isPending}
+										onAccept={() => handleAcceptGift(availableGiftSummary.bestGift)}
+										onViewGifts={() => navigate("/subscription-tiers?view=gifted")}
+									/>
 								)}
 
 								<Button onClick={() => navigate("/subscription-tiers")}>
@@ -696,99 +587,6 @@ export function SubscriptionManagePage() {
 					) : (
 						<p className="text-sm text-muted-foreground">Описание тарифа пока не заполнено.</p>
 					)}
-				</DialogContent>
-			</Dialog>
-
-			<Dialog open={devPaymentMethodDialogOpen} onOpenChange={setDevPaymentMethodDialogOpen}>
-				<DialogContent>
-					<form className="space-y-5" onSubmit={handleDevPaymentMethodSubmit}>
-						<DialogHeader>
-							<DialogTitle>Тестовый способ оплаты</DialogTitle>
-							<DialogDescription>
-								Эта форма доступна только в dev-сборке и не отправляет данные в платёжный сервис.
-							</DialogDescription>
-						</DialogHeader>
-
-						<div className="grid gap-4">
-							<div className="space-y-2">
-								<Label htmlFor="manage-dev-card-number">Номер карты</Label>
-								<Input
-									id="manage-dev-card-number"
-									inputMode="numeric"
-									autoComplete="cc-number"
-									placeholder="4111 1111 1111 1111"
-									value={devPaymentMethodForm.cardNumber}
-									onChange={event =>
-										setDevPaymentMethodForm(prev => ({
-											...prev,
-											cardNumber: event.target.value,
-										}))
-									}
-								/>
-							</div>
-
-							<div className="grid gap-4 sm:grid-cols-2">
-								<div className="space-y-2">
-									<Label htmlFor="manage-dev-card-expires">Срок действия</Label>
-									<Input
-										id="manage-dev-card-expires"
-										inputMode="numeric"
-										autoComplete="cc-exp"
-										placeholder="12/30"
-										value={devPaymentMethodForm.expires}
-										onChange={event =>
-											setDevPaymentMethodForm(prev => ({
-												...prev,
-												expires: event.target.value,
-											}))
-										}
-									/>
-								</div>
-								<div className="space-y-2">
-									<Label htmlFor="manage-dev-card-cvc">CVC</Label>
-									<Input
-										id="manage-dev-card-cvc"
-										inputMode="numeric"
-										autoComplete="cc-csc"
-										placeholder="123"
-										value={devPaymentMethodForm.cvc}
-										onChange={event =>
-											setDevPaymentMethodForm(prev => ({
-												...prev,
-												cvc: event.target.value,
-											}))
-										}
-									/>
-								</div>
-							</div>
-
-							<div className="space-y-2">
-								<Label htmlFor="manage-dev-cardholder">Имя на карте</Label>
-								<Input
-									id="manage-dev-cardholder"
-									autoComplete="cc-name"
-									placeholder="IVAN IVANOV"
-									value={devPaymentMethodForm.cardholder}
-									onChange={event =>
-										setDevPaymentMethodForm(prev => ({
-											...prev,
-											cardholder: event.target.value,
-										}))
-									}
-								/>
-							</div>
-						</div>
-
-						<DialogFooter>
-							<Button type="button" variant="outline" onClick={() => setDevPaymentMethodDialogOpen(false)}>
-								Отмена
-							</Button>
-							<Button type="submit">
-								<CreditCard className="h-4 w-4" />
-								Сохранить способ оплаты
-							</Button>
-						</DialogFooter>
-					</form>
 				</DialogContent>
 			</Dialog>
 

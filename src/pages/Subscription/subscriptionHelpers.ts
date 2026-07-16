@@ -1,10 +1,13 @@
 import type { PaymentMethodResponseDto } from "@/api/paymentsApi";
+import type { GiftListItemDto } from "@/api/giftsApi";
 import type { GetSubscriptionResponseDto } from "@/api/subscriptionsApi";
 import type { SubscriptionTierResponseDto } from "@/api/subscriptionTiersApi";
+import { isAxiosError } from "axios";
 
 export const TIER_CACHE_TIME_MS = 60 * 60 * 1000;
 export const PAYMENT_METHOD_QUERY_KEY = ["subscriptions", "payment-method"] as const;
-export const IS_DEV_PAYMENT_METHOD_FORM_ENABLED = import.meta.env.DEV;
+export const LOWER_TIER_GIFT_MESSAGE =
+	"Этот подарок ниже уровнем, чем ваша текущая подписка, поэтому его нельзя активировать.";
 
 export type DisplayTier =
 	| SubscriptionTierResponseDto
@@ -62,36 +65,56 @@ export function getTierName(tier?: DisplayTier | null) {
 	return tier ? ("name" in tier ? tier.name : tier.tier) : "тариф";
 }
 
-export function getDevPaymentMethodStorageKey(userId: string) {
-	return `dev-subscription-payment-method:${userId}`;
+export function getTierPower(tier?: DisplayTier | null) {
+	return typeof tier?.power === "number" ? tier.power : null;
 }
 
-export function readDevPaymentMethod(userId?: string | null): PaymentMethodResponseDto | null {
-	if (!IS_DEV_PAYMENT_METHOD_FORM_ENABLED || !userId || typeof window === "undefined") return null;
+export function canActivateTierPowerWithCurrentPower(tierPower: number, currentPower?: number | null) {
+	return typeof currentPower !== "number" || tierPower >= currentPower;
+}
 
-	const raw = window.localStorage.getItem(getDevPaymentMethodStorageKey(userId));
-	if (!raw) return null;
+export function canActivateGiftWithCurrentPower(gift: GiftListItemDto, currentPower?: number | null) {
+	return canActivateTierPowerWithCurrentPower(gift.tier.power, currentPower);
+}
 
-	try {
-		return JSON.parse(raw) as PaymentMethodResponseDto;
-	} catch {
-		window.localStorage.removeItem(getDevPaymentMethodStorageKey(userId));
-		return null;
+export function getBestApplicableGift(gifts: GiftListItemDto[], currentPower?: number | null) {
+	const applicableGifts = gifts.filter(gift => canActivateGiftWithCurrentPower(gift, currentPower));
+	const [bestGift] = [...applicableGifts].sort((a, b) => {
+		const powerDiff = b.tier.power - a.tier.power;
+		if (powerDiff !== 0) return powerDiff;
+
+		const durationDiff = b.durationDays - a.durationDays;
+		if (durationDiff !== 0) return durationDiff;
+
+		return a.tier.tier.localeCompare(b.tier.tier, "ru");
+	});
+
+	return {
+		bestGift,
+		applicableGiftCount: applicableGifts.length,
+		extraGiftCount: Math.max(0, applicableGifts.length - 1),
+	};
+}
+
+export function getGiftActivationErrorMessage(error: unknown) {
+	if (isAxiosError<{ description?: string; message?: string | string[] }>(error)) {
+		const message = error.response?.data?.description ?? error.response?.data?.message;
+		const text = Array.isArray(message) ? message.join(" ") : message;
+
+		if (text?.includes("Cannot accept a lower tier gift")) {
+			return LOWER_TIER_GIFT_MESSAGE;
+		}
+
+		if (text?.includes("Already have an active gifted subscription")) {
+			return "У вас уже активен подарок. Новый подарок можно будет активировать после завершения текущего.";
+		}
+
+		if (text?.includes("Gift already activated")) {
+			return "Этот подарок уже был активирован.";
+		}
 	}
-}
 
-export function saveDevPaymentMethod(userId: string, method: PaymentMethodResponseDto) {
-	if (!IS_DEV_PAYMENT_METHOD_FORM_ENABLED || typeof window === "undefined") return;
-	window.localStorage.setItem(getDevPaymentMethodStorageKey(userId), JSON.stringify(method));
-}
-
-export function deleteDevPaymentMethod(userId?: string | null) {
-	if (!IS_DEV_PAYMENT_METHOD_FORM_ENABLED || !userId || typeof window === "undefined") return;
-	window.localStorage.removeItem(getDevPaymentMethodStorageKey(userId));
-}
-
-export function onlyDigits(value: string) {
-	return value.replace(/\D/g, "");
+	return "Попробуйте ещё раз чуть позже.";
 }
 
 export function getPaymentMethodLast4(paymentMethod?: PaymentMethodResponseDto | null) {
