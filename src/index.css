@@ -121,6 +121,66 @@
   .focus-ring {
     @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
   }
+
+  .character-reel-window {
+    position: relative;
+    display: inline-block;
+    margin-inline: -0.4em;
+    padding-inline: 0.4em;
+    vertical-align: baseline;
+  }
+
+  .character-reel-sizer {
+    display: block;
+    visibility: hidden;
+  }
+
+  .character-reel-viewport {
+    position: absolute;
+    top: 50%;
+    right: 0;
+    left: 0;
+    height: 1.25em;
+    overflow: hidden;
+    line-height: 1.25;
+    transform: translateY(-50%);
+  }
+
+  .character-reel-track {
+    position: absolute;
+    top: 0;
+    left: 0;
+    display: flex;
+    min-width: 100%;
+    flex-direction: column;
+    animation-name: character-reel-spin;
+    animation-timing-function: cubic-bezier(0.12, 0.72, 0.18, 1);
+    animation-fill-mode: both;
+    will-change: transform;
+  }
+
+  .character-reel-symbol {
+    height: 1.25em;
+    flex: 0 0 1.25em;
+    line-height: 1.25;
+    text-align: center;
+  }
+}
+
+@keyframes character-reel-spin {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(0, -90%, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .character-reel-track {
+    animation: none;
+    transform: translate3d(0, -90%, 0);
+  }
 }
 
 /* Стили превью: более плотные интервалы и line-clamp абзацев */

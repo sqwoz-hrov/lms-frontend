@@ -1,5 +1,6 @@
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { ChevronRight } from "lucide-react";
+import { SpinningText } from "@/components/common/SpinningText";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
 
@@ -265,7 +266,15 @@ export function HomePage() {
 	return (
 		<div className="container mx-auto max-w-4xl px-4 py-6 md:py-8">
 			<div className={cn("space-y-2", audience !== null && "border-b pb-4")}>
-				<h1 className="text-2xl font-semibold tracking-tight">Добро пожаловать на Сквозь Эйчаров-платформу{user?.name ? `, ${user.name}` : ""}</h1>
+				<h1 className="text-2xl font-semibold tracking-tight">
+					Добро пожаловать на Сквозь Эйчаров-платформу
+					{user?.name ? (
+						<>
+							{", "}
+							<SpinningText text={user.name} />
+						</>
+					) : null}
+				</h1>
 			</div>
 
 			{audience === null ? (
