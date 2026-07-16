@@ -1,7 +1,17 @@
 import { useMemo, useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowRight, CreditCard, History, Loader2, RefreshCcw, TrendingDown, TrendingUp, Crown, Calendar } from "lucide-react";
+import {
+	ArrowRight,
+	CreditCard,
+	History,
+	Loader2,
+	RefreshCcw,
+	TrendingDown,
+	TrendingUp,
+	Crown,
+	Calendar,
+} from "lucide-react";
 
 import {
 	PaymentsApi,
@@ -266,9 +276,10 @@ export function SubscriptionManagePage() {
 		typeof activeAccessTierPower === "number" && typeof nextTierPower === "number"
 			? nextTierPower < activeAccessTierPower
 			: false;
-	const isSameTierPower = typeof activeAccessTierPower === "number" && typeof nextTierPower === "number"
+	const isSameTierPower =
+		typeof activeAccessTierPower === "number" && typeof nextTierPower === "number"
 			? nextTierPower === activeAccessTierPower
-			: false
+			: false;
 	const NextTierTrendIcon = isNextTierDowngrade ? TrendingDown : isSameTierPower ? Calendar : TrendingUp;
 	const availableGiftSummary = getBestApplicableGift(availableGifts, activeAccessTierPower);
 

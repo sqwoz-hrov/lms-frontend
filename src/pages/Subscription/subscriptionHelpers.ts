@@ -78,8 +78,7 @@ export function canActivateGiftWithCurrentPower(gift: GiftListItemDto, currentPo
 }
 
 export function getBestApplicableGift(gifts: GiftListItemDto[], currentPower?: number | null) {
-	const applicableGifts = gifts.filter(gift => canActivateGiftWithCurrentPower(gift, currentPower));
-	const [bestGift] = [...applicableGifts].sort((a, b) => {
+	const [bestGiftCandidate] = [...gifts].sort((a, b) => {
 		const powerDiff = b.tier.power - a.tier.power;
 		if (powerDiff !== 0) return powerDiff;
 
@@ -88,11 +87,15 @@ export function getBestApplicableGift(gifts: GiftListItemDto[], currentPower?: n
 
 		return a.tier.tier.localeCompare(b.tier.tier, "ru");
 	});
+	const bestGift =
+		bestGiftCandidate && canActivateGiftWithCurrentPower(bestGiftCandidate, currentPower)
+			? bestGiftCandidate
+			: undefined;
 
 	return {
 		bestGift,
-		applicableGiftCount: applicableGifts.length,
-		extraGiftCount: Math.max(0, applicableGifts.length - 1),
+		applicableGiftCount: bestGift ? gifts.length : 0,
+		extraGiftCount: bestGift ? Math.max(0, gifts.length - 1) : 0,
 	};
 }
 
