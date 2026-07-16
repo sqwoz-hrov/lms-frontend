@@ -156,6 +156,10 @@ export function SubscriptionPage() {
 		subscription.currentGiftTier.until > subscription.currentTier.until
 			? (nextFullTier ?? subscription.nextTier)
 			: (currentFullTier ?? subscription?.currentTier ?? null);
+	const tierAfterGiftUntilDate =
+		subscription?.currentGiftTier && tierAfterGift?.id === subscription.currentTier.id
+			? (currentTierUntilDate ?? nextBillingDate)
+			: nextBillingDate;
 	const shouldShowNextTierLine = Boolean(
 		subscription?.currentGiftTier || (subscription && subscription.nextTier.id !== subscription.currentTier.id),
 	);
@@ -337,6 +341,12 @@ export function SubscriptionPage() {
 
 					<div className="space-y-7 rounded-lg border p-6 sm:p-8">
 						<div className="space-y-1 text-base leading-relaxed text-foreground">
+							{subscription.currentGiftTier && giftUntilDate && (
+								<p>
+									Подарок активен до: {giftUntilDate}. После подарка будет активен уровень {tierButton(tierAfterGift)}
+									{tierAfterGiftUntilDate ? ` до ${tierAfterGiftUntilDate}` : ""}.
+								</p>
+							)}
 							{shouldShowNextBillingDate ? (
 								<>
 									{subscription.nextPayment.amount > 0 ? (
@@ -354,11 +364,6 @@ export function SubscriptionPage() {
 								</>
 							) : (
 								<p>Следующее списание не запланировано.</p>
-							)}
-							{subscription.currentGiftTier && giftUntilDate && (
-								<p>
-									Подарок активен до: {giftUntilDate}. После подарка будет активен уровень {tierButton(tierAfterGift)}.
-								</p>
 							)}
 							{!isCurrentAccessFree && currentTierUntilDate && !shouldShowNextBillingDate && (
 								<p>Текущий оплаченный период действует до: {currentTierUntilDate}.</p>

@@ -251,6 +251,15 @@ export function SubscriptionManagePage() {
 	const activeAccessTier = subscription?.currentGiftTier
 		? (giftFullTier ?? subscription.currentGiftTier)
 		: (currentFullTier ?? subscription?.currentTier);
+	const tierAfterGift =
+		subscription?.currentGiftTier &&
+		subscription.currentTier.until &&
+		subscription.currentGiftTier.until > subscription.currentTier.until
+			? (nextFullTier ?? subscription.nextTier)
+			: (currentFullTier ?? subscription?.currentTier ?? null);
+	const displayedNextTier = subscription?.currentGiftTier
+		? tierAfterGift
+		: (nextFullTier ?? subscription?.nextTier ?? null);
 	const currentTierPower =
 		typeof subscription?.currentTier.power === "number"
 			? subscription.currentTier.power
@@ -271,7 +280,7 @@ export function SubscriptionManagePage() {
 	const hasLoadError = subscriptionError || tiersError;
 	const availableGifts = gifts?.available ?? [];
 	const activeAccessTierPower = getTierPower(activeAccessTier);
-	const nextTierPower = getTierPower(nextFullTier ?? subscription?.nextTier);
+	const nextTierPower = getTierPower(displayedNextTier);
 	const isNextTierDowngrade =
 		typeof activeAccessTierPower === "number" && typeof nextTierPower === "number"
 			? nextTierPower < activeAccessTierPower
@@ -281,6 +290,10 @@ export function SubscriptionManagePage() {
 			? nextTierPower === activeAccessTierPower
 			: false;
 	const NextTierTrendIcon = isNextTierDowngrade ? TrendingDown : isSameTierPower ? Calendar : TrendingUp;
+	const displayedNextTierUntilDate =
+		subscription?.currentGiftTier && displayedNextTier?.id === subscription.currentTier.id
+			? (currentTierUntilDate ?? nextBillingDate)
+			: null;
 	const availableGiftSummary = getBestApplicableGift(availableGifts, activeAccessTierPower);
 
 	function handleChangePaymentMethod() {
@@ -411,17 +424,19 @@ export function SubscriptionManagePage() {
 									<button
 										type="button"
 										className="flex h-full flex-col items-start rounded-lg border p-4 text-left transition-colors hover:border-muted-foreground/40 disabled:pointer-events-none"
-										disabled={!subscription.nextTier.id || !tiersById.has(subscription.nextTier.id)}
-										onClick={() => showTierDetails(subscription.nextTier.id)}
+										disabled={!displayedNextTier?.id || !tiersById.has(displayedNextTier.id)}
+										onClick={() => showTierDetails(displayedNextTier?.id)}
 									>
 										<div className="flex items-center gap-2 text-sm leading-none text-muted-foreground">
 											<NextTierTrendIcon className="h-4 w-4 shrink-0" />
 											Следующий уровень
 										</div>
-										<div className="mt-2 text-xl font-semibold leading-tight">
-											{getTierName(nextFullTier ?? subscription.nextTier)}
-										</div>
-										{shouldShowNextBillingDate ? (
+										<div className="mt-2 text-xl font-semibold leading-tight">{getTierName(displayedNextTier)}</div>
+										{subscription.currentGiftTier ? (
+											<p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+												После подарка{displayedNextTierUntilDate ? ` до ${displayedNextTierUntilDate}` : ""}
+											</p>
+										) : shouldShowNextBillingDate ? (
 											subscription.nextPayment.amount > 0 ? (
 												<p className="mt-1 text-sm leading-relaxed text-muted-foreground">
 													Списание {nextBillingDate} на {formatPrice(subscription.nextPayment.amount)}

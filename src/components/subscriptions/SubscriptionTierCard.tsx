@@ -24,20 +24,31 @@ export type SubscriptionTierCardProps = {
 	footer?: ReactNode;
 	priceLabel?: ReactNode;
 	className?: string;
+	onClick?: () => void;
 };
 
 export function SubscriptionTierCard(props: SubscriptionTierCardProps) {
-	const { tier, isCurrent = false, headerAction, footer, priceLabel, className } = props;
+	const { tier, isCurrent = false, headerAction, footer, priceLabel, className, onClick } = props;
 	const markdownDescription = tier.markdown_description?.trim();
 
 	return (
 		<Card
 			className={cn(
-				"transition-colors",
+				"relative transition-colors",
+				onClick && "cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
 				isCurrent ? "border-primary shadow-md" : "hover:border-muted-foreground/40",
 				className,
 			)}
 		>
+			{onClick && (
+				<button
+					type="button"
+					aria-label={`Открыть подробности тарифа ${tier.tier}`}
+					className="absolute inset-0 z-10 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+					onClick={onClick}
+				/>
+			)}
+
 			<CardHeader className="items-start gap-2">
 				<div>
 					<CardTitle className="text-lg">{tier.tier}</CardTitle>
@@ -62,7 +73,11 @@ export function SubscriptionTierCard(props: SubscriptionTierCardProps) {
 				)}
 			</CardContent>
 
-			{footer && <CardFooter className="mt-auto justify-end">{footer}</CardFooter>}
+			{footer && (
+				<CardFooter className="relative z-20 mt-auto justify-end" onClick={event => event.stopPropagation()}>
+					{footer}
+				</CardFooter>
+			)}
 		</Card>
 	);
 }

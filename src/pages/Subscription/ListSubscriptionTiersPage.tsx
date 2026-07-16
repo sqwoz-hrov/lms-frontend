@@ -10,6 +10,7 @@ import { SubscriptionTiersApi, type SubscriptionTierResponseDto } from "@/api/su
 import { AuthApi, type UserResponse } from "@/api/usersApi";
 import { ConfirmActionDialog } from "@/components/common/dialogs/ConfirmActionDialog";
 import { ConfirmDeletionDialog } from "@/components/common/dialogs/ConfirmDeletionDialog";
+import { MarkdownRenderer } from "@/components/markdown/MarkdownRenderer";
 import { SubscriptionTierCard } from "@/components/subscriptions/SubscriptionTierCard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -32,10 +33,11 @@ import {
 	LOWER_TIER_GIFT_MESSAGE,
 	canActivateTierPowerWithCurrentPower,
 	formatDate,
+	formatDateTime,
 	formatPrice,
 	getGiftActivationErrorMessage,
 } from "./subscriptionHelpers";
-import { AtSign, Gift, Loader2, Mail, Plus, RefreshCcw, Search, Trash2 } from "lucide-react";
+import { ArrowLeft, AtSign, Gift, Loader2, Mail, Plus, RefreshCcw, Search, Trash2 } from "lucide-react";
 
 const SUBSCRIPTION_REFETCH_ATTEMPTS = 12;
 const SUBSCRIPTION_REFETCH_DELAY_MS = 2_000;
@@ -55,6 +57,16 @@ type GiftSubscriptionDisplayItem = {
 	activatedAt?: string | null;
 	expiresAt?: string | null;
 };
+
+type TierDetailsTarget =
+	| {
+			type: "paid";
+			tier: SubscriptionTierResponseDto;
+	  }
+	| {
+			type: "gift";
+			gift: GiftSubscriptionDisplayItem;
+	  };
 
 function wait(ms: number) {
 	return new Promise(resolve => {
@@ -86,6 +98,7 @@ export function ListSubscriptionTiersPage() {
 	const [removingId, setRemovingId] = useState<string | null>(null);
 	const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
 	const [purchaseTarget, setPurchaseTarget] = useState<SubscriptionTierResponseDto | null>(null);
+	const [tierDetailsTarget, setTierDetailsTarget] = useState<TierDetailsTarget | null>(null);
 	const [isRefreshingSubscription, setIsRefreshingSubscription] = useState(false);
 	const [view, setView] = useState<SubscriptionTiersView>(() =>
 		searchParams.get("view") === "gifted" ? "gifted" : "paid",
@@ -384,9 +397,13 @@ export function ListSubscriptionTiersPage() {
 
 	const isAdmin = user?.role === "admin";
 	const isSubscriber = user?.role === "subscriber";
-	const currentTierPower = subscription?.currentTier.power ?? null;
+	const currentFullTier = subscription ? tiersById.get(subscription.currentTier.id) : undefined;
+	const currentTierPower =
+		typeof subscription?.currentTier.power === "number"
+			? subscription.currentTier.power
+			: (currentFullTier?.power ?? null);
 	const activeSubscriptionPower = subscription?.currentGiftTier?.power ?? currentTierPower;
-	const currentTierName = subscription?.currentGiftTier?.name ?? subscription?.currentTier.name ?? "текущий уровень";
+	const currentTierName = currentFullTier?.tier ?? subscription?.currentTier.name ?? "текущий уровень";
 	const hasActiveGift = Boolean(subscription?.currentGiftTier) || (gifts?.currentlyActive?.length ?? 0) > 0;
 
 	function handleCreate() {
@@ -559,6 +576,78 @@ export function ListSubscriptionTiersPage() {
 		return "Больше не активен";
 	}
 
+	function formatTierPeriodPrice(value: number) {
+		return value <= 0 ? "Бесплатно" : `${formatPrice(value)} / 30 дней`;
+	}
+
+	function getDetailsTier(target: TierDetailsTarget | null) {
+		if (!target) return null;
+		return target.type === "gift" ? target.gift.tier : target.tier;
+	}
+
+	function getUserPaidPriceLabel(target: TierDetailsTarget, tier: SubscriptionTierResponseDto) {
+		if (target.type === "gift" || subscription?.currentGiftTier?.id === tier.id) return "Бесплатно";
+		if (subscription?.nextTier.id === tier.id) return formatTierPeriodPrice(subscription.nextPayment.amount);
+		if (tier.price_rubles <= 0) return "Бесплатно";
+		return formatTierPeriodPrice(tier.price_rubles);
+	}
+
+	function getTierDetailsRows(target: TierDetailsTarget, tier: SubscriptionTierResponseDto) {
+		const currentPrice = formatTierPeriodPrice(tier.price_rubles);
+		const userPrice = getUserPaidPriceLabel(target, tier);
+		const rows = [
+			{
+				label: "Стоимость тарифа",
+				value: currentPrice,
+			},
+		];
+
+		if (userPrice !== currentPrice) {
+			rows.push({
+				label: "А для вас",
+				value: userPrice,
+			});
+		}
+
+		if (target.type === "gift") {
+			rows.push(
+				{
+					label: "Истекает",
+					value: formatDateTime(target.gift.expiresAt) ?? "Не указано",
+				},
+				{
+					label: "Активирован",
+					value: formatDateTime(target.gift.activatedAt) ?? "Еще не активирован",
+				},
+			);
+			return rows;
+		}
+
+		if (subscription?.currentTier.id === tier.id && subscription.nextTier.id !== tier.id) {
+			rows.push(
+				{
+					label: subscription.currentGiftTier ? "Будет активен с" : "Активен с",
+					value: subscription.currentGiftTier
+						? (formatDateTime(subscription.currentGiftTier.until) ?? "После завершения подарка")
+						: "Сейчас",
+				},
+				{
+					label: "Будет активен до",
+					value: formatDateTime(subscription.nextPayment.date ?? subscription.currentTier.until) ?? "Не указано",
+				},
+			);
+		}
+
+		return rows;
+	}
+
+	function getPaidViewPriceLabel(tier: SubscriptionTierResponseDto) {
+		if (!isSubscriber || subscription?.currentGiftTier?.id !== tier.id) return undefined;
+
+		const activeUntil = formatDate(subscription.currentGiftTier.until);
+		return activeUntil ? `Активен до ${activeUntil}` : "Подарок активен";
+	}
+
 	function stripAt(value?: string) {
 		if (!value) return "";
 		return value.startsWith("@") ? value.slice(1) : value;
@@ -592,6 +681,10 @@ export function ListSubscriptionTiersPage() {
 		);
 	}
 
+	const detailsTier = getDetailsTier(tierDetailsTarget);
+	const detailsRows = tierDetailsTarget && detailsTier ? getTierDetailsRows(tierDetailsTarget, detailsTier) : [];
+	const detailsMarkdown = detailsTier?.markdown_description?.trim();
+
 	return (
 		<div className="container mx-auto px-4 py-6">
 			<div className="mb-6 flex flex-wrap items-center justify-between gap-4">
@@ -619,12 +712,21 @@ export function ListSubscriptionTiersPage() {
 					</Tabs>
 				)}
 				{isSubscriber && (
-					<Tabs value={view} onValueChange={handleSubscriberViewChange}>
-						<TabsList>
-							<TabsTrigger value="paid">Платные</TabsTrigger>
-							<TabsTrigger value="gifted">Подаренные</TabsTrigger>
-						</TabsList>
-					</Tabs>
+					<div className="flex flex-wrap items-center gap-4">
+						<Button
+							className="bg-foreground text-background hover:bg-foreground/90 hover:text-background"
+							onClick={() => navigate("/subscription/manage")}
+						>
+							<ArrowLeft className="h-4 w-4" />
+							Назад
+						</Button>
+						<Tabs value={view} onValueChange={handleSubscriberViewChange}>
+							<TabsList>
+								<TabsTrigger value="paid">Платные</TabsTrigger>
+								<TabsTrigger value="gifted">Подаренные</TabsTrigger>
+							</TabsList>
+						</Tabs>
+					</div>
 				)}
 				{isAdmin && adminView === "create" && (
 					<Button onClick={handleCreate}>
@@ -656,7 +758,6 @@ export function ListSubscriptionTiersPage() {
 						{sortedTiers.map(tier => {
 							const deleting = removingId === tier.id && deleteMut.isPending;
 							const purchaseAllowed = canPurchase(tier);
-							const isGiftedTier = subscription?.currentGiftTier?.id === tier.id;
 							const footer = isAdmin ? (
 								<div className="flex w-full items-center justify-end gap-2">
 									<Button variant="outline" size="sm" onClick={() => handleEdit(tier.id)} disabled={deleting}>
@@ -687,8 +788,9 @@ export function ListSubscriptionTiersPage() {
 									key={tier.id}
 									tier={tier}
 									isCurrent={subscription?.currentTier.id === tier.id || subscription?.currentGiftTier?.id === tier.id}
-									priceLabel={isSubscriber && isGiftedTier ? "Бесплатно" : undefined}
+									priceLabel={getPaidViewPriceLabel(tier)}
 									footer={footer}
+									onClick={isSubscriber ? () => setTierDetailsTarget({ type: "paid", tier }) : undefined}
 								/>
 							);
 						})}
@@ -957,7 +1059,9 @@ export function ListSubscriptionTiersPage() {
 								) : gift.status === "available" ? (
 									<div className="flex w-full flex-col items-end gap-2">
 										{hasActiveGift && (
-											<p className="text-right text-xs text-muted-foreground">Сначала завершится текущий подарок.</p>
+											<p className="text-right text-xs text-muted-foreground">
+												Сначала должен завершиться текущий подарок.
+											</p>
 										)}
 										<Button
 											size="sm"
@@ -990,11 +1094,47 @@ export function ListSubscriptionTiersPage() {
 									}
 									className={gift.status === "used" ? "bg-muted/30 opacity-75" : undefined}
 									footer={footer}
+									onClick={() => setTierDetailsTarget({ type: "gift", gift })}
 								/>
 							);
 						})}
 					</div>
 				))}
+
+			<Dialog open={Boolean(tierDetailsTarget)} onOpenChange={open => !open && setTierDetailsTarget(null)}>
+				<DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
+					<DialogHeader>
+						<DialogTitle>{detailsTier?.tier ?? "Тариф"}</DialogTitle>
+						<DialogDescription>
+							{tierDetailsTarget?.type === "gift" ? "Подарочная подписка" : "Подробности тарифа"}
+						</DialogDescription>
+					</DialogHeader>
+
+					<div className="divide-y rounded-lg border">
+						{detailsRows.map(row => (
+							<div key={row.label} className="grid gap-1 px-4 py-3 sm:grid-cols-[220px_minmax(0,1fr)] sm:gap-4">
+								<p className="text-sm text-muted-foreground">{row.label}</p>
+								<p className="text-sm font-medium">{row.value}</p>
+							</div>
+						))}
+					</div>
+
+					<div className="space-y-3">
+						<h2 className="text-base font-semibold tracking-tight">Описание</h2>
+						{detailsMarkdown ? (
+							<MarkdownRenderer markdown={detailsMarkdown} mode="full" />
+						) : detailsTier?.permissions.length ? (
+							<ul className="list-disc space-y-2 pl-5 text-sm text-muted-foreground">
+								{detailsTier.permissions.map(permission => (
+									<li key={permission}>{permission}</li>
+								))}
+							</ul>
+						) : (
+							<p className="text-sm text-muted-foreground">Описание тарифа пока не заполнено.</p>
+						)}
+					</div>
+				</DialogContent>
+			</Dialog>
 
 			<Dialog
 				open={Boolean(giftTargetUser)}
