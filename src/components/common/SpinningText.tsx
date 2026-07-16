@@ -1,15 +1,23 @@
 import { type CSSProperties, useMemo } from "react";
 
 const DECOY_COUNT = 9;
-const DECOY_SYMBOLS = Array.from("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_@#!?%&*+-=<>$");
+const LATIN_LETTERS = Array.from("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz");
+const CYRILLIC_LETTERS = Array.from("АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯабвгдеёжзийклмнопрстуфхцчшщъыьэюя");
+const SHARED_SYMBOLS = Array.from("0123456789_@#!?%&*+-=<>$");
 
 type CharacterReel = {
 	character: string;
 	symbols: string[];
 };
 
+function getDecoyPool(character: string) {
+	if (/\p{Script=Cyrillic}/u.test(character)) return [...CYRILLIC_LETTERS, ...SHARED_SYMBOLS];
+	if (/\p{Script=Latin}/u.test(character)) return [...LATIN_LETTERS, ...SHARED_SYMBOLS];
+	return SHARED_SYMBOLS;
+}
+
 function createDecoys(character: string) {
-	const candidates = DECOY_SYMBOLS.filter(symbol => symbol !== character);
+	const candidates = getDecoyPool(character).filter(symbol => symbol !== character);
 
 	for (let index = candidates.length - 1; index > 0; index -= 1) {
 		const randomIndex = Math.floor(Math.random() * (index + 1));
