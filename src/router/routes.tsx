@@ -25,6 +25,8 @@ import { ViewPostPage } from "@/pages/Posts/ViewPostPage";
 import InterviewTranscriptionsPage from "@/pages/InterviewTranscriptions/InterviewTranscriptionsPage";
 import InterviewTranscriptionDetailsPage from "@/pages/InterviewTranscriptions/InterviewTranscriptionsPage/InterviewTranscriptionDetailsPage";
 import UploadInterviewTranscriptionPage from "@/pages/InterviewTranscriptions/InterviewTranscriptionsPage/UploadInterviewTranscription";
+import { FaqArticleBoundaryPage } from "@/pages/Faq/FaqArticlePage";
+import { FaqRootRedirectPage } from "@/pages/Faq/FaqRootRedirectPage";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { AdminRoute } from "./components/AdminRoute";
@@ -37,8 +39,9 @@ import { SupportRequestButton } from "@/components/common/SupportRequestButton";
 export function AppRoutes() {
 	const { isAuthenticated } = useAuth();
 	const location = useLocation();
+	const isFaqRoute = location.pathname.startsWith("/faq");
 	const hideNavbar = !isAuthenticated;
-	const showSupportButton = isAuthenticated || location.pathname.startsWith("/login");
+	const showSupportButton = (isAuthenticated || location.pathname.startsWith("/login")) && !isFaqRoute;
 
 	return (
 		<>
@@ -65,6 +68,8 @@ export function AppRoutes() {
 						</PublicOnly>
 					}
 				/>
+				<Route path="/faq" element={<FaqRootRedirectPage />} />
+				<Route path="/faq/:categorySlug/:articleSlug" element={<FaqArticleBoundaryPage />} />
 
 				{/* приватные роуты */}
 				<Route element={<ProtectedRoute />}>

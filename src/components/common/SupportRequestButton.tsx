@@ -19,9 +19,15 @@ function normalizeTelegramUsername(raw: string | undefined): string {
 	return (raw ?? "").trim().replace(/^@/, "");
 }
 
-export function SupportRequestButton() {
+type SupportRequestButtonProps = {
+	mode?: "floating" | "inline";
+	className?: string;
+};
+
+export function SupportRequestButton({ mode = "floating", className }: SupportRequestButtonProps) {
 	const { user } = useAuth();
 	const location = useLocation();
+	const isFloating = mode === "floating";
 	const [open, setOpen] = useState(false);
 	const [message, setMessage] = useState("");
 	const [hasBottomRightControl, setHasBottomRightControl] = useState(false);
@@ -39,6 +45,11 @@ export function SupportRequestButton() {
 	const supportButtonOffsetClass = hasBottomRightControl ? "bottom-24" : "bottom-4";
 
 	useEffect(() => {
+		if (!isFloating) {
+			setHasBottomRightControl(false);
+			return;
+		}
+
 		function scanBottomRightControls() {
 			const supportButton = supportButtonRef.current;
 			if (!supportButton) {
@@ -102,7 +113,7 @@ export function SupportRequestButton() {
 			window.removeEventListener("resize", scheduleScan);
 			window.removeEventListener("scroll", scheduleScan, true);
 		};
-	}, []);
+	}, [isFloating]);
 
 	function handleSubmit(event: FormEvent<HTMLFormElement>) {
 		event.preventDefault();
@@ -126,23 +137,30 @@ export function SupportRequestButton() {
 
 	return (
 		<>
-			<Tooltip>
-				<TooltipTrigger asChild>
-					<Button
-						ref={supportButtonRef}
-						type="button"
-						size="icon"
-						onClick={() => setOpen(true)}
-						className={`fixed right-4 ${supportButtonOffsetClass} z-40 size-11 rounded-full shadow-lg`}
-						aria-label="Написать в поддержку"
-					>
-						<Headset className="size-5" />
-					</Button>
-				</TooltipTrigger>
-				<TooltipContent side="left" sideOffset={8}>
+			{isFloating ? (
+				<Tooltip>
+					<TooltipTrigger asChild>
+						<Button
+							ref={supportButtonRef}
+							type="button"
+							size="icon"
+							onClick={() => setOpen(true)}
+							className={`fixed right-4 ${supportButtonOffsetClass} z-40 size-11 rounded-full shadow-lg ${className ?? ""}`}
+							aria-label="Написать в поддержку"
+						>
+							<Headset className="size-5" />
+						</Button>
+					</TooltipTrigger>
+					<TooltipContent side="left" sideOffset={8}>
+						Написать в поддержку
+					</TooltipContent>
+				</Tooltip>
+			) : (
+				<Button ref={supportButtonRef} type="button" onClick={() => setOpen(true)} className={className}>
+					<Headset className="size-4" />
 					Написать в поддержку
-				</TooltipContent>
-			</Tooltip>
+				</Button>
+			)}
 
 			<Dialog open={open} onOpenChange={setOpen}>
 				<DialogContent>
