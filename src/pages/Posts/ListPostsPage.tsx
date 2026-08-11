@@ -222,7 +222,7 @@ export function ListPostsPage() {
 										)}
 									</div>
 									<CardTitle className="text-2xl font-semibold leading-snug tracking-tight">
-										<Link className="hover:underline underline-offset-4" to={`/posts/${post.id}`}>
+										<Link className="hover:underline underline-offset-4" to={`/posts/${post.slug ?? post.id}`}>
 											{post.title}
 										</Link>
 									</CardTitle>

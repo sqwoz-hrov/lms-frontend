@@ -52,6 +52,7 @@ export function PostUpsertPage() {
 			const payload: CreatePostDto = {
 				title: values.title.trim(),
 				markdown_content: values.markdown_content.trim(),
+				...(values.generate_slug ? { generate_slug: true } : {}),
 			};
 
 			const file = values.video_file?.[0];
@@ -76,6 +77,7 @@ export function PostUpsertPage() {
 			id: post.id,
 			title: values.title.trim(),
 			markdown_content: values.markdown_content.trim(),
+			...(!post.slug && values.generate_slug ? { generate_slug: true } : {}),
 		};
 
 		const file = values.video_file?.[0];
