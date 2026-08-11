@@ -41,7 +41,8 @@ export function PostUpsertPage() {
 		mutationFn: PostsApi.update,
 	});
 	const openForTiersMut = useMutation({
-		mutationFn: ({ id, tier_ids }: { id: string; tier_ids: string[] }) => PostsApi.openForTiers(id, { tier_ids }),
+		mutationFn: ({ id, minimal_tier_id }: { id: string; minimal_tier_id: string }) =>
+			PostsApi.openForTiers(id, { minimal_tier_id }),
 	});
 
 	async function handleSubmit(values: PostFormValues, helpers: { setUploadProgress: (n: number) => void }) {
@@ -60,7 +61,7 @@ export function PostUpsertPage() {
 			}
 
 			const created = await createMut.mutateAsync(payload);
-			await openForTiersMut.mutateAsync({ id: created.id, tier_ids: values.subscription_tier_ids });
+			await openForTiersMut.mutateAsync({ id: created.id, minimal_tier_id: values.minimal_tier_id });
 			await queryClient.invalidateQueries({ queryKey: ["posts"] });
 			await queryClient.invalidateQueries({ queryKey: ["post", created.id] });
 			navigate(-1);
@@ -84,7 +85,7 @@ export function PostUpsertPage() {
 		}
 
 		const updated = await updateMut.mutateAsync(payload);
-		await openForTiersMut.mutateAsync({ id: updated.id, tier_ids: values.subscription_tier_ids });
+		await openForTiersMut.mutateAsync({ id: updated.id, minimal_tier_id: values.minimal_tier_id });
 		await queryClient.invalidateQueries({ queryKey: ["posts"] });
 		await queryClient.invalidateQueries({ queryKey: ["post", updated.id] });
 		navigate(-1);

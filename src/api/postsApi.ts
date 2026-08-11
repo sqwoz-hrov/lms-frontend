@@ -18,7 +18,7 @@ export type PostResponseDto = {
 	video_id?: PostVideoReference;
 	created_at: string; // ISO date-time
 	locked_preview?: LockedPostPreviewDto;
-	subscription_tier_ids?: string[];
+	minimal_tier_id?: string;
 };
 
 export type PostListResponseDto = {
@@ -52,7 +52,7 @@ export type ListPostsParams = {
 };
 
 export type OpenPostForTiersDto = {
-	tier_ids: string[];
+	minimal_tier_id: string;
 };
 
 // ===== API =====

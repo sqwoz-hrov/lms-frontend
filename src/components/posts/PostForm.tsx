@@ -12,7 +12,7 @@ export type PostFormValues = {
 	title: string;
 	markdown_content: string;
 	video_file?: FileList;
-	subscription_tier_ids: string[];
+	minimal_tier_id: string;
 };
 
 type PostFormProps = {
@@ -33,7 +33,7 @@ export function PostForm(props: PostFormProps) {
 		defaultValues: {
 			title: initial?.title ?? "",
 			markdown_content: initial?.markdown_content ?? "",
-			subscription_tier_ids: initial?.subscription_tier_ids ?? [],
+			minimal_tier_id: initial?.minimal_tier_id ?? "",
 		},
 	});
 
@@ -42,13 +42,13 @@ export function PostForm(props: PostFormProps) {
 			reset({
 				title: initial.title,
 				markdown_content: initial.markdown_content,
-				subscription_tier_ids: initial.subscription_tier_ids ?? [],
+				minimal_tier_id: initial.minimal_tier_id ?? "",
 			});
 		}
 	}, [initial, mode, reset]);
 
 	useEffect(() => {
-		register("subscription_tier_ids");
+		register("minimal_tier_id", { required: "Выберите минимальный уровень" });
 	}, [register]);
 
 	const existingVideoId = useMemo(() => {
@@ -61,8 +61,6 @@ export function PostForm(props: PostFormProps) {
 		return null;
 	}, [initial]);
 
-	const tierIds = watch("subscription_tier_ids") ?? [];
-
 	async function submit(values: PostFormValues) {
 		try {
 			setServerError(null);
@@ -72,7 +70,7 @@ export function PostForm(props: PostFormProps) {
 					title: values.title.trim(),
 					markdown_content: values.markdown_content,
 					video_file: values.video_file,
-					subscription_tier_ids: values.subscription_tier_ids,
+					minimal_tier_id: values.minimal_tier_id,
 				},
 				{ setUploadProgress },
 			);
@@ -128,10 +126,10 @@ export function PostForm(props: PostFormProps) {
 			{serverError && <div className="text-sm text-red-600">{serverError}</div>}
 
 			<SubscriptionTierSelector
-				value={tierIds}
-				onChange={ids => setValue("subscription_tier_ids", ids, { shouldDirty: true, shouldValidate: true })}
+				value={watch("minimal_tier_id")}
+				onChange={id => setValue("minimal_tier_id", id, { shouldDirty: true, shouldValidate: true })}
 				disabled={!!submitting}
-				helperText="Выберите уровни, для которых пост будет доступен. Пустой список — пост скрыт для всех."
+				helperText="Выберите минимальный уровень. Пост будет доступен этому уровню и всем уровням выше."
 			/>
 
 			<div className="flex items-center gap-3">

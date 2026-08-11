@@ -1,22 +1,86 @@
 // pages/Posts/ListPostsPage.tsx
-import { PostsApi, type PostResponseDto } from "@/api/postsApi";
+import { type PostVideoReference, PostsApi, type PostResponseDto } from "@/api/postsApi";
+import { SubscriptionTiersApi } from "@/api/subscriptionTiersApi";
+import { VideosApi } from "@/api/videosApi";
 import { MarkdownRenderer } from "@/components/markdown/MarkdownRenderer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { VideoProcessingPreview } from "@/components/video/VideoProcessingPreview";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
-import { useInfiniteQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { ArrowUp, CalendarClock, Film, Lock, RefreshCcw } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { getLockedPostAccessMessage, isPostLockedForHigherTier } from "./postAccess";
 
 function getPreviewText(markdown: string): string {
 	const noCode = markdown.replace(/```[\s\S]*?```/g, " ");
 	const noInlineCode = noCode.replace(/`[^`]*`/g, " ");
 	const noImages = noInlineCode.replace(/!\[[^\]]*\]\([^)]*\)/g, " ");
 	const noLinks = noImages.replace(/\[([^\]]+)\]\([^)]*\)/g, "$1");
-	const noMd = noLinks.replace(/[>#*_~\-]+/g, " ");
+	const noMd = noLinks.replace(/[>#*_~-]+/g, " ");
 	return noMd.replace(/\s+/g, " ").trim();
+}
+
+function extractVideoId(videoRef?: PostVideoReference): string | null {
+	if (!videoRef) return null;
+	if (typeof videoRef === "string") return videoRef;
+	if (typeof videoRef === "object" && "id" in videoRef && typeof videoRef.id === "string") {
+		return videoRef.id;
+	}
+	return null;
+}
+
+function InlinePostVideo({ videoRef }: { videoRef?: PostVideoReference }) {
+	const videoId = extractVideoId(videoRef);
+	const {
+		data: video,
+		isLoading,
+		isError,
+		refetch,
+	} = useQuery({
+		queryKey: ["video", videoId],
+		queryFn: () => VideosApi.getById(videoId!),
+		enabled: Boolean(videoId),
+		staleTime: 5 * 60_000,
+		retry: 1,
+	});
+
+	if (!videoId) return null;
+
+	if (isLoading) {
+		return <div className="max-w-3xl text-sm text-muted-foreground">Загрузка видео…</div>;
+	}
+
+	if (isError) {
+		return (
+			<div className="flex max-w-3xl flex-wrap items-center gap-3 text-sm text-muted-foreground">
+				<span>Не удалось загрузить видео.</span>
+				<Button size="sm" variant="secondary" onClick={() => refetch()}>
+					Повторить
+				</Button>
+			</div>
+		);
+	}
+
+	return (
+		<VideoProcessingPreview
+			className="max-w-3xl"
+			variant="plain"
+			title="Видео"
+			filename={video?.filename}
+			src={video?.video_url}
+			mimeType={video?.mime_type}
+			phase={video?.phase}
+			actions={
+				<Button size="sm" variant="secondary" onClick={() => refetch()}>
+					Обновить
+				</Button>
+			}
+			helperText={!video?.video_url && video?.phase === "completed" ? "Ссылка пока недоступна." : undefined}
+		/>
+	);
 }
 
 export function ListPostsPage() {
@@ -25,6 +89,12 @@ export function ListPostsPage() {
 	const isAdmin = user?.role === "admin";
 	const [expandedPostIds, setExpandedPostIds] = useState<string[]>([]);
 	const [showGoTopButton, setShowGoTopButton] = useState(false);
+	const { data: subscriptionTiers = [] } = useQuery({
+		queryKey: ["subscription-tiers"],
+		queryFn: () => SubscriptionTiersApi.list(),
+		enabled: user?.role === "subscriber",
+		staleTime: 5 * 60_000,
+	});
 
 	function toggleExpanded(postId: string) {
 		setExpandedPostIds(prev => (prev.includes(postId) ? prev.filter(id => id !== postId) : [...prev, postId]));
@@ -131,8 +201,10 @@ export function ListPostsPage() {
 					{sorted.map(post => {
 						const isLocked = Boolean(post.locked_preview);
 						const formattedDate = new Date(post.created_at).toLocaleString();
-						const isExpanded = expandedPostIds.includes(post.id);
+						const isExpanded = isLocked || expandedPostIds.includes(post.id);
 						const previewText = getPreviewText(post.markdown_content ?? "");
+						const isLockedForHigherTier = isPostLockedForHigherTier(post, user, subscriptionTiers);
+						const lockedAccessMessage = getLockedPostAccessMessage(post, user, subscriptionTiers);
 
 						return (
 							<Card
@@ -156,7 +228,7 @@ export function ListPostsPage() {
 									</CardTitle>
 								</CardHeader>
 								<CardContent className="relative z-10 space-y-5 pt-0 pb-6">
-									{isExpanded && isLocked && post.locked_preview?.has_video && (
+									{isExpanded && isLocked && post.locked_preview?.has_video && !isLockedForHigherTier && (
 										<div className="flex flex-wrap items-center gap-3 rounded-2xl border border-amber-200/70 bg-amber-50/80 px-4 py-3 text-sm text-amber-900">
 											<Film className="h-5 w-5" />
 											<span className="flex-1">
@@ -188,7 +260,7 @@ export function ListPostsPage() {
 											</div>
 											<div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
 												<Lock className="h-4 w-4 text-rose-500" />
-												<span>Контент доступен только подписчикам.</span>
+												<span>{lockedAccessMessage}</span>
 												<Button
 													asChild
 													size="sm"
@@ -199,10 +271,16 @@ export function ListPostsPage() {
 												</Button>
 											</div>
 										</div>
-										) : post.markdown_content?.trim() ? (
-											<MarkdownRenderer markdown={post.markdown_content} mode="full" />
 										) : (
-											<p className="text-sm text-muted-foreground">В посте нет текстового контента.</p>
+											<div className="space-y-6">
+												{post.markdown_content?.trim() && (
+													<MarkdownRenderer markdown={post.markdown_content} mode="full" />
+												)}
+												{post.video_id && <InlinePostVideo videoRef={post.video_id} />}
+												{!post.markdown_content?.trim() && !post.video_id && (
+													<p className="text-sm text-muted-foreground">В посте нет контента.</p>
+												)}
+											</div>
 										)
 									) : (
 										<div className="space-y-2">
@@ -225,14 +303,16 @@ export function ListPostsPage() {
 											)}
 										</div>
 									)}
-									<button
-										type="button"
-										onClick={() => toggleExpanded(post.id)}
-										className="w-fit text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground"
-										aria-expanded={isExpanded}
-									>
-										{isExpanded ? "Свернуть" : "Развернуть"}
-									</button>
+									{!isLocked && (
+										<button
+											type="button"
+											onClick={() => toggleExpanded(post.id)}
+											className="w-fit text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground"
+											aria-expanded={isExpanded}
+										>
+											{isExpanded ? "Свернуть" : "Развернуть"}
+										</button>
+									)}
 
 									<div className="flex items-center gap-2 text-xs text-muted-foreground">
 										<CalendarClock className="h-3.5 w-3.5" />
