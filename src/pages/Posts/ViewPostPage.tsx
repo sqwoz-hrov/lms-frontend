@@ -36,6 +36,28 @@ function extractVideoId(videoRef?: PostVideoReference): string | null {
 	return null;
 }
 
+function PostNotFoundPage() {
+	return (
+		<div className="container mx-auto grid min-h-[70vh] place-items-center px-4 py-10">
+			<div className="max-w-md space-y-5 text-center">
+				<div className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-muted">
+					<FileQuestion className="h-7 w-7 text-muted-foreground" />
+				</div>
+				<div className="space-y-2">
+					<p className="text-sm font-medium text-muted-foreground">Ошибка 404</p>
+					<h1 className="text-2xl font-semibold tracking-tight">Пост не найден</h1>
+					<p className="text-sm text-muted-foreground">
+						Возможно, ссылка неверна, пост был удалён или постоянная ссылка не существует.
+					</p>
+				</div>
+				<Button asChild>
+					<Link to="/posts">Вернуться к постам</Link>
+				</Button>
+			</div>
+		</div>
+	);
+}
+
 export function ViewPostPage() {
 	const { id } = useParams<{ id: string }>();
 	const navigate = useNavigate();
@@ -83,11 +105,7 @@ export function ViewPostPage() {
 	}, [videoId, post?.locked_preview?.has_video, post?.markdown_content]);
 
 	if (!id) {
-		return (
-			<div className="min-h-[60vh] grid place-items-center text-muted-foreground">
-				Упс! Пост не найден. Вероятно, вы перешли по некорректной ссылке или пост был удалён
-			</div>
-		);
+		return <PostNotFoundPage />;
 	}
 
 	if (isLoading) {
@@ -104,14 +122,7 @@ export function ViewPostPage() {
 	}
 
 	if (!post) {
-		return (
-			<div className="min-h-[60vh] flex flex-col items-center justify-center gap-4">
-				<p className="text-sm text-muted-foreground">Пост не найден.</p>
-				<Button variant="secondary" onClick={() => navigate(-1)}>
-					Назад
-				</Button>
-			</div>
-		);
+		return <PostNotFoundPage />;
 	}
 
 	const hasMarkdown = !!post.markdown_content?.trim() && !isLocked;

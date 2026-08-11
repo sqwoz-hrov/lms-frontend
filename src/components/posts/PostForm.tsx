@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { isAxiosError } from "axios";
 import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 
@@ -13,6 +14,7 @@ export type PostFormValues = {
 	markdown_content: string;
 	video_file?: FileList;
 	minimal_tier_id: string;
+	generate_slug: boolean;
 };
 
 type PostFormProps = {
@@ -34,6 +36,7 @@ export function PostForm(props: PostFormProps) {
 			title: initial?.title ?? "",
 			markdown_content: initial?.markdown_content ?? "",
 			minimal_tier_id: initial?.minimal_tier_id ?? "",
+			generate_slug: false,
 		},
 	});
 
@@ -43,6 +46,7 @@ export function PostForm(props: PostFormProps) {
 				title: initial.title,
 				markdown_content: initial.markdown_content,
 				minimal_tier_id: initial.minimal_tier_id ?? "",
+				generate_slug: false,
 			});
 		}
 	}, [initial, mode, reset]);
@@ -71,11 +75,15 @@ export function PostForm(props: PostFormProps) {
 					markdown_content: values.markdown_content,
 					video_file: values.video_file,
 					minimal_tier_id: values.minimal_tier_id,
+					generate_slug: values.generate_slug,
 				},
 				{ setUploadProgress },
 			);
-		} catch (err: any) {
-			setServerError(err?.message ?? "Не удалось сохранить пост");
+		} catch (error: unknown) {
+			const responseDescription = isAxiosError<{ description?: string }>(error)
+				? error.response?.data?.description
+				: undefined;
+			setServerError(responseDescription ?? (error instanceof Error ? error.message : "Не удалось сохранить пост"));
 		}
 	}
 
@@ -107,6 +115,31 @@ export function PostForm(props: PostFormProps) {
 				/>
 				{formState.errors.markdown_content && (
 					<p className="text-xs text-red-600">{formState.errors.markdown_content.message}</p>
+				)}
+			</div>
+
+			<div className="space-y-2 rounded-lg border p-4">
+				{initial?.slug ? (
+					<>
+						<Label>Постоянная ссылка</Label>
+						<code className="block break-all text-sm text-muted-foreground">/posts/{initial.slug}</code>
+					</>
+				) : (
+					<>
+						<div className="flex items-center gap-2">
+							<input
+								id="generate_slug"
+								type="checkbox"
+								className="h-4 w-4 rounded border-input"
+								disabled={!!submitting}
+								{...register("generate_slug")}
+							/>
+							<Label htmlFor="generate_slug">Создать постоянную ссылку</Label>
+						</div>
+						<p className="text-xs text-muted-foreground">
+							Ссылка создаётся из названия один раз. Её нельзя удалить, и она не изменится при переименовании поста.
+						</p>
+					</>
 				)}
 			</div>
 
