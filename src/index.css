@@ -5,6 +5,7 @@
 @import "highlight.js/styles/github-dark.css";
 @import "tw-animate-css";
 
+@custom-variant dark (&:where(.dark, .dark *));
 
 /* ===== Tailwind v4 tokens (даёт утилиты вида bg-primary, text-muted-foreground, etc.) */
 @theme {
