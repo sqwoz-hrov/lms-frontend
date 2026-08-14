@@ -1,4 +1,5 @@
 // src/components/layout/Navbar.tsx
+import logoUrl from "@/assets/sqwoz_platform_logo.png";
 import { Button } from "@/components/ui/button";
 import {
 	DropdownMenu,
@@ -35,7 +36,7 @@ export function Navbar() {
 				<>
 					<Link to="/home" aria-label="SQWOZ home" className="inline-flex items-center">
 						<img
-							src="/sqwoz_platform_logo.png"
+							src={logoUrl}
 							alt="Сквозь platform logo"
 							className="h-14 w-35 " // brightness-0 invert
 						/>
