@@ -11,6 +11,9 @@ on:
   pull_request:
     branches: [main]
 
+env:
+  BRANCH_NAME: ${{ inputs.branch || github.head_ref || github.ref_name }}
+
 jobs:
   deploy:
     name: Deploy to Stage
@@ -28,8 +31,12 @@ jobs:
           username: ${{ secrets.STAGE_USER }}
           key: ${{ secrets.STAGE_PRIVATE_KEY }}
           script: |
+            set -euo pipefail
             cd "${{ secrets.PROJECT_DIRECTORY }}"
             git fetch origin
-            git checkout "${{ github.event.inputs.branch }}"
-            git pull origin "${{ github.event.inputs.branch }}"
-            docker compose -f stage.docker-compose.yml up -d --build
+            git checkout "${{ env.BRANCH_NAME }}"
+            git pull origin "${{ env.BRANCH_NAME }}"
+            echo "Deploying commit $(git rev-parse HEAD)"
+            docker compose -f stage.docker-compose.yml build --pull --no-cache
+            docker compose -f stage.docker-compose.yml up -d --force-recreate
+            docker compose -f stage.docker-compose.yml ps
