@@ -25,8 +25,12 @@ jobs:
           username: ${{ secrets.PROD_USER }}
           key: ${{ secrets.PROD_PRIVATE_KEY }}
           script: |
-            cd "${{ secrets.FRONTEND_PROJECT_DIRECTORY }}"
+            set -euo pipefail
+            cd "${{ secrets.PROJECT_DIRECTORY }}"
             git fetch origin
-            git checkout main
-            git pull origin main
-            docker compose -f prod.docker-compose.yml up -d --build
+            git checkout "${{ github.event.inputs.branch }}"
+            git pull --ff-only origin "${{ github.event.inputs.branch }}"
+            echo "Deploying commit $(git rev-parse HEAD)"
+            docker compose -f prod.docker-compose.yml build --pull --no-cache
+            docker compose -f prod.docker-compose.yml up -d --force-recreate
+            docker compose -f prod.docker-compose.yml ps
