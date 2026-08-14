@@ -45,13 +45,13 @@ const HOMEPAGE_OPTIONS: Array<{
 	{
 		value: "posts",
 		title: "Посты",
-		description: "Сразу открывать список постов.",
+		description: "Сразу открывать список постов",
 		icon: Newspaper,
 	},
 	{
 		value: "transcriptions",
 		title: "Транскрипции",
-		description: "Открывать страницу транскрипций после входа.",
+		description: "Открывать страницу транскрипций после входа",
 		icon: Captions,
 	},
 ];
@@ -134,13 +134,13 @@ export function SettingsPage() {
 		<div className="mx-auto flex w-full max-w-3xl flex-col gap-4 p-6">
 			<div className="space-y-1.5">
 				<h1 className="text-2xl font-semibold">Настройки</h1>
-				<p className="text-muted-foreground text-sm">Настройте интерфейс под себя.</p>
+				<p className="text-muted-foreground text-sm">Настройте интерфейс под себя</p>
 			</div>
 
 			<Card>
 				<CardHeader>
 					<CardTitle>Тема интерфейса</CardTitle>
-					<CardDescription>Выберите, в какой палитре вам удобнее работать.</CardDescription>
+					<CardDescription>Выберите, в какой палитре вам удобнее</CardDescription>
 					<CardAction>
 						{updateThemeMutation.isPending ? (
 							<span className="inline-flex items-center gap-2 text-sm text-muted-foreground">
@@ -198,7 +198,7 @@ export function SettingsPage() {
 			<Card>
 				<CardHeader>
 					<CardTitle>Домашняя страница</CardTitle>
-					<CardDescription>Куда перенаправлять вас сразу после входа.</CardDescription>
+					<CardDescription>Куда перенаправлять вас сразу после входа</CardDescription>
 				</CardHeader>
 				<CardContent>
 					<div className="grid gap-4 md:grid-cols-3">
