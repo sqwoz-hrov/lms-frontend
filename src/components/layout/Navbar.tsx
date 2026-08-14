@@ -35,11 +35,7 @@ export function Navbar() {
 			{isAuthenticated && (
 				<>
 					<Link to="/home" aria-label="SQWOZ home" className="inline-flex items-center">
-						<img
-							src={logoUrl}
-							alt="Сквозь platform logo"
-							className="h-14 w-35 " // brightness-0 invert
-						/>
+						<img src={logoUrl} alt="Сквозь platform logo" className="h-14 w-35 dark:brightness-0 dark:invert" />
 					</Link>
 					<NavLink to="/subjects" className={linkCls}>
 						Темы
