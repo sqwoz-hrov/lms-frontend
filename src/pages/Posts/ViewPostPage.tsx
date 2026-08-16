@@ -1,4 +1,5 @@
 import { type PostVideoReference, PostsApi, type PostResponseDto } from "@/api/postsApi";
+import { SubscriptionTiersApi } from "@/api/subscriptionTiersApi";
 import { GetByIdVideoResponseDto, VideosApi } from "@/api/videosApi";
 import { MarkdownRenderer } from "@/components/markdown/MarkdownRenderer";
 import { Button } from "@/components/ui/button";
@@ -9,6 +10,7 @@ import { useQuery } from "@tanstack/react-query";
 import { CalendarClock, FileQuestion, FileText, Lock, Video } from "lucide-react";
 import { useMemo } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { getLockedPostAccessMessage, isPostLockedForHigherTier } from "./postAccess";
 
 function toPlayerPhase(p?: string): NonNullable<React.ComponentProps<typeof VideoPlayer>["phase"]> {
 	switch (p) {
@@ -34,11 +36,39 @@ function extractVideoId(videoRef?: PostVideoReference): string | null {
 	return null;
 }
 
+function PostNotFoundPage() {
+	return (
+		<div className="container mx-auto grid min-h-[70vh] place-items-center px-4 py-10">
+			<div className="max-w-md space-y-5 text-center">
+				<div className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-muted">
+					<FileQuestion className="h-7 w-7 text-muted-foreground" />
+				</div>
+				<div className="space-y-2">
+					<p className="text-sm font-medium text-muted-foreground">Ошибка 404</p>
+					<h1 className="text-2xl font-semibold tracking-tight">Пост не найден</h1>
+					<p className="text-sm text-muted-foreground">
+						Возможно, ссылка неверна, пост был удалён или постоянная ссылка не существует.
+					</p>
+				</div>
+				<Button asChild>
+					<Link to="/posts">Вернуться к постам</Link>
+				</Button>
+			</div>
+		</div>
+	);
+}
+
 export function ViewPostPage() {
 	const { id } = useParams<{ id: string }>();
 	const navigate = useNavigate();
 	const { user } = useAuth();
 	const isAdmin = user?.role === "admin";
+	const { data: subscriptionTiers = [] } = useQuery({
+		queryKey: ["subscription-tiers"],
+		queryFn: () => SubscriptionTiersApi.list(),
+		enabled: user?.role === "subscriber",
+		staleTime: 5 * 60_000,
+	});
 
 	const {
 		data: post,
@@ -75,11 +105,7 @@ export function ViewPostPage() {
 	}, [videoId, post?.locked_preview?.has_video, post?.markdown_content]);
 
 	if (!id) {
-		return (
-			<div className="min-h-[60vh] grid place-items-center text-muted-foreground">
-				Упс! Пост не найден. Вероятно, вы перешли по некорректной ссылке или пост был удалён
-			</div>
-		);
+		return <PostNotFoundPage />;
 	}
 
 	if (isLoading) {
@@ -96,20 +122,15 @@ export function ViewPostPage() {
 	}
 
 	if (!post) {
-		return (
-			<div className="min-h-[60vh] flex flex-col items-center justify-center gap-4">
-				<p className="text-sm text-muted-foreground">Пост не найден.</p>
-				<Button variant="secondary" onClick={() => navigate(-1)}>
-					Назад
-				</Button>
-			</div>
-		);
+		return <PostNotFoundPage />;
 	}
 
 	const hasMarkdown = !!post.markdown_content?.trim() && !isLocked;
 	const hasVideo = !!videoId && !isLocked;
 	const hasContent = hasMarkdown || hasVideo;
 	const formattedDate = new Date(post.created_at).toLocaleString();
+	const isLockedForHigherTier = isPostLockedForHigherTier(post, user, subscriptionTiers);
+	const lockedAccessMessage = getLockedPostAccessMessage(post, user, subscriptionTiers);
 
 	return (
 		<div className="container mx-auto px-4 py-6">
@@ -133,7 +154,7 @@ export function ViewPostPage() {
 				<CardContent className={hasContent || isLocked ? "space-y-6" : undefined}>
 					{isLocked ? (
 						<>
-							{post.locked_preview?.has_video && (
+							{post.locked_preview?.has_video && !isLockedForHigherTier && (
 								<div className="flex flex-wrap items-center gap-3 rounded-2xl border border-amber-200/70 bg-amber-50/80 px-4 py-3 text-sm text-amber-900">
 									<Video className="h-5 w-5" />
 									<span className="flex-1">
@@ -160,7 +181,7 @@ export function ViewPostPage() {
 								</div>
 								<div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
 									<Lock className="h-4 w-4 text-rose-500" />
-									<span>Контент доступен только подписчикам.</span>
+									<span>{lockedAccessMessage}</span>
 									<Button
 										asChild
 										size="sm"
