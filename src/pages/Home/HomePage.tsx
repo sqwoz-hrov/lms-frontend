@@ -3,6 +3,7 @@ import { ChevronRight } from "lucide-react";
 import { SpinningText } from "@/components/common/SpinningText";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
+import { Link } from "react-router-dom";
 
 type HomeAudience = "mentor" | "self";
 
@@ -64,9 +65,9 @@ function MentorContent() {
 			<p>Сейчас публично для менторов доступны такие инструменты:</p>
 			<ul className="list-disc space-y-2 pl-6">
 				<li>
-					<a className="text-primary underline underline-offset-4" href="/interviews/upload">
+					<Link className="text-primary underline underline-offset-4" to="/interviews/upload">
 						Анализ собеседований
-					</a>
+					</Link>
 				</li>
 				<li>
 					<a className="text-primary underline underline-offset-4" href="#">
@@ -77,7 +78,10 @@ function MentorContent() {
 
 			<p>
 				Если нужно больше – напишите в саппорт и мы что-то придумаем. У нас довольно много фичей, которые пока не
-				работают публично. <a className="text-primary underline underline-offset-4" href="/faq">Вот тут полный список</a>
+				работают публично.{" "}
+				<Link className="text-primary underline underline-offset-4" to="/faq">
+					Вот тут полный список
+				</Link>
 			</p>
 
 			<p>

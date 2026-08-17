@@ -5,6 +5,10 @@ import {
 } from "@/api/interviewTranscriptionsApi";
 import { interviewTranscriptionsReportApi, type LLMReportHint } from "@/api/interviewTranscriptionsReportApi";
 import { VideosApi } from "@/api/videosApi";
+import blunderUrl from "@/assets/blunder.png";
+import inaccuracyUrl from "@/assets/inaccuracy.png";
+import missedWinUrl from "@/assets/missed-win.png";
+import mistakeUrl from "@/assets/mistake.png";
 import { ErrorNavigator } from "@/components/interview-transcriptions/ErrorNavigator";
 import { TranscriptionStatusBadge } from "@/components/interview-transcriptions/TranscriptionStatusBadge";
 import { UsageLimitReachedBanner } from "@/components/interview-transcriptions/UsageLimitReachedBanner";
@@ -24,16 +28,19 @@ import { QuotesPanel } from "./components/AfterUpload/QuotesPanel";
 import { formatDateTime } from "../utils";
 
 const ERROR_TYPE_MAP = {
-	blunder: <img src="/blunder.png" alt="Blunder" title="Blunder: грубая ошибка" className="size-4" />,
+	blunder: <img src={blunderUrl} alt="Blunder" title="Blunder: грубая ошибка" className="size-4" />,
 	inaccuracy: (
-		<img src="/inaccuracy.png" alt="Inaccuracy" title="Inaccuracy: неточный ответ, можно было чуть лучше" className="size-4" />
+		<img
+			src={inaccuracyUrl}
+			alt="Inaccuracy"
+			title="Inaccuracy: неточный ответ, можно было чуть лучше"
+			className="size-4"
+		/>
 	),
 	missedWin: (
-		<img src="/missed-win.png" alt="Missed Win" title="Missed Win: упущенная возможность выделиться" className="size-4" />
+		<img src={missedWinUrl} alt="Missed Win" title="Missed Win: упущенная возможность выделиться" className="size-4" />
 	),
-	mistake: (
-		<img src="/mistake.png" alt="Mistake" title="Mistake: ошибка" className="size-4" />
-	)
+	mistake: <img src={mistakeUrl} alt="Mistake" title="Mistake: ошибка" className="size-4" />,
 };
 
 /** Maps backend video phases to the VideoPlayer phase prop */

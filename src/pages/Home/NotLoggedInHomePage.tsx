@@ -1,3 +1,4 @@
+import logoUrl from "@/assets/sqwoz_platform_logo.png";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 
@@ -8,7 +9,7 @@ export function NotLoggedInHomePage() {
 				<header className="-mx-6 flex min-h-20 w-[calc(100%+3rem)] items-center justify-between gap-3 border-b border-white/70 bg-black px-6 py-4 shadow-[0_10px_40px_rgba(0,0,0,0.35)]">
 					<Link to="/" aria-label="SQWOZ home" className="inline-flex items-center">
 						<img
-							src="/sqwoz_platform_logo.png"
+							src={logoUrl}
 							alt="Сквозь platform logo"
 							className="h-14 w-35 brightness-0 invert"
 						/>

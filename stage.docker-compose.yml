@@ -2,33 +2,36 @@ services:
   app:
     build:
       context: .
-      dockerfile: Dockerfile.stage
+      dockerfile: Dockerfile
+      args:
+        VITE_MODE: ${VITE_MODE:-stage}
+        VITE_API_URL: ${VITE_API_URL:-/lms-api}
+        VITE_FRONTEND_URL_PREFIX: /lms
+        VITE_INTERVIEW_UPLOAD_MOCK: ${VITE_INTERVIEW_UPLOAD_MOCK:-false}
+        VITE_TELEGRAM_BOT_NAME: ${VITE_TELEGRAM_BOT_NAME:-}
+        VITE_TELEGRAM_SUPPORT_USERNAME: ${VITE_TELEGRAM_SUPPORT_USERNAME:-}
     container_name: lms-frontend
     restart: unless-stopped
-    environment:
-      - NODE_ENV=development
-      - DEV_PORT=${DEV_PORT:-5173}
-      - HMR_PROTOCOL=wss
-      - HMR_HOST=stage.sqwoz-hrov.ru
-      - HMR_CLIENT_PORT=${DEV_HMR_CLIENT_PORT:-443}
-      - CHOKIDAR_USEPOLLING=true
-      - WATCHPACK_POLLING=true
     networks:
-      - traefik_public
+      - traefik
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1/healthz"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
     labels:
       - 'traefik.enable=true'
-      - 'traefik.http.routers.lms-frontend.rule=Host(`stage.sqwoz-hrov.ru`) && PathPrefix(`/lms`)'
+      - 'traefik.http.routers.lms-frontend.rule=Host(`stage.sqwoz-hrov.ru`) && (Path(`/lms`) || PathPrefix(`/lms/`))'
       - 'traefik.http.routers.lms-frontend.entrypoints=websecure'
       - 'traefik.http.routers.lms-frontend.tls=true'
       - 'traefik.http.routers.lms-frontend.tls.certresolver=myresolver'
       - 'traefik.http.routers.lms-frontend.service=lms-frontend'
-      - 'traefik.http.services.lms-frontend.loadbalancer.server.port=${DEV_PORT:-5173}'
-      - 'traefik.docker.network=traefik_public'
+      - 'traefik.http.services.lms-frontend.loadbalancer.server.port=80'
+      - 'traefik.docker.network=${TRAEFIK_NETWORK:-traefik_public}'
     extra_hosts:
       - "host.docker.internal:host-gateway"
-    env_file:
-      - .env
-    
+
 networks:
-  traefik_public:
+  traefik:
     external: true
+    name: ${TRAEFIK_NETWORK:-traefik_public}
