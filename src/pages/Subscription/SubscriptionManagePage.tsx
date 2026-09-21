@@ -434,7 +434,7 @@ export function SubscriptionManagePage() {
 										<div className="mt-2 text-xl font-semibold leading-tight">{getTierName(displayedNextTier)}</div>
 										{subscription.currentGiftTier ? (
 											<p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-												После подарка{displayedNextTierUntilDate ? ` до ${displayedNextTierUntilDate}` : ""}
+												После подарка;{displayedNextTierUntilDate ? ` до ${displayedNextTierUntilDate}` : ""}
 											</p>
 										) : shouldShowNextBillingDate ? (
 											subscription.nextPayment.amount > 0 ? (

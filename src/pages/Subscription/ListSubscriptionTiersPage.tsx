@@ -101,6 +101,20 @@ function formatDays(days: number) {
 	return `${days} дней`;
 }
 
+function renderDescriptionParagraphs(paragraphs: Array<string | null | undefined>) {
+	const visibleParagraphs = paragraphs.filter((paragraph): paragraph is string => Boolean(paragraph));
+
+	return (
+		<span className="block space-y-3">
+			{visibleParagraphs.map((paragraph, index) => (
+				<span key={index} className="block">
+					{paragraph}
+				</span>
+			))}
+		</span>
+	);
+}
+
 function sortGiftsBySoonestExpiry(a: GiftListItemDto, b: GiftListItemDto) {
 	return toTimestamp(a.expiresAt) - toTimestamp(b.expiresAt);
 }
@@ -484,7 +498,7 @@ export function ListSubscriptionTiersPage() {
 
 	function getDeferredPurchaseNotice(tier: SubscriptionTierResponseDto) {
 		const giftName = currentGiftFullTier?.tier ?? subscription?.currentGiftTier?.name ?? "подарочный тариф";
-		const giftUntil = formatDate(subscription?.currentGiftTier?.until);
+		const giftUntil = formatDate(subscription?.currentGiftTier?.until)?.replace(/\.$/, "");
 		const giftPeriod = giftUntil ? ` до ${giftUntil}` : "";
 
 		return `У вас всё ещё действует более высокий подарочный тариф «${giftName}»${giftPeriod}. Платная подписка «${tier.tier}» начнёт действовать, когда подарок закончится, а оплаченные 30 дней не будут расходоваться во время подарка.`;
@@ -497,7 +511,11 @@ export function ListSubscriptionTiersPage() {
 			? subscription.nextPayment.amount > 0 || (nextFullTier?.price_rubles ?? 0) > 0
 			: Boolean(subscription?.currentTier.until);
 
-		return hasPaidPeriod ? getRemainingDays(subscription?.currentTier.until) : 0;
+		if (!hasPaidPeriod) return 0;
+
+		const remainingSubscriptionDays = getRemainingDays(subscription?.currentTier.until);
+		const remainingGiftDays = getRemainingDays(subscription?.currentGiftTier?.until);
+		return Math.max(0, remainingSubscriptionDays - remainingGiftDays);
 	}
 
 	function getPaidPeriodExtensionNotice(tier: SubscriptionTierResponseDto) {
@@ -519,22 +537,22 @@ export function ListSubscriptionTiersPage() {
 		const paidPeriodExtensionNotice = getPaidPeriodExtensionNotice(purchaseTarget);
 
 		if (isDeferredPurchaseByGift(purchaseTarget)) {
-			return [getDeferredPurchaseNotice(purchaseTarget), paidPeriodExtensionNotice, `Стоимость — ${price} за 30 дней.`]
-				.filter(Boolean)
-				.join(" ");
+			return renderDescriptionParagraphs([
+				getDeferredPurchaseNotice(purchaseTarget),
+				paidPeriodExtensionNotice,
+				`Стоимость — ${price} за 30 дней.`,
+			]);
 		}
 
 		if (isDowngradeTarget(purchaseTarget)) {
 			return `Вы понижаете уровень подписки до «${tierName}», ${purchaseTarget.price_rubles !== 0 ? "он будет стоить " + price + " за 30 дней" : "он бесплатный навсегда"}. Текущий уровень «${currentTierName}» останется с вами до конца оплаченного периода, а дальше вы перейдёте на уровень «${tierName}»`;
 		}
 
-		return [
+		return renderDescriptionParagraphs([
 			`Вы повышаете уровень подписки до «${tierName}», это будет стоить ${price} за 30 дней. Ваш уровень изменится сразу после оплаты.`,
 			paidPeriodExtensionNotice,
 			"Вы всегда сможете вернуться к прошлому уровню, если не увидите смысла в новом!",
-		]
-			.filter(Boolean)
-			.join(" ");
+		]);
 	}
 
 	async function pollSubscriptionAfterCharge(
