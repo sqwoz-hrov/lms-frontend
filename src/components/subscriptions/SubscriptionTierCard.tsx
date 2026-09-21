@@ -1,4 +1,5 @@
 import type { SubscriptionTierResponseDto } from "@/api/subscriptionTiersApi";
+import { MarkdownRenderer } from "@/components/markdown/MarkdownRenderer";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -12,37 +13,56 @@ import {
 } from "@/components/ui/card";
 import type { ReactNode } from "react";
 
+function formatTierPrice(value: number) {
+	return value <= 0 ? "Бесплатно" : `${value.toLocaleString("ru-RU")} ₽ / 30 дней`;
+}
+
 export type SubscriptionTierCardProps = {
 	tier: SubscriptionTierResponseDto;
 	isCurrent?: boolean;
 	headerAction?: ReactNode;
 	footer?: ReactNode;
+	priceLabel?: ReactNode;
 	className?: string;
+	onClick?: () => void;
 };
 
 export function SubscriptionTierCard(props: SubscriptionTierCardProps) {
-	const { tier, isCurrent = false, headerAction, footer, className } = props;
+	const { tier, isCurrent = false, headerAction, footer, priceLabel, className, onClick } = props;
+	const markdownDescription = tier.markdown_description?.trim();
 
 	return (
 		<Card
 			className={cn(
-				"transition-colors",
+				"relative transition-colors",
+				onClick && "cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
 				isCurrent ? "border-primary shadow-md" : "hover:border-muted-foreground/40",
 				className,
 			)}
 		>
+			{onClick && (
+				<button
+					type="button"
+					aria-label={`Открыть подробности тарифа ${tier.tier}`}
+					className="absolute inset-0 z-10 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+					onClick={onClick}
+				/>
+			)}
+
 			<CardHeader className="items-start gap-2">
 				<div>
 					<CardTitle className="text-lg">{tier.tier}</CardTitle>
-					<CardDescription>{tier.price_rubles} ₽ / мес</CardDescription>
+					<CardDescription>{priceLabel ?? formatTierPrice(tier.price_rubles)}</CardDescription>
 				</div>
 				{(isCurrent || headerAction) && (
 					<CardAction>{headerAction ?? <Badge variant="secondary">Текущий тариф</Badge>}</CardAction>
 				)}
 			</CardHeader>
 
-			<CardContent>
-				{tier.permissions.length > 0 ? (
+			<CardContent className="flex-1">
+				{markdownDescription ? (
+					<MarkdownRenderer markdown={markdownDescription} mode="preview" />
+				) : tier.permissions.length > 0 ? (
 					<ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
 						{tier.permissions.map(permission => (
 							<li key={permission}>{permission}</li>
@@ -53,7 +73,11 @@ export function SubscriptionTierCard(props: SubscriptionTierCardProps) {
 				)}
 			</CardContent>
 
-			{footer && <CardFooter className="justify-end">{footer}</CardFooter>}
+			{footer && (
+				<CardFooter className="relative z-20 mt-auto justify-end" onClick={event => event.stopPropagation()}>
+					{footer}
+				</CardFooter>
+			)}
 		</Card>
 	);
 }

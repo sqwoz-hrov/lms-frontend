@@ -35,7 +35,8 @@ export function SubjectUpsertPage() {
 	const createMut = useMutation({ mutationFn: SubjectsApi.create });
 	const updateMut = useMutation({ mutationFn: SubjectsApi.update });
 	const openForTiersMut = useMutation({
-		mutationFn: ({ id, tier_ids }: { id: string; tier_ids: string[] }) => SubjectsApi.openForTiers(id, { tier_ids }),
+		mutationFn: ({ id, minimal_tier_id }: { id: string; minimal_tier_id: string }) =>
+			SubjectsApi.openForTiers(id, { minimal_tier_id }),
 	});
 
 	async function handleSubmit(values: SubjectFormValues) {
@@ -47,7 +48,7 @@ export function SubjectUpsertPage() {
 		if (mode === "create") {
 			const data: CreateSubjectDto = payload;
 			const created = await createMut.mutateAsync(data);
-			await openForTiersMut.mutateAsync({ id: created.id, tier_ids: values.subscription_tier_ids });
+			await openForTiersMut.mutateAsync({ id: created.id, minimal_tier_id: values.minimal_tier_id });
 			await queryClient.invalidateQueries({ queryKey: ["subjects"] });
 			await queryClient.invalidateQueries({ queryKey: ["subject", created.id] });
 			navigate("/subjects");
@@ -65,7 +66,7 @@ export function SubjectUpsertPage() {
 		};
 
 		const updated = await updateMut.mutateAsync(data);
-		await openForTiersMut.mutateAsync({ id: updated.id, tier_ids: values.subscription_tier_ids });
+		await openForTiersMut.mutateAsync({ id: updated.id, minimal_tier_id: values.minimal_tier_id });
 		await queryClient.invalidateQueries({ queryKey: ["subjects"] });
 		await queryClient.invalidateQueries({ queryKey: ["subject", updated.id] });
 		navigate("/subjects");

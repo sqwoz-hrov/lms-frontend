@@ -1,7 +1,9 @@
 import type { SubscriptionTierResponseDto } from "@/api/subscriptionTiersApi";
+import { MarkdownRenderer } from "@/components/markdown/MarkdownRenderer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -11,6 +13,7 @@ export type SubscriptionTierFormValues = {
 	price_rubles: number;
 	power: number;
 	permissions: string[];
+	markdown_description: string | null;
 };
 
 export type SubscriptionTierFormProps = {
@@ -26,21 +29,25 @@ type InternalFormValues = {
 	price_rubles: number;
 	power: number;
 	permissionsText: string;
+	markdownDescription: string;
 };
 
 export function SubscriptionTierForm(props: SubscriptionTierFormProps) {
 	const { mode, initial, submitting = false, onSubmit, onCancel } = props;
 	const [serverError, setServerError] = useState<string | null>(null);
 
-	const { register, handleSubmit, formState, reset } = useForm<InternalFormValues>({
+	const { register, handleSubmit, formState, reset, watch } = useForm<InternalFormValues>({
 		mode: "onChange",
 		defaultValues: {
 			tier: initial?.tier ?? "",
 			price_rubles: initial?.price_rubles ?? 0,
 			power: initial?.power ?? 1,
 			permissionsText: initial?.permissions.join("\n") ?? "",
+			markdownDescription: initial?.markdown_description ?? "",
 		},
 	});
+	const markdownDescription = register("markdownDescription");
+	const watchedMarkdownDescription = watch("markdownDescription");
 
 	useEffect(() => {
 		if (mode === "edit" && initial) {
@@ -49,6 +56,7 @@ export function SubscriptionTierForm(props: SubscriptionTierFormProps) {
 				price_rubles: initial.price_rubles,
 				power: initial.power,
 				permissionsText: initial.permissions.join("\n"),
+				markdownDescription: initial.markdown_description ?? "",
 			});
 		}
 	}, [initial, mode, reset]);
@@ -66,9 +74,10 @@ export function SubscriptionTierForm(props: SubscriptionTierFormProps) {
 				price_rubles: Number(values.price_rubles),
 				power: Number(values.power),
 				permissions,
+				markdown_description: values.markdownDescription.trim() || null,
 			});
-		} catch (error: any) {
-			setServerError(error?.message || "Не удалось сохранить подписку");
+		} catch (error) {
+			setServerError(error instanceof Error ? error.message : "Не удалось сохранить подписку");
 		}
 	}
 
@@ -136,6 +145,36 @@ export function SubscriptionTierForm(props: SubscriptionTierFormProps) {
 				/>
 				<p className="text-xs text-muted-foreground">
 					Указывайте по одному пункту на строку. Список будет отображаться пользователям.
+				</p>
+			</div>
+
+			<div className="space-y-2">
+				<Label htmlFor="markdownDescription">Описание тарифа</Label>
+				<Tabs defaultValue="edit" className="gap-3">
+					<TabsList>
+						<TabsTrigger value="edit">Текст</TabsTrigger>
+						<TabsTrigger value="preview">Превью</TabsTrigger>
+					</TabsList>
+					<TabsContent value="edit">
+						<Textarea
+							id="markdownDescription"
+							rows={10}
+							placeholder={"# Что входит в тариф\n\n- Возможность для пользователя"}
+							{...markdownDescription}
+						/>
+					</TabsContent>
+					<TabsContent value="preview">
+						<div className="min-h-[244px] rounded-md border p-4">
+							{watchedMarkdownDescription?.trim() ? (
+								<MarkdownRenderer markdown={watchedMarkdownDescription} mode="full" />
+							) : (
+								<p className="text-sm text-muted-foreground">Описание тарифа пока пустое.</p>
+							)}
+						</div>
+					</TabsContent>
+				</Tabs>
+				<p className="text-xs text-muted-foreground">
+					Это описание показывается пользователю на странице подписки. Очистите поле, чтобы удалить описание.
 				</p>
 			</div>
 

@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { isAxiosError } from "axios";
 import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 
@@ -12,7 +13,8 @@ export type PostFormValues = {
 	title: string;
 	markdown_content: string;
 	video_file?: FileList;
-	subscription_tier_ids: string[];
+	minimal_tier_id: string;
+	generate_slug: boolean;
 };
 
 type PostFormProps = {
@@ -33,7 +35,8 @@ export function PostForm(props: PostFormProps) {
 		defaultValues: {
 			title: initial?.title ?? "",
 			markdown_content: initial?.markdown_content ?? "",
-			subscription_tier_ids: initial?.subscription_tier_ids ?? [],
+			minimal_tier_id: initial?.minimal_tier_id ?? "",
+			generate_slug: false,
 		},
 	});
 
@@ -42,13 +45,14 @@ export function PostForm(props: PostFormProps) {
 			reset({
 				title: initial.title,
 				markdown_content: initial.markdown_content,
-				subscription_tier_ids: initial.subscription_tier_ids ?? [],
+				minimal_tier_id: initial.minimal_tier_id ?? "",
+				generate_slug: false,
 			});
 		}
 	}, [initial, mode, reset]);
 
 	useEffect(() => {
-		register("subscription_tier_ids");
+		register("minimal_tier_id", { required: "Выберите минимальный уровень" });
 	}, [register]);
 
 	const existingVideoId = useMemo(() => {
@@ -61,8 +65,6 @@ export function PostForm(props: PostFormProps) {
 		return null;
 	}, [initial]);
 
-	const tierIds = watch("subscription_tier_ids") ?? [];
-
 	async function submit(values: PostFormValues) {
 		try {
 			setServerError(null);
@@ -72,12 +74,16 @@ export function PostForm(props: PostFormProps) {
 					title: values.title.trim(),
 					markdown_content: values.markdown_content,
 					video_file: values.video_file,
-					subscription_tier_ids: values.subscription_tier_ids,
+					minimal_tier_id: values.minimal_tier_id,
+					generate_slug: values.generate_slug,
 				},
 				{ setUploadProgress },
 			);
-		} catch (err: any) {
-			setServerError(err?.message ?? "Не удалось сохранить пост");
+		} catch (error: unknown) {
+			const responseDescription = isAxiosError<{ description?: string }>(error)
+				? error.response?.data?.description
+				: undefined;
+			setServerError(responseDescription ?? (error instanceof Error ? error.message : "Не удалось сохранить пост"));
 		}
 	}
 
@@ -112,6 +118,31 @@ export function PostForm(props: PostFormProps) {
 				)}
 			</div>
 
+			<div className="space-y-2 rounded-lg border p-4">
+				{initial?.slug ? (
+					<>
+						<Label>Постоянная ссылка</Label>
+						<code className="block break-all text-sm text-muted-foreground">/posts/{initial.slug}</code>
+					</>
+				) : (
+					<>
+						<div className="flex items-center gap-2">
+							<input
+								id="generate_slug"
+								type="checkbox"
+								className="h-4 w-4 rounded border-input"
+								disabled={!!submitting}
+								{...register("generate_slug")}
+							/>
+							<Label htmlFor="generate_slug">Создать постоянную ссылку</Label>
+						</div>
+						<p className="text-xs text-muted-foreground">
+							Ссылка создаётся из названия один раз. Её нельзя удалить, и она не изменится при переименовании поста.
+						</p>
+					</>
+				)}
+			</div>
+
 			<div className="space-y-2">
 				<Label htmlFor="video_file">Видеофайл (опционально)</Label>
 				<Input id="video_file" type="file" accept="video/*" {...register("video_file")} />
@@ -128,10 +159,10 @@ export function PostForm(props: PostFormProps) {
 			{serverError && <div className="text-sm text-red-600">{serverError}</div>}
 
 			<SubscriptionTierSelector
-				value={tierIds}
-				onChange={ids => setValue("subscription_tier_ids", ids, { shouldDirty: true, shouldValidate: true })}
+				value={watch("minimal_tier_id")}
+				onChange={id => setValue("minimal_tier_id", id, { shouldDirty: true, shouldValidate: true })}
 				disabled={!!submitting}
-				helperText="Выберите уровни, для которых пост будет доступен. Пустой список — пост скрыт для всех."
+				helperText="Выберите минимальный уровень. Пост будет доступен этому уровню и всем уровням выше."
 			/>
 
 			<div className="flex items-center gap-3">

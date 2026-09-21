@@ -13,12 +13,13 @@ export type PostVideoReference = string | Record<string, unknown> | null;
 export type PostResponseDto = {
 	id: string;
 	title: string;
+	slug?: string;
 	markdown_content_id: string;
 	markdown_content?: string;
 	video_id?: PostVideoReference;
 	created_at: string; // ISO date-time
 	locked_preview?: LockedPostPreviewDto;
-	subscription_tier_ids?: string[];
+	minimal_tier_id?: string;
 };
 
 export type PostListResponseDto = {
@@ -31,6 +32,7 @@ export type CreatePostDto = {
 	title: string;
 	markdown_content: string;
 	video_id?: PostVideoReference;
+	generate_slug?: boolean;
 };
 
 export type UpdatePostDto = {
@@ -38,6 +40,7 @@ export type UpdatePostDto = {
 	title?: string;
 	markdown_content?: string;
 	video_id?: PostVideoReference;
+	generate_slug?: boolean;
 };
 
 export type DeletePostDto = {
@@ -52,7 +55,7 @@ export type ListPostsParams = {
 };
 
 export type OpenPostForTiersDto = {
-	tier_ids: string[];
+	minimal_tier_id: string;
 };
 
 // ===== API =====
@@ -97,12 +100,12 @@ export async function listPosts(params?: ListPostsParams): Promise<PostListRespo
 }
 
 /**
- * Получает пост по id
- * GET /posts/:id
+ * Получает пост по ID или постоянной ссылке
+ * GET /posts/:identifier
  */
-export async function getPostById(id: string): Promise<PostResponseDto | null> {
+export async function getPostById(identifier: string): Promise<PostResponseDto | null> {
 	try {
-		const res = await apiClient.get<PostResponseDto>(`${POSTS}/${id}`);
+		const res = await apiClient.get<PostResponseDto>(`${POSTS}/${identifier}`);
 		return res.data;
 	} catch (error) {
 		if (axios.isAxiosError(error) && error.response?.status === 404) {

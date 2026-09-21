@@ -60,7 +60,8 @@ export function UpsertMaterialPage() {
 		mutationFn: MaterialsApi.update,
 	});
 	const openForTiersMut = useMutation({
-		mutationFn: ({ id, tier_ids }: { id: string; tier_ids: string[] }) => MaterialsApi.openForTiers(id, { tier_ids }),
+		mutationFn: ({ id, minimal_tier_id }: { id: string; minimal_tier_id: string }) =>
+			MaterialsApi.openForTiers(id, { minimal_tier_id }),
 	});
 
 	async function handleSubmit(
@@ -93,7 +94,7 @@ export function UpsertMaterialPage() {
 			}
 
 			const created = await createMut.mutateAsync(payload);
-			await openForTiersMut.mutateAsync({ id: created.id, tier_ids: values.subscription_tier_ids });
+			await openForTiersMut.mutateAsync({ id: created.id, minimal_tier_id: values.minimal_tier_id });
 			await qc.invalidateQueries({ queryKey: ["materials"] });
 			await qc.invalidateQueries({ queryKey: ["subjects"] });
 			await qc.invalidateQueries({ queryKey: ["material", created.id] });
@@ -125,7 +126,7 @@ export function UpsertMaterialPage() {
 		}
 
 		const updated = await updateMut.mutateAsync(payload);
-		await openForTiersMut.mutateAsync({ id: updated.id, tier_ids: values.subscription_tier_ids });
+		await openForTiersMut.mutateAsync({ id: updated.id, minimal_tier_id: values.minimal_tier_id });
 		await qc.invalidateQueries({ queryKey: ["materials"] });
 		await qc.invalidateQueries({ queryKey: ["material", updated.id] });
 		await qc.invalidateQueries({ queryKey: ["subjects"] });

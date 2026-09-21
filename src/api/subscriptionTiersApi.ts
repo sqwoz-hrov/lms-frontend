@@ -7,6 +7,7 @@ export type SubscriptionTierResponseDto = {
 	price_rubles: number;
 	power: number;
 	permissions: string[];
+	markdown_description?: string | null;
 };
 
 export type CreateSubscriptionTierDto = {
@@ -14,6 +15,7 @@ export type CreateSubscriptionTierDto = {
 	price_rubles: number;
 	power: number;
 	permissions: string[];
+	markdown_description?: string | null;
 };
 
 export type UpdateSubscriptionTierDto = {
@@ -22,6 +24,7 @@ export type UpdateSubscriptionTierDto = {
 	price_rubles?: number;
 	power?: number;
 	permissions?: string[];
+	markdown_description?: string | null;
 };
 
 export type DeleteSubscriptionTierDto = {

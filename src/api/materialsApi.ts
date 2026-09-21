@@ -16,7 +16,7 @@ export type MaterialResponseDto = {
 	markdown_content_id?: string;
 	markdown_content?: string;
 	is_archived: boolean;
-	subscription_tier_ids?: string[];
+	minimal_tier_id?: string;
 };
 
 export type UpdateMaterialDto = {
@@ -28,7 +28,6 @@ export type UpdateMaterialDto = {
 	markdown_content_id?: string;
 	markdown_content?: string;
 	is_archived?: boolean;
-	subscription_tier_ids?: string[];
 };
 
 export type ArchiveMaterialDto = {
@@ -37,7 +36,7 @@ export type ArchiveMaterialDto = {
 };
 
 export type OpenMaterialForTiersDto = {
-	tier_ids: string[];
+	minimal_tier_id: string;
 };
 
 const MATERIALS = "/materials";
