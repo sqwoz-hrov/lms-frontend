@@ -86,6 +86,35 @@ function getDaysUntil(value?: string | null) {
 	return Math.max(1, Math.ceil((timestamp - Date.now()) / 86_400_000));
 }
 
+function getRemainingDays(value?: string | null) {
+	const timestamp = toTimestamp(value);
+	if (!timestamp) return 0;
+	return Math.max(0, Math.ceil((timestamp - Date.now()) / 86_400_000));
+}
+
+function formatDays(days: number) {
+	const lastTwoDigits = days % 100;
+	const lastDigit = days % 10;
+	if (lastTwoDigits >= 11 && lastTwoDigits <= 14) return `${days} дней`;
+	if (lastDigit === 1) return `${days} день`;
+	if (lastDigit >= 2 && lastDigit <= 4) return `${days} дня`;
+	return `${days} дней`;
+}
+
+function renderDescriptionParagraphs(paragraphs: Array<string | null | undefined>) {
+	const visibleParagraphs = paragraphs.filter((paragraph): paragraph is string => Boolean(paragraph));
+
+	return (
+		<span className="block space-y-3">
+			{visibleParagraphs.map((paragraph, index) => (
+				<span key={index} className="block">
+					{paragraph}
+				</span>
+			))}
+		</span>
+	);
+}
+
 function sortGiftsBySoonestExpiry(a: GiftListItemDto, b: GiftListItemDto) {
 	return toTimestamp(a.expiresAt) - toTimestamp(b.expiresAt);
 }
@@ -234,17 +263,21 @@ export function ListSubscriptionTiersPage() {
 	const chargeMut = useMutation({
 		mutationFn: PaymentsApi.chargeSubscription,
 		onSuccess: async payment => {
+			const deferredPurchaseDescription =
+				purchaseTarget && isDeferredPurchaseByGift(purchaseTarget) ? getDeferredPurchaseNotice(purchaseTarget) : null;
+			const paidPeriodDaysBeforePurchase = getPaidPeriodDaysBeforePurchase(purchaseTarget);
+
 			if (payment.confirmationUrl) {
 				window.location.assign(payment.confirmationUrl);
 				return;
 			}
 
 			toast.success("Оплата запущена", {
-				description: "Обновим подписку, когда платежный webhook применит новый тариф.",
+				description: deferredPurchaseDescription ?? "Обновим подписку, когда платежный webhook применит новый тариф.",
 			});
 
 			if (purchaseTarget) {
-				await pollSubscriptionAfterCharge(purchaseTarget.id);
+				await pollSubscriptionAfterCharge(purchaseTarget, deferredPurchaseDescription, paidPeriodDaysBeforePurchase);
 			}
 		},
 		onError: () => {
@@ -398,11 +431,19 @@ export function ListSubscriptionTiersPage() {
 	const isAdmin = user?.role === "admin";
 	const isSubscriber = user?.role === "subscriber";
 	const currentFullTier = subscription ? tiersById.get(subscription.currentTier.id) : undefined;
+	const currentGiftFullTier = subscription?.currentGiftTier
+		? tiersById.get(subscription.currentGiftTier.id)
+		: undefined;
+	const nextFullTier = subscription ? tiersById.get(subscription.nextTier.id) : undefined;
 	const currentTierPower =
 		typeof subscription?.currentTier.power === "number"
 			? subscription.currentTier.power
 			: (currentFullTier?.power ?? null);
-	const activeSubscriptionPower = subscription?.currentGiftTier?.power ?? currentTierPower;
+	const currentGiftTierPower =
+		typeof subscription?.currentGiftTier?.power === "number"
+			? subscription.currentGiftTier.power
+			: (currentGiftFullTier?.power ?? null);
+	const activeSubscriptionPower = currentGiftTierPower ?? currentTierPower;
 	const currentTierName = currentFullTier?.tier ?? subscription?.currentTier.name ?? "текущий уровень";
 	const hasActiveGift = Boolean(subscription?.currentGiftTier) || (gifts?.currentlyActive?.length ?? 0) > 0;
 
@@ -445,6 +486,45 @@ export function ListSubscriptionTiersPage() {
 		);
 	}
 
+	function isDeferredPurchaseByGift(tier?: SubscriptionTierResponseDto | null) {
+		return Boolean(
+			tier &&
+				!isDowngradeTarget(tier) &&
+				subscription?.currentGiftTier &&
+				typeof currentGiftTierPower === "number" &&
+				currentGiftTierPower > tier.power,
+		);
+	}
+
+	function getDeferredPurchaseNotice(tier: SubscriptionTierResponseDto) {
+		const giftName = currentGiftFullTier?.tier ?? subscription?.currentGiftTier?.name ?? "подарочный тариф";
+		const giftUntil = formatDate(subscription?.currentGiftTier?.until)?.replace(/\.$/, "");
+		const giftPeriod = giftUntil ? ` до ${giftUntil}` : "";
+
+		return `У вас всё ещё действует более высокий подарочный тариф «${giftName}»${giftPeriod}. Платная подписка «${tier.tier}» начнёт действовать, когда подарок закончится, а оплаченные 30 дней не будут расходоваться во время подарка.`;
+	}
+
+	function getPaidPeriodDaysBeforePurchase(tier?: SubscriptionTierResponseDto | null) {
+		if (!tier || tier.price_rubles <= 0 || isDowngradeTarget(tier)) return 0;
+
+		const hasPaidPeriod = subscription?.currentGiftTier
+			? subscription.nextPayment.amount > 0 || (nextFullTier?.price_rubles ?? 0) > 0
+			: Boolean(subscription?.currentTier.until);
+
+		if (!hasPaidPeriod) return 0;
+
+		const remainingSubscriptionDays = getRemainingDays(subscription?.currentTier.until);
+		const remainingGiftDays = getRemainingDays(subscription?.currentGiftTier?.until);
+		return Math.max(0, remainingSubscriptionDays - remainingGiftDays);
+	}
+
+	function getPaidPeriodExtensionNotice(tier: SubscriptionTierResponseDto) {
+		const paidPeriodDays = getPaidPeriodDaysBeforePurchase(tier);
+		if (paidPeriodDays === 0) return null;
+
+		return `У вас уже оплачено ещё ${formatDays(paidPeriodDays)} подписки. Этот остаток сохранится на новом тарифе, а оплаченные сейчас 30 дней прибавятся к нему.`;
+	}
+
 	function getConfirmTitle() {
 		return isDowngradeTarget(purchaseTarget) ? "Подтвердить смену тарифа" : "Подтвердить оплату нового тарифа";
 	}
@@ -454,15 +534,32 @@ export function ListSubscriptionTiersPage() {
 
 		const tierName = purchaseTarget.tier;
 		const price = formatPrice(purchaseTarget.price_rubles);
+		const paidPeriodExtensionNotice = getPaidPeriodExtensionNotice(purchaseTarget);
+
+		if (isDeferredPurchaseByGift(purchaseTarget)) {
+			return renderDescriptionParagraphs([
+				getDeferredPurchaseNotice(purchaseTarget),
+				paidPeriodExtensionNotice,
+				`Стоимость — ${price} за 30 дней.`,
+			]);
+		}
 
 		if (isDowngradeTarget(purchaseTarget)) {
 			return `Вы понижаете уровень подписки до «${tierName}», ${purchaseTarget.price_rubles !== 0 ? "он будет стоить " + price + " за 30 дней" : "он бесплатный навсегда"}. Текущий уровень «${currentTierName}» останется с вами до конца оплаченного периода, а дальше вы перейдёте на уровень «${tierName}»`;
 		}
 
-		return `Вы повышаете уровень подписки до «${tierName}», это будет стоить ${price} за 30 дней. Ваш уровень изменится сразу после оплаты, но вы всегда сможете вернуться к прошлому уровню, если не увидите смысла в новом!`;
+		return renderDescriptionParagraphs([
+			`Вы повышаете уровень подписки до «${tierName}», это будет стоить ${price} за 30 дней. Ваш уровень изменится сразу после оплаты.`,
+			paidPeriodExtensionNotice,
+			"Вы всегда сможете вернуться к прошлому уровню, если не увидите смысла в новом!",
+		]);
 	}
 
-	async function pollSubscriptionAfterCharge(targetTierId: string) {
+	async function pollSubscriptionAfterCharge(
+		targetTier: SubscriptionTierResponseDto,
+		deferredPurchaseDescription: string | null,
+		paidPeriodDaysBeforePurchase: number,
+	) {
 		setIsRefreshingSubscription(true);
 		try {
 			for (let attempt = 0; attempt < SUBSCRIPTION_REFETCH_ATTEMPTS; attempt += 1) {
@@ -472,11 +569,25 @@ export function ListSubscriptionTiersPage() {
 
 				const updatedSubscription = result.data;
 				if (
-					updatedSubscription?.currentTier.id === targetTierId ||
-					updatedSubscription?.nextTier.id === targetTierId ||
-					updatedSubscription?.currentGiftTier?.id === targetTierId
+					updatedSubscription?.currentTier.id === targetTier.id ||
+					updatedSubscription?.nextTier.id === targetTier.id ||
+					updatedSubscription?.currentGiftTier?.id === targetTier.id
 				) {
-					toast.success("Подписка обновлена");
+					const updatedUntil = formatDate(updatedSubscription.currentTier.until);
+					if (paidPeriodDaysBeforePurchase > 0 && updatedUntil) {
+						const giftNotice = deferredPurchaseDescription
+							? " Более высокий подарок останется активным до своего окончания."
+							: "";
+						toast.success("Новый тариф оплачен", {
+							description: `У вас уже была платная подписка ещё на ${formatDays(paidPeriodDaysBeforePurchase)}, поэтому мы продлили тариф «${targetTier.tier}» до ${updatedUntil}.${giftNotice}`,
+						});
+					} else if (deferredPurchaseDescription) {
+						toast.success("Платная подписка запланирована", {
+							description: deferredPurchaseDescription,
+						});
+					} else {
+						toast.success("Подписка обновлена");
+					}
 					return;
 				}
 			}
