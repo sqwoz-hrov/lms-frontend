@@ -234,17 +234,20 @@ export function ListSubscriptionTiersPage() {
 	const chargeMut = useMutation({
 		mutationFn: PaymentsApi.chargeSubscription,
 		onSuccess: async payment => {
+			const deferredPurchaseDescription =
+				purchaseTarget && isDeferredPurchaseByGift(purchaseTarget) ? getDeferredPurchaseNotice(purchaseTarget) : null;
+
 			if (payment.confirmationUrl) {
 				window.location.assign(payment.confirmationUrl);
 				return;
 			}
 
 			toast.success("Оплата запущена", {
-				description: "Обновим подписку, когда платежный webhook применит новый тариф.",
+				description: deferredPurchaseDescription ?? "Обновим подписку, когда платежный webhook применит новый тариф.",
 			});
 
 			if (purchaseTarget) {
-				await pollSubscriptionAfterCharge(purchaseTarget.id);
+				await pollSubscriptionAfterCharge(purchaseTarget.id, deferredPurchaseDescription);
 			}
 		},
 		onError: () => {
@@ -398,11 +401,18 @@ export function ListSubscriptionTiersPage() {
 	const isAdmin = user?.role === "admin";
 	const isSubscriber = user?.role === "subscriber";
 	const currentFullTier = subscription ? tiersById.get(subscription.currentTier.id) : undefined;
+	const currentGiftFullTier = subscription?.currentGiftTier
+		? tiersById.get(subscription.currentGiftTier.id)
+		: undefined;
 	const currentTierPower =
 		typeof subscription?.currentTier.power === "number"
 			? subscription.currentTier.power
 			: (currentFullTier?.power ?? null);
-	const activeSubscriptionPower = subscription?.currentGiftTier?.power ?? currentTierPower;
+	const currentGiftTierPower =
+		typeof subscription?.currentGiftTier?.power === "number"
+			? subscription.currentGiftTier.power
+			: (currentGiftFullTier?.power ?? null);
+	const activeSubscriptionPower = currentGiftTierPower ?? currentTierPower;
 	const currentTierName = currentFullTier?.tier ?? subscription?.currentTier.name ?? "текущий уровень";
 	const hasActiveGift = Boolean(subscription?.currentGiftTier) || (gifts?.currentlyActive?.length ?? 0) > 0;
 
@@ -445,6 +455,24 @@ export function ListSubscriptionTiersPage() {
 		);
 	}
 
+	function isDeferredPurchaseByGift(tier?: SubscriptionTierResponseDto | null) {
+		return Boolean(
+			tier &&
+				!isDowngradeTarget(tier) &&
+				subscription?.currentGiftTier &&
+				typeof currentGiftTierPower === "number" &&
+				currentGiftTierPower > tier.power,
+		);
+	}
+
+	function getDeferredPurchaseNotice(tier: SubscriptionTierResponseDto) {
+		const giftName = currentGiftFullTier?.tier ?? subscription?.currentGiftTier?.name ?? "подарочный тариф";
+		const giftUntil = formatDate(subscription?.currentGiftTier?.until);
+		const giftPeriod = giftUntil ? ` до ${giftUntil}` : "";
+
+		return `У вас всё ещё действует более высокий подарочный тариф «${giftName}»${giftPeriod}. Платная подписка «${tier.tier}» начнёт действовать, когда подарок закончится, а оплаченные 30 дней не будут расходоваться во время подарка.`;
+	}
+
 	function getConfirmTitle() {
 		return isDowngradeTarget(purchaseTarget) ? "Подтвердить смену тарифа" : "Подтвердить оплату нового тарифа";
 	}
@@ -455,6 +483,10 @@ export function ListSubscriptionTiersPage() {
 		const tierName = purchaseTarget.tier;
 		const price = formatPrice(purchaseTarget.price_rubles);
 
+		if (isDeferredPurchaseByGift(purchaseTarget)) {
+			return `${getDeferredPurchaseNotice(purchaseTarget)} Стоимость — ${price} за 30 дней.`;
+		}
+
 		if (isDowngradeTarget(purchaseTarget)) {
 			return `Вы понижаете уровень подписки до «${tierName}», ${purchaseTarget.price_rubles !== 0 ? "он будет стоить " + price + " за 30 дней" : "он бесплатный навсегда"}. Текущий уровень «${currentTierName}» останется с вами до конца оплаченного периода, а дальше вы перейдёте на уровень «${tierName}»`;
 		}
@@ -462,7 +494,7 @@ export function ListSubscriptionTiersPage() {
 		return `Вы повышаете уровень подписки до «${tierName}», это будет стоить ${price} за 30 дней. Ваш уровень изменится сразу после оплаты, но вы всегда сможете вернуться к прошлому уровню, если не увидите смысла в новом!`;
 	}
 
-	async function pollSubscriptionAfterCharge(targetTierId: string) {
+	async function pollSubscriptionAfterCharge(targetTierId: string, deferredPurchaseDescription: string | null) {
 		setIsRefreshingSubscription(true);
 		try {
 			for (let attempt = 0; attempt < SUBSCRIPTION_REFETCH_ATTEMPTS; attempt += 1) {
@@ -476,7 +508,13 @@ export function ListSubscriptionTiersPage() {
 					updatedSubscription?.nextTier.id === targetTierId ||
 					updatedSubscription?.currentGiftTier?.id === targetTierId
 				) {
-					toast.success("Подписка обновлена");
+					if (deferredPurchaseDescription) {
+						toast.success("Платная подписка запланирована", {
+							description: deferredPurchaseDescription,
+						});
+					} else {
+						toast.success("Подписка обновлена");
+					}
 					return;
 				}
 			}
