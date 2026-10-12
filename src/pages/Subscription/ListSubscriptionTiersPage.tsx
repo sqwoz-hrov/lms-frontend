@@ -4,7 +4,7 @@ import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 
 import { GiftsApi, type GiftListItemDto } from "@/api/giftsApi";
-import { PaymentsApi } from "@/api/paymentsApi";
+import { PaymentsApi, type ChargeSubscriptionRequest } from "@/api/paymentsApi";
 import { SubscriptionsApi, type GetSubscriptionResponseDto } from "@/api/subscriptionsApi";
 import { SubscriptionTiersApi, type SubscriptionTierResponseDto } from "@/api/subscriptionTiersApi";
 import { AuthApi, type UserResponse } from "@/api/usersApi";
@@ -37,6 +37,12 @@ import {
 	formatPrice,
 	getGiftActivationErrorMessage,
 } from "./subscriptionHelpers";
+import {
+	finishPurchaseRequest,
+	getOrCreatePurchaseIdempotenceKey,
+	startPurchaseRequest,
+	type PurchaseRequestLease,
+} from "./purchaseIdempotence";
 import { ArrowLeft, AtSign, Gift, Loader2, Mail, Plus, RefreshCcw, Search, Trash2 } from "lucide-react";
 
 const SUBSCRIPTION_REFETCH_ATTEMPTS = 12;
@@ -67,6 +73,10 @@ type TierDetailsTarget =
 			type: "gift";
 			gift: GiftSubscriptionDisplayItem;
 	  };
+
+type ChargeSubscriptionMutationVariables = ChargeSubscriptionRequest & {
+	purchaseRequestLease: PurchaseRequestLease;
+};
 
 function wait(ms: number) {
 	return new Promise(resolve => {
@@ -261,32 +271,41 @@ export function ListSubscriptionTiersPage() {
 	});
 
 	const chargeMut = useMutation({
-		mutationFn: PaymentsApi.chargeSubscription,
-		onSuccess: async payment => {
-			const deferredPurchaseDescription =
-				purchaseTarget && isDeferredPurchaseByGift(purchaseTarget) ? getDeferredPurchaseNotice(purchaseTarget) : null;
-			const paidPeriodDaysBeforePurchase = getPaidPeriodDaysBeforePurchase(purchaseTarget);
+		mutationFn: (variables: ChargeSubscriptionMutationVariables) =>
+			PaymentsApi.chargeSubscription({
+				data: variables.data,
+				idempotenceKey: variables.idempotenceKey,
+			}),
+		onSuccess: async (payment, variables) => {
+			const target = purchaseTarget;
+			finishPurchaseRequest(variables.purchaseRequestLease, true);
 
-			if (payment.confirmationUrl) {
-				window.location.assign(payment.confirmationUrl);
-				return;
-			}
+			try {
+				const deferredPurchaseDescription =
+					target && isDeferredPurchaseByGift(target) ? getDeferredPurchaseNotice(target) : null;
+				const paidPeriodDaysBeforePurchase = getPaidPeriodDaysBeforePurchase(target);
 
-			toast.success("Оплата запущена", {
-				description: deferredPurchaseDescription ?? "Обновим подписку, когда платежный webhook применит новый тариф.",
-			});
+				if (payment.confirmationUrl) {
+					window.location.assign(payment.confirmationUrl);
+					return;
+				}
 
-			if (purchaseTarget) {
-				await pollSubscriptionAfterCharge(purchaseTarget, deferredPurchaseDescription, paidPeriodDaysBeforePurchase);
+				toast.success("Оплата запущена", {
+					description: deferredPurchaseDescription ?? "Обновим подписку, когда платежный webhook применит новый тариф.",
+				});
+
+				if (target) {
+					await pollSubscriptionAfterCharge(target, deferredPurchaseDescription, paidPeriodDaysBeforePurchase);
+				}
+			} finally {
+				setPurchaseTarget(null);
 			}
 		},
-		onError: () => {
+		onError: (_error, variables) => {
+			finishPurchaseRequest(variables.purchaseRequestLease, false);
 			toast.error("Не удалось оплатить тариф", {
 				description: "Проверьте способ оплаты или попробуйте позже.",
 			});
-		},
-		onSettled: () => {
-			setPurchaseTarget(null);
 		},
 	});
 
@@ -446,7 +465,6 @@ export function ListSubscriptionTiersPage() {
 	const activeSubscriptionPower = currentGiftTierPower ?? currentTierPower;
 	const currentTierName = currentFullTier?.tier ?? subscription?.currentTier.name ?? "текущий уровень";
 	const hasActiveGift = Boolean(subscription?.currentGiftTier) || (gifts?.currentlyActive?.length ?? 0) > 0;
-
 	function handleCreate() {
 		navigate("/admin/subscription-tiers/new");
 	}
@@ -458,6 +476,11 @@ export function ListSubscriptionTiersPage() {
 	function handleDelete(id: string) {
 		if (deleteMut.isPending) return;
 		setDeleteTargetId(id);
+	}
+
+	function handleOpenPurchaseDialog(tier: SubscriptionTierResponseDto) {
+		setPurchaseTarget(tier);
+		if (!isDowngradeTarget(tier) && user) getOrCreatePurchaseIdempotenceKey(user.id, tier.id);
 	}
 
 	function canPurchase(tier: SubscriptionTierResponseDto) {
@@ -606,7 +629,23 @@ export function ListSubscriptionTiersPage() {
 			void downgradeMut.mutateAsync({ subscriptionTierId: purchaseTarget.id });
 			return;
 		}
-		void chargeMut.mutateAsync({ current_tier_id: purchaseTarget.id });
+		if (!user) return;
+		const purchaseRequestLease = startPurchaseRequest(user.id, purchaseTarget.id);
+		if (!purchaseRequestLease) {
+			const purchasedTierName = purchaseTarget.tier;
+			setPurchaseTarget(null);
+			toast.success("Тариф успешно приобретён", {
+				description: `Покупка тарифа «${purchasedTierName}» уже завершена в другой вкладке.`,
+			});
+			void queryClient.invalidateQueries({ queryKey: ["subscription"] });
+			void refetchSubscription();
+			return;
+		}
+		void chargeMut.mutateAsync({
+			data: { current_tier_id: purchaseTarget.id },
+			idempotenceKey: purchaseRequestLease.idempotenceKey,
+			purchaseRequestLease,
+		});
 	}
 
 	function handleAcceptGift(gift: GiftSubscriptionDisplayItem) {
@@ -886,7 +925,7 @@ export function ListSubscriptionTiersPage() {
 										disabled={
 											!purchaseAllowed || chargeMut.isPending || downgradeMut.isPending || isRefreshingSubscription
 										}
-										onClick={() => setPurchaseTarget(tier)}
+										onClick={() => handleOpenPurchaseDialog(tier)}
 									>
 										{(chargeMut.isPending || downgradeMut.isPending || isRefreshingSubscription) &&
 											purchaseTarget?.id === tier.id && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
