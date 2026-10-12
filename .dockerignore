@@ -7,3 +7,6 @@ Dockerfile*
 .vscode
 .DS_Store
 .env
+**/*.test.*
+**/*.spec.*
+coverage
