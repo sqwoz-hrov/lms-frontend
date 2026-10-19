@@ -14,7 +14,7 @@ export type MaterialFormValues = {
 	name: string;
 	markdown_content?: string;
 	video_file?: FileList;
-	subscription_tier_ids: string[];
+	minimal_tier_id: string;
 };
 
 export type MaterialFormProps = {
@@ -38,14 +38,14 @@ export function MaterialForm(props: MaterialFormProps) {
 			subject_id: initial?.subject_id ?? defaultSubjectId,
 			name: initial?.name ?? "",
 			markdown_content: initial?.markdown_content ?? "",
-			subscription_tier_ids: initial?.subscription_tier_ids ?? [],
+			minimal_tier_id: initial?.minimal_tier_id ?? "",
 			video_file: undefined,
 		},
 	});
 
 	useEffect(() => {
 		register("subject_id", { required: "Укажите предмет" });
-		register("subscription_tier_ids");
+		register("minimal_tier_id", { required: "Выберите минимальный уровень" });
 	}, [register]);
 
 	useEffect(() => {
@@ -54,7 +54,7 @@ export function MaterialForm(props: MaterialFormProps) {
 				subject_id: initial.subject_id,
 				name: initial.name,
 				markdown_content: initial.markdown_content ?? "",
-				subscription_tier_ids: initial.subscription_tier_ids ?? [],
+				minimal_tier_id: initial.minimal_tier_id ?? "",
 				video_file: undefined,
 			});
 		}
@@ -156,8 +156,8 @@ export function MaterialForm(props: MaterialFormProps) {
 
 			{/* subscription tiers */}
 			<SubscriptionTierSelector
-				value={watch("subscription_tier_ids")}
-				onChange={ids => setValue("subscription_tier_ids", ids, { shouldDirty: true })}
+				value={watch("minimal_tier_id")}
+				onChange={id => setValue("minimal_tier_id", id, { shouldDirty: true, shouldValidate: true })}
 				disabled={!!submitting}
 			/>
 
