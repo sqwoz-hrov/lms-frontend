@@ -36,6 +36,11 @@ export type ChargeSubscriptionDto = {
 	current_tier_id: string;
 };
 
+export type ChargeSubscriptionRequest = {
+	data: ChargeSubscriptionDto;
+	idempotenceKey: string;
+};
+
 export type ChargeSubscriptionResponseDto = {
 	paymentId: string;
 	status: string;
@@ -96,8 +101,13 @@ export async function deleteSubscriptionPaymentMethod(): Promise<void> {
 	await apiClient.delete(SUBSCRIPTION_PAYMENT_METHOD);
 }
 
-export async function chargeSubscription(data: ChargeSubscriptionDto): Promise<ChargeSubscriptionResponseDto> {
-	const res = await apiClient.post<ChargeSubscriptionResponseDto>(PAYMENTS_CHARGE, data);
+export async function chargeSubscription({
+	data,
+	idempotenceKey,
+}: ChargeSubscriptionRequest): Promise<ChargeSubscriptionResponseDto> {
+	const res = await apiClient.post<ChargeSubscriptionResponseDto>(PAYMENTS_CHARGE, data, {
+		headers: { "Idempotence-Key": idempotenceKey },
+	});
 	return res.data;
 }
 
