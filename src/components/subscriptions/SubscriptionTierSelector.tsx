@@ -2,11 +2,10 @@ import { useQuery } from "@tanstack/react-query";
 import { SubscriptionTiersApi, type SubscriptionTierResponseDto } from "@/api/subscriptionTiersApi";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { useMemo } from "react";
 
 export type SubscriptionTierSelectorProps = {
-	value: string[];
-	onChange: (next: string[]) => void;
+	value: string;
+	onChange: (next: string) => void;
 	disabled?: boolean;
 	className?: string;
 	label?: string;
@@ -17,7 +16,7 @@ export function SubscriptionTierSelector(props: SubscriptionTierSelectorProps) {
 	const { value, onChange, disabled = false, className, label = "Подписочные уровни" } = props;
 	const helperText =
 		props.helperText ??
-		"Выберите уровни подписки, для которых будет доступен материал. Если ни один уровень не выбран, материал будет скрыт.";
+		"Выберите минимальный уровень подписки. Контент будет доступен этому уровню и всем уровням выше.";
 
 	const {
 		data: tiers,
@@ -29,17 +28,6 @@ export function SubscriptionTierSelector(props: SubscriptionTierSelectorProps) {
 		queryFn: SubscriptionTiersApi.list,
 		staleTime: 60_000,
 	});
-
-	const selectedSet = useMemo(() => new Set(value), [value]);
-
-	function toggleTier(id: string) {
-		if (disabled) return;
-		if (selectedSet.has(id)) {
-			onChange(value.filter(tierId => tierId !== id));
-		} else {
-			onChange([...value, id]);
-		}
-	}
 
 	return (
 		<div className={cn("space-y-3", className)}>
@@ -65,38 +53,41 @@ export function SubscriptionTierSelector(props: SubscriptionTierSelectorProps) {
 
 			{tiers && tiers.length > 0 && (
 				<div className="space-y-2">
-					{tiers.map(tier => {
-						const checked = selectedSet.has(tier.id);
-						return (
-							<label
-								key={tier.id}
-								className={cn(
-									"flex items-center gap-3 rounded-lg border p-3 transition-colors",
-									checked ? "border-primary/60 bg-primary/5" : "hover:bg-muted",
-									disabled && "cursor-not-allowed opacity-70",
-								)}
-							>
-								<input
-									type="checkbox"
-									className="h-4 w-4 accent-primary"
-									disabled={disabled}
-									checked={checked}
-									onChange={() => toggleTier(tier.id)}
-								/>
-								<div className="flex flex-1 flex-col text-sm">
-									<span className="font-medium">{tier.tier}</span>
-									<span className="text-xs text-muted-foreground">
-										{tier.price_rubles} ₽ · грейд {tier.power}
-									</span>
-								</div>
-								{tier.permissions.length > 0 && (
-									<div className="hidden text-[11px] text-muted-foreground sm:block max-w-[220px] text-right leading-tight">
-										{tier.permissions.join(", ")}
+					{[...tiers]
+						.sort((a, b) => a.power - b.power)
+						.map(tier => {
+							const checked = value === tier.id;
+							return (
+								<label
+									key={tier.id}
+									className={cn(
+										"flex items-center gap-3 rounded-lg border p-3 transition-colors",
+										checked ? "border-primary/60 bg-primary/5" : "hover:bg-muted",
+										disabled && "cursor-not-allowed opacity-70",
+									)}
+								>
+									<input
+										type="radio"
+										name="minimum-subscription-tier"
+										className="h-4 w-4 accent-primary"
+										disabled={disabled}
+										checked={checked}
+										onChange={() => onChange(tier.id)}
+									/>
+									<div className="flex flex-1 flex-col text-sm">
+										<span className="font-medium">{tier.tier}</span>
+										<span className="text-xs text-muted-foreground">
+											{tier.price_rubles} ₽ · грейд {tier.power}
+										</span>
 									</div>
-								)}
-							</label>
-						);
-					})}
+									{tier.permissions.length > 0 && (
+										<div className="hidden text-[11px] text-muted-foreground sm:block max-w-[220px] text-right leading-tight">
+											{tier.permissions.join(", ")}
+										</div>
+									)}
+								</label>
+							);
+						})}
 				</div>
 			)}
 		</div>

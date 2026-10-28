@@ -9,7 +9,7 @@ import { useForm } from "react-hook-form";
 export type SubjectFormValues = {
 	name: string;
 	color_code: string;
-	subscription_tier_ids: string[];
+	minimal_tier_id: string;
 };
 
 export type SubjectFormProps = {
@@ -31,12 +31,12 @@ export function SubjectForm(props: SubjectFormProps) {
 		defaultValues: {
 			name: initial?.name ?? "",
 			color_code: initial?.color_code ?? DEFAULT_COLOR,
-			subscription_tier_ids: initial?.subscription_tier_ids ?? [],
+			minimal_tier_id: initial?.minimal_tier_id ?? "",
 		},
 	});
 
 	useEffect(() => {
-		register("subscription_tier_ids");
+		register("minimal_tier_id", { required: "Выберите минимальный уровень" });
 	}, [register]);
 
 	useEffect(() => {
@@ -44,7 +44,7 @@ export function SubjectForm(props: SubjectFormProps) {
 			reset({
 				name: initial.name,
 				color_code: initial.color_code,
-				subscription_tier_ids: initial.subscription_tier_ids ?? [],
+				minimal_tier_id: initial.minimal_tier_id ?? "",
 			});
 		}
 	}, [initial, mode, reset]);
@@ -102,10 +102,10 @@ export function SubjectForm(props: SubjectFormProps) {
 			</div>
 
 			<SubscriptionTierSelector
-				value={watch("subscription_tier_ids")}
-				onChange={ids => setValue("subscription_tier_ids", ids, { shouldDirty: true })}
+				value={watch("minimal_tier_id")}
+				onChange={id => setValue("minimal_tier_id", id, { shouldDirty: true, shouldValidate: true })}
 				disabled={submitting}
-				helperText="Выберите подписки, которым будет доступен предмет. Без выбора предмет увидят только администраторы."
+				helperText="Выберите минимальный уровень. Предмет будет доступен этому уровню и всем уровням выше."
 			/>
 
 			{serverError && <div className="text-sm text-red-600">{serverError}</div>}

@@ -1,6 +1,36 @@
 // api/subscriptionsApi.ts — subscription management endpoints
 import apiClient from "./client";
 
+export type SubscriptionTierSummaryDto = {
+	id: string;
+	name: string;
+	permissions: string[];
+	power?: number;
+};
+
+export type CurrentSubscriptionTierDto = SubscriptionTierSummaryDto & {
+	priceRubles: number;
+	until: string | null;
+};
+
+export type GiftSubscriptionTierDto = SubscriptionTierSummaryDto & {
+	until: string;
+};
+
+export type NextPaymentDto = {
+	amount: number;
+	date: string | null;
+};
+
+export type GetSubscriptionResponseDto = {
+	billingPeriodDays: number;
+	selfGiftAllowanceRubles: number;
+	currentGiftTier: GiftSubscriptionTierDto | null;
+	currentTier: CurrentSubscriptionTierDto;
+	nextTier: SubscriptionTierSummaryDto;
+	nextPayment: NextPaymentDto;
+};
+
 export type SubscriptionResponseDto = {
 	id: string;
 	userId: string;
@@ -21,6 +51,12 @@ export type DowngradeSubscriptionDto = {
 };
 
 const SUBSCRIPTIONS_DOWNGRADE = "/subscriptions/downgrade";
+const SUBSCRIPTION = "/subscription";
+
+export async function getCurrentSubscription(): Promise<GetSubscriptionResponseDto> {
+	const res = await apiClient.get<GetSubscriptionResponseDto>(SUBSCRIPTION);
+	return res.data;
+}
 
 export async function downgradeSubscription(data: DowngradeSubscriptionDto): Promise<SubscriptionResponseDto> {
 	const res = await apiClient.post<SubscriptionResponseDto>(SUBSCRIPTIONS_DOWNGRADE, data);
@@ -28,5 +64,6 @@ export async function downgradeSubscription(data: DowngradeSubscriptionDto): Pro
 }
 
 export const SubscriptionsApi = {
+	getCurrent: getCurrentSubscription,
 	downgrade: downgradeSubscription,
 };

@@ -7,6 +7,7 @@
     "dev": "vite",
     "stage": "vite --config vite.config.stage.ts",
     "build": "vite build --config vite.config.build.ts",
+    "test": "node --test src/pages/Subscription/purchaseIdempotence.test.ts src/pages/Subscription/subscriptionDiscount.test.ts",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix"
   },

@@ -5,10 +5,10 @@ export type SubjectResponseDto = {
 	id: string;
 	name: string;
 	color_code: string;
-	subscription_tier_ids?: string[];
+	minimal_tier_id?: string;
 };
 export type UpdateSubjectDto = { id: string; name?: string; color_code?: string };
-export type OpenSubjectForTiersDto = { tier_ids: string[] };
+export type OpenSubjectForTiersDto = { minimal_tier_id: string };
 
 const SUBJECTS = "/subjects";
 

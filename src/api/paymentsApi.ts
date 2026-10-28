@@ -18,11 +18,14 @@ export type YookassaPaymentMethodType =
 
 export type PaymentMethodResponseDto = {
 	userId: string;
-	paymentMethodId: string;
+	id?: string;
+	paymentMethodId?: string;
 	type: YookassaPaymentMethodType;
 	last4: Record<string, string | null> | string | null;
 	createdAt: string;
 	updatedAt: string;
+	nextBillingAt?: string | null;
+	problemsWithPaymentMethod?: boolean;
 };
 
 export type PaymentMethodConfirmationResponseDto = {
@@ -30,7 +33,13 @@ export type PaymentMethodConfirmationResponseDto = {
 };
 
 export type ChargeSubscriptionDto = {
-	subscription_tier_id: string;
+	current_tier_id: string;
+	expectedAmountRubles: number;
+};
+
+export type ChargeSubscriptionRequest = {
+	data: ChargeSubscriptionDto;
+	idempotenceKey: string;
 };
 
 export type ChargeSubscriptionResponseDto = {
@@ -42,7 +51,34 @@ export type ChargeSubscriptionResponseDto = {
 	confirmationUrl?: string;
 };
 
+export type PaymentHistoryItemDto = {
+	paymentMethodName: string;
+	amount: number;
+	currency: "RUB";
+	date: string;
+};
+
+export type PaymentHistoryPaginationDto = {
+	page: number;
+	pageSize: number;
+	totalItems: number;
+	totalPages: number;
+	hasNextPage: boolean;
+	hasPreviousPage: boolean;
+};
+
+export type PaymentHistoryResponseDto = {
+	items: PaymentHistoryItemDto[];
+	pagination: PaymentHistoryPaginationDto;
+};
+
+export type ListPaymentHistoryParams = {
+	page?: number;
+	pageSize?: number;
+};
+
 const PAYMENTS_CHARGE = "/payments/charge";
+const PAYMENTS_HISTORY = "/payments/history";
 const SUBSCRIPTION_PAYMENT_METHOD = "/payments/payment-method";
 
 export async function addSubscriptionPaymentMethod(): Promise<PaymentMethodConfirmationResponseDto> {
@@ -66,8 +102,33 @@ export async function deleteSubscriptionPaymentMethod(): Promise<void> {
 	await apiClient.delete(SUBSCRIPTION_PAYMENT_METHOD);
 }
 
-export async function chargeSubscription(data: ChargeSubscriptionDto): Promise<ChargeSubscriptionResponseDto> {
-	const res = await apiClient.post<ChargeSubscriptionResponseDto>(PAYMENTS_CHARGE, data);
+export async function obtainSubscriptionGift({
+	data,
+	idempotenceKey,
+}: {
+	data: { current_tier_id: string };
+	idempotenceKey: string;
+}): Promise<{ giftId: string; durationDays: number }> {
+	const res = await apiClient.post<{ giftId: string; durationDays: number }>("/payments/obtain-gift", data, {
+		headers: { "Idempotence-Key": idempotenceKey },
+	});
+	return res.data;
+}
+
+export async function chargeSubscription({
+	data,
+	idempotenceKey,
+}: ChargeSubscriptionRequest): Promise<ChargeSubscriptionResponseDto> {
+	const res = await apiClient.post<ChargeSubscriptionResponseDto>(PAYMENTS_CHARGE, data, {
+		headers: { "Idempotence-Key": idempotenceKey },
+	});
+	return res.data;
+}
+
+export async function listPaymentHistory(params: ListPaymentHistoryParams = {}): Promise<PaymentHistoryResponseDto> {
+	const res = await apiClient.get<PaymentHistoryResponseDto>(PAYMENTS_HISTORY, {
+		params,
+	});
 	return res.data;
 }
 
@@ -76,4 +137,6 @@ export const PaymentsApi = {
 	getActivePaymentMethod: getActiveSubscriptionPaymentMethod,
 	deletePaymentMethod: deleteSubscriptionPaymentMethod,
 	chargeSubscription,
+	obtainGift: obtainSubscriptionGift,
+	listHistory: listPaymentHistory,
 };
