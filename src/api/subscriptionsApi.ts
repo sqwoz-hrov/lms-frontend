@@ -9,6 +9,7 @@ export type SubscriptionTierSummaryDto = {
 };
 
 export type CurrentSubscriptionTierDto = SubscriptionTierSummaryDto & {
+	priceRubles: number;
 	until: string | null;
 };
 
@@ -22,6 +23,8 @@ export type NextPaymentDto = {
 };
 
 export type GetSubscriptionResponseDto = {
+	billingPeriodDays: number;
+	selfGiftAllowanceRubles: number;
 	currentGiftTier: GiftSubscriptionTierDto | null;
 	currentTier: CurrentSubscriptionTierDto;
 	nextTier: SubscriptionTierSummaryDto;

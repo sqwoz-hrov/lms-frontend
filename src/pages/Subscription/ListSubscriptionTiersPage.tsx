@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
+import { isAxiosError } from "axios";
 
 import { GiftsApi, type GiftListItemDto } from "@/api/giftsApi";
 import { PaymentsApi, type ChargeSubscriptionRequest } from "@/api/paymentsApi";
@@ -44,6 +45,8 @@ import {
 	type PurchaseRequestLease,
 } from "./purchaseIdempotence";
 import { ArrowLeft, AtSign, Gift, Loader2, Mail, Plus, RefreshCcw, Search, Trash2 } from "lucide-react";
+
+import { calculateSubscriptionDiscount } from "./subscriptionDiscount";
 
 const SUBSCRIPTION_REFETCH_ATTEMPTS = 12;
 const SUBSCRIPTION_REFETCH_DELAY_MS = 2_000;
@@ -96,21 +99,6 @@ function getDaysUntil(value?: string | null) {
 	return Math.max(1, Math.ceil((timestamp - Date.now()) / 86_400_000));
 }
 
-function getRemainingDays(value?: string | null) {
-	const timestamp = toTimestamp(value);
-	if (!timestamp) return 0;
-	return Math.max(0, Math.ceil((timestamp - Date.now()) / 86_400_000));
-}
-
-function formatDays(days: number) {
-	const lastTwoDigits = days % 100;
-	const lastDigit = days % 10;
-	if (lastTwoDigits >= 11 && lastTwoDigits <= 14) return `${days} дней`;
-	if (lastDigit === 1) return `${days} день`;
-	if (lastDigit >= 2 && lastDigit <= 4) return `${days} дня`;
-	return `${days} дней`;
-}
-
 function renderDescriptionParagraphs(paragraphs: Array<string | null | undefined>) {
 	const visibleParagraphs = paragraphs.filter((paragraph): paragraph is string => Boolean(paragraph));
 
@@ -136,6 +124,7 @@ export function ListSubscriptionTiersPage() {
 	const { user, userLoading } = useAuth();
 	const [removingId, setRemovingId] = useState<string | null>(null);
 	const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+	const [quoteTime, setQuoteTime] = useState(Date.now);
 	const [purchaseTarget, setPurchaseTarget] = useState<SubscriptionTierResponseDto | null>(null);
 	const [tierDetailsTarget, setTierDetailsTarget] = useState<TierDetailsTarget | null>(null);
 	const [isRefreshingSubscription, setIsRefreshingSubscription] = useState(false);
@@ -220,6 +209,70 @@ export function ListSubscriptionTiersPage() {
 		staleTime: 30_000,
 	});
 
+	useEffect(() => {
+		const timer = window.setInterval(() => setQuoteTime(Date.now()), 60 * 60 * 1_000);
+		return () => window.clearInterval(timer);
+	}, []);
+
+	const discountRubles = useMemo(
+		() =>
+			subscription
+				? calculateSubscriptionDiscount(
+						{
+							priceRubles:
+								tiers?.find(tier => tier.id === subscription.currentTier.id)?.price_rubles ??
+								subscription.currentTier.priceRubles,
+							paidUntil: toTimestamp(subscription.currentTier.until),
+							giftUntil: toTimestamp(subscription.currentGiftTier?.until),
+							billingPeriodDays: subscription.billingPeriodDays,
+						},
+						quoteTime,
+					)
+				: 0,
+		[subscription, tiers, quoteTime],
+	);
+	const purchaseAmount = purchaseTarget ? purchaseTarget.price_rubles - discountRubles : null;
+	const purchaseIsGift = purchaseAmount !== null && purchaseAmount <= 0 && purchaseTarget!.price_rubles > 0;
+	const giftAllowanceExceeded =
+		purchaseIsGift && (subscription?.selfGiftAllowanceRubles ?? 0) < purchaseTarget!.price_rubles;
+
+	async function refreshPurchasePrice() {
+		await Promise.all([
+			queryClient.invalidateQueries({ queryKey: ["subscription"] }),
+			queryClient.invalidateQueries({ queryKey: ["subscription-tiers"] }),
+		]);
+		setQuoteTime(Date.now());
+		const freshTiers = queryClient.getQueryData<SubscriptionTierResponseDto[]>(["subscription-tiers"]);
+		setPurchaseTarget(current => (current ? (freshTiers?.find(tier => tier.id === current.id) ?? current) : null));
+	}
+
+	const obtainGiftMut = useMutation({
+		mutationFn: (variables: ChargeSubscriptionMutationVariables) =>
+			PaymentsApi.obtainGift({
+				data: { current_tier_id: variables.data.current_tier_id },
+				idempotenceKey: variables.idempotenceKey,
+			}),
+		onSuccess: async (gift, variables) => {
+			finishPurchaseRequest(variables.purchaseRequestLease, true);
+			setPurchaseTarget(null);
+			toast.success("Подарок получен", {
+				description: `Подписка на ${gift.durationDays} дн. сохранена как неактивный подарок. Активируйте её в разделе подарков.`,
+			});
+			await Promise.all([refreshPurchasePrice(), queryClient.invalidateQueries({ queryKey: ["gifts"] })]);
+		},
+		onError: async (error, variables) => {
+			finishPurchaseRequest(variables.purchaseRequestLease, false);
+			if (isAxiosError(error) && error.response?.status === 409) {
+				await refreshPurchasePrice();
+				toast.info("Стоимость изменилась", {
+					description: "Проверьте новую сумму и подтвердите выбор ещё раз.",
+				});
+				return;
+			}
+			toast.error("Не удалось получить подарок. Попробуйте ещё раз.");
+		},
+	});
+
 	const deleteMut = useMutation({
 		mutationFn: SubscriptionTiersApi.delete,
 		onSuccess: async () => {
@@ -283,7 +336,6 @@ export function ListSubscriptionTiersPage() {
 			try {
 				const deferredPurchaseDescription =
 					target && isDeferredPurchaseByGift(target) ? getDeferredPurchaseNotice(target) : null;
-				const paidPeriodDaysBeforePurchase = getPaidPeriodDaysBeforePurchase(target);
 
 				if (payment.confirmationUrl) {
 					window.location.assign(payment.confirmationUrl);
@@ -291,18 +343,25 @@ export function ListSubscriptionTiersPage() {
 				}
 
 				toast.success("Оплата запущена", {
-					description: deferredPurchaseDescription ?? "Обновим подписку, когда платежный webhook применит новый тариф.",
+					description: `Сумма оплаты — ${formatPrice(payment.amountRubles)}. Обновим подписку после подтверждения платежа.`,
 				});
 
 				if (target) {
-					await pollSubscriptionAfterCharge(target, deferredPurchaseDescription, paidPeriodDaysBeforePurchase);
+					await pollSubscriptionAfterCharge(target, deferredPurchaseDescription, payment.amountRubles);
 				}
 			} finally {
 				setPurchaseTarget(null);
 			}
 		},
-		onError: (_error, variables) => {
+		onError: async (_error, variables) => {
 			finishPurchaseRequest(variables.purchaseRequestLease, false);
+			if (isAxiosError(_error) && _error.response?.status === 409) {
+				await refreshPurchasePrice();
+				toast.info("Стоимость изменилась", {
+					description: "Обновляем скидку. Проверьте новую сумму и подтвердите покупку ещё раз.",
+				});
+				return;
+			}
 			toast.error("Не удалось оплатить тариф", {
 				description: "Проверьте способ оплаты или попробуйте позже.",
 			});
@@ -453,7 +512,6 @@ export function ListSubscriptionTiersPage() {
 	const currentGiftFullTier = subscription?.currentGiftTier
 		? tiersById.get(subscription.currentGiftTier.id)
 		: undefined;
-	const nextFullTier = subscription ? tiersById.get(subscription.nextTier.id) : undefined;
 	const currentTierPower =
 		typeof subscription?.currentTier.power === "number"
 			? subscription.currentTier.power
@@ -485,7 +543,7 @@ export function ListSubscriptionTiersPage() {
 
 	function canPurchase(tier: SubscriptionTierResponseDto) {
 		if (!isSubscriber || !subscription) return false;
-		if (subscription.currentGiftTier?.id === tier.id) return false;
+		if (subscription.currentGiftTier?.id === tier.id && tier.price_rubles > discountRubles) return false;
 		if (subscription.currentTier.id === tier.id) return false;
 		if (subscription.nextTier.id === tier.id) return false;
 		if (typeof currentTierPower === "number" && tier.power < currentTierPower) return true;
@@ -494,7 +552,7 @@ export function ListSubscriptionTiersPage() {
 	}
 
 	function getSubscriberTierLabel(tier: SubscriptionTierResponseDto) {
-		if (subscription?.currentGiftTier?.id === tier.id) return "Подарок активен";
+		if (subscription?.currentGiftTier?.id === tier.id && tier.price_rubles > discountRubles) return "Подарок активен";
 		if (subscription?.currentTier.id === tier.id) return "Текущий тариф";
 		if (subscription?.nextTier.id === tier.id) return "Следующий тариф";
 		return "Выбрать";
@@ -524,64 +582,42 @@ export function ListSubscriptionTiersPage() {
 		const giftUntil = formatDate(subscription?.currentGiftTier?.until)?.replace(/\.$/, "");
 		const giftPeriod = giftUntil ? ` до ${giftUntil}` : "";
 
-		return `У вас всё ещё действует более высокий подарочный тариф «${giftName}»${giftPeriod}. Платная подписка «${tier.tier}» начнёт действовать, когда подарок закончится, а оплаченные 30 дней не будут расходоваться во время подарка.`;
-	}
-
-	function getPaidPeriodDaysBeforePurchase(tier?: SubscriptionTierResponseDto | null) {
-		if (!tier || tier.price_rubles <= 0 || isDowngradeTarget(tier)) return 0;
-
-		const hasPaidPeriod = subscription?.currentGiftTier
-			? subscription.nextPayment.amount > 0 || (nextFullTier?.price_rubles ?? 0) > 0
-			: Boolean(subscription?.currentTier.until);
-
-		if (!hasPaidPeriod) return 0;
-
-		const remainingSubscriptionDays = getRemainingDays(subscription?.currentTier.until);
-		const remainingGiftDays = getRemainingDays(subscription?.currentGiftTier?.until);
-		return Math.max(0, remainingSubscriptionDays - remainingGiftDays);
-	}
-
-	function getPaidPeriodExtensionNotice(tier: SubscriptionTierResponseDto) {
-		const paidPeriodDays = getPaidPeriodDaysBeforePurchase(tier);
-		if (paidPeriodDays === 0) return null;
-
-		return `У вас уже оплачено ещё ${formatDays(paidPeriodDays)} подписки. Этот остаток сохранится на новом тарифе, а оплаченные сейчас 30 дней прибавятся к нему.`;
+		return `У вас всё ещё действует более высокий подарочный тариф «${giftName}»${giftPeriod}. Платная подписка «${tier.tier}» начнёт действовать, когда подарок закончится, а новый оплаченный период не будет расходоваться во время подарка.`;
 	}
 
 	function getConfirmTitle() {
-		return isDowngradeTarget(purchaseTarget) ? "Подтвердить смену тарифа" : "Подтвердить оплату нового тарифа";
+		if (isDowngradeTarget(purchaseTarget)) return "Подтвердить смену тарифа";
+		return purchaseIsGift ? "Получить подписку в подарок" : "Подтвердить оплату нового тарифа";
 	}
 
 	function getConfirmDescription() {
 		if (!purchaseTarget) return undefined;
-
 		const tierName = purchaseTarget.tier;
 		const price = formatPrice(purchaseTarget.price_rubles);
-		const paidPeriodExtensionNotice = getPaidPeriodExtensionNotice(purchaseTarget);
-
-		if (isDeferredPurchaseByGift(purchaseTarget)) {
-			return renderDescriptionParagraphs([
-				getDeferredPurchaseNotice(purchaseTarget),
-				paidPeriodExtensionNotice,
-				`Стоимость — ${price} за 30 дней.`,
-			]);
-		}
-
 		if (isDowngradeTarget(purchaseTarget)) {
 			return `Вы понижаете уровень подписки до «${tierName}», ${purchaseTarget.price_rubles !== 0 ? "он будет стоить " + price + " за 30 дней" : "он бесплатный навсегда"}. Текущий уровень «${currentTierName}» останется с вами до конца оплаченного периода, а дальше вы перейдёте на уровень «${tierName}»`;
 		}
-
+		if (!subscription || purchaseAmount === null) return "Загружаем данные подписки…";
+		if (giftAllowanceExceeded)
+			return "Лимит подарков исчерпан: стоимость полученных подарков не может превышать сумму ваших оплат.";
+		if (purchaseIsGift)
+			return renderDescriptionParagraphs([
+				`Тариф «${tierName}» на ${subscription.billingPeriodDays} дн. — в подарок. Списания не будет.`,
+				"Подарок сохранится неактивным. Его можно активировать позже в разделе подарков по обычным правилам.",
+			]);
 		return renderDescriptionParagraphs([
-			`Вы повышаете уровень подписки до «${tierName}», это будет стоить ${price} за 30 дней. Ваш уровень изменится сразу после оплаты.`,
-			paidPeriodExtensionNotice,
-			"Вы всегда сможете вернуться к прошлому уровню, если не увидите смысла в новом!",
+			`Доплатить сейчас — ${formatPrice(purchaseAmount)}.`,
+			`Потом — ${price} за ${subscription.billingPeriodDays || 30} дн.`,
+			isDeferredPurchaseByGift(purchaseTarget)
+				? getDeferredPurchaseNotice(purchaseTarget)
+				: `После оплаты начнётся новый период на ${subscription.billingPeriodDays || 30} дн. Новый уровень станет доступен сразу.`,
 		]);
 	}
 
 	async function pollSubscriptionAfterCharge(
 		targetTier: SubscriptionTierResponseDto,
 		deferredPurchaseDescription: string | null,
-		paidPeriodDaysBeforePurchase: number,
+		amountRubles: number,
 	) {
 		setIsRefreshingSubscription(true);
 		try {
@@ -597,20 +633,11 @@ export function ListSubscriptionTiersPage() {
 					updatedSubscription?.currentGiftTier?.id === targetTier.id
 				) {
 					const updatedUntil = formatDate(updatedSubscription.currentTier.until);
-					if (paidPeriodDaysBeforePurchase > 0 && updatedUntil) {
-						const giftNotice = deferredPurchaseDescription
-							? " Более высокий подарок останется активным до своего окончания."
-							: "";
-						toast.success("Новый тариф оплачен", {
-							description: `У вас уже была платная подписка ещё на ${formatDays(paidPeriodDaysBeforePurchase)}, поэтому мы продлили тариф «${targetTier.tier}» до ${updatedUntil}.${giftNotice}`,
-						});
-					} else if (deferredPurchaseDescription) {
-						toast.success("Платная подписка запланирована", {
-							description: deferredPurchaseDescription,
-						});
-					} else {
-						toast.success("Подписка обновлена");
-					}
+					toast.success(deferredPurchaseDescription ? "Платная подписка запланирована" : "Подписка обновлена", {
+						description:
+							deferredPurchaseDescription ??
+							`Тариф «${targetTier.tier}»${updatedUntil ? ` действует до ${updatedUntil}` : " подключён"}. Оплачено ${formatPrice(amountRubles)}.`,
+					});
 					return;
 				}
 			}
@@ -624,25 +651,36 @@ export function ListSubscriptionTiersPage() {
 	}
 
 	function handleConfirmPurchase() {
-		if (!purchaseTarget || chargeMut.isPending || downgradeMut.isPending || isRefreshingSubscription) return;
+		if (
+			!purchaseTarget ||
+			chargeMut.isPending ||
+			obtainGiftMut.isPending ||
+			downgradeMut.isPending ||
+			isRefreshingSubscription
+		)
+			return;
 		if (isDowngradeTarget(purchaseTarget)) {
 			void downgradeMut.mutateAsync({ subscriptionTierId: purchaseTarget.id });
 			return;
 		}
-		if (!user) return;
+		if (!user || !subscription || purchaseAmount === null || giftAllowanceExceeded) return;
 		const purchaseRequestLease = startPurchaseRequest(user.id, purchaseTarget.id);
 		if (!purchaseRequestLease) {
 			const purchasedTierName = purchaseTarget.tier;
 			setPurchaseTarget(null);
-			toast.success("Тариф успешно приобретён", {
-				description: `Покупка тарифа «${purchasedTierName}» уже завершена в другой вкладке.`,
+			toast.success(purchaseIsGift ? "Подарок уже получен" : "Тариф успешно приобретён", {
+				description: `Выбор тарифа «${purchasedTierName}» уже подтверждён в другой вкладке.`,
 			});
 			void queryClient.invalidateQueries({ queryKey: ["subscription"] });
 			void refetchSubscription();
 			return;
 		}
-		void chargeMut.mutateAsync({
-			data: { current_tier_id: purchaseTarget.id },
+		const mutation = purchaseIsGift ? obtainGiftMut : chargeMut;
+		mutation.mutate({
+			data: {
+				current_tier_id: purchaseTarget.id,
+				expectedAmountRubles: purchaseAmount,
+			},
 			idempotenceKey: purchaseRequestLease.idempotenceKey,
 			purchaseRequestLease,
 		});
@@ -923,11 +961,18 @@ export function ListSubscriptionTiersPage() {
 									<Button
 										size="sm"
 										disabled={
-											!purchaseAllowed || chargeMut.isPending || downgradeMut.isPending || isRefreshingSubscription
+											!purchaseAllowed ||
+											chargeMut.isPending ||
+											obtainGiftMut.isPending ||
+											downgradeMut.isPending ||
+											isRefreshingSubscription
 										}
 										onClick={() => handleOpenPurchaseDialog(tier)}
 									>
-										{(chargeMut.isPending || downgradeMut.isPending || isRefreshingSubscription) &&
+										{(chargeMut.isPending ||
+											obtainGiftMut.isPending ||
+											downgradeMut.isPending ||
+											isRefreshingSubscription) &&
 											purchaseTarget?.id === tier.id && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
 										{getSubscriberTierLabel(tier)}
 									</Button>
@@ -1353,14 +1398,25 @@ export function ListSubscriptionTiersPage() {
 			<ConfirmActionDialog
 				open={Boolean(purchaseTarget)}
 				onOpenChange={open => {
-					if (!open && !chargeMut.isPending && !downgradeMut.isPending && !isRefreshingSubscription) {
+					if (
+						!open &&
+						!chargeMut.isPending &&
+						!obtainGiftMut.isPending &&
+						!downgradeMut.isPending &&
+						!isRefreshingSubscription
+					) {
 						setPurchaseTarget(null);
 					}
 				}}
 				title={getConfirmTitle()}
 				description={getConfirmDescription()}
-				confirmLabel="Подтвердить"
-				pending={chargeMut.isPending || downgradeMut.isPending || isRefreshingSubscription}
+				confirmLabel={
+					isDowngradeTarget(purchaseTarget) ? "Подтвердить" : purchaseIsGift ? "Получить подарок" : "Оплатить"
+				}
+				confirmDisabled={
+					!isDowngradeTarget(purchaseTarget) && (!subscription || subscriptionLoading || giftAllowanceExceeded)
+				}
+				pending={chargeMut.isPending || obtainGiftMut.isPending || downgradeMut.isPending || isRefreshingSubscription}
 				onConfirm={handleConfirmPurchase}
 			/>
 

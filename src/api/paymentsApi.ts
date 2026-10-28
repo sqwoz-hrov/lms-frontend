@@ -34,6 +34,7 @@ export type PaymentMethodConfirmationResponseDto = {
 
 export type ChargeSubscriptionDto = {
 	current_tier_id: string;
+	expectedAmountRubles: number;
 };
 
 export type ChargeSubscriptionRequest = {
@@ -101,6 +102,19 @@ export async function deleteSubscriptionPaymentMethod(): Promise<void> {
 	await apiClient.delete(SUBSCRIPTION_PAYMENT_METHOD);
 }
 
+export async function obtainSubscriptionGift({
+	data,
+	idempotenceKey,
+}: {
+	data: { current_tier_id: string };
+	idempotenceKey: string;
+}): Promise<{ giftId: string; durationDays: number }> {
+	const res = await apiClient.post<{ giftId: string; durationDays: number }>("/payments/obtain-gift", data, {
+		headers: { "Idempotence-Key": idempotenceKey },
+	});
+	return res.data;
+}
+
 export async function chargeSubscription({
 	data,
 	idempotenceKey,
@@ -123,5 +137,6 @@ export const PaymentsApi = {
 	getActivePaymentMethod: getActiveSubscriptionPaymentMethod,
 	deletePaymentMethod: deleteSubscriptionPaymentMethod,
 	chargeSubscription,
+	obtainGift: obtainSubscriptionGift,
 	listHistory: listPaymentHistory,
 };
