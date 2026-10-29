@@ -13,29 +13,17 @@ import {
 	Calendar,
 } from "lucide-react";
 
-import {
-	PaymentsApi,
-	type PaymentHistoryItemDto,
-	type PaymentMethodConfirmationResponseDto,
-	type PaymentMethodResponseDto,
-} from "@/api/paymentsApi";
+import { PaymentsApi, type PaymentHistoryItemDto, type PaymentMethodResponseDto } from "@/api/paymentsApi";
 import { GiftsApi, type GiftListItemDto } from "@/api/giftsApi";
 import { SubscriptionsApi, type GetSubscriptionResponseDto } from "@/api/subscriptionsApi";
 import { SubscriptionTiersApi, type SubscriptionTierResponseDto } from "@/api/subscriptionTiersApi";
-import { ConfirmDeletionDialog } from "@/components/common/dialogs/ConfirmDeletionDialog";
 import { MarkdownRenderer } from "@/components/markdown/MarkdownRenderer";
+import { PaymentMethodActions } from "@/components/subscriptions/PaymentMethodActions";
 import { GiftAvailabilityBanner } from "@/components/subscriptions/GiftAvailabilityBanner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-	Dialog,
-	DialogContent,
-	DialogDescription,
-	DialogFooter,
-	DialogHeader,
-	DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useAuth } from "@/hooks/useAuth";
@@ -127,9 +115,6 @@ export function SubscriptionManagePage() {
 	const { user, userLoading } = useAuth();
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
-	const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
-	const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
-	const [paymentMethodActionError, setPaymentMethodActionError] = useState<string | null>(null);
 	const [selectedTier, setSelectedTier] = useState<SubscriptionTierResponseDto | null>(null);
 
 	const {
@@ -195,34 +180,6 @@ export function SubscriptionManagePage() {
 		staleTime: 60_000,
 	});
 
-	const addPaymentMethodMutation = useMutation<PaymentMethodConfirmationResponseDto>({
-		mutationFn: PaymentsApi.addPaymentMethod,
-		onMutate: () => setPaymentMethodActionError(null),
-		onSuccess: data => {
-			if (data?.confirmation_url) {
-				window.location.assign(data.confirmation_url);
-				return;
-			}
-			setPaymentMethodActionError("Не удалось получить ссылку на изменение способа оплаты. Попробуйте снова.");
-		},
-		onError: () => {
-			setPaymentMethodActionError("Не удалось открыть изменение способа оплаты. Попробуйте позже.");
-		},
-	});
-
-	const deletePaymentMethodMutation = useMutation({
-		mutationFn: PaymentsApi.deletePaymentMethod,
-		onMutate: () => setPaymentMethodActionError(null),
-		onSuccess: async () => {
-			setPaymentDialogOpen(false);
-			await refetchPaymentMethod();
-		},
-		onError: () => {
-			setPaymentMethodActionError("Не удалось удалить способ оплаты. Попробуйте позже.");
-		},
-		onSettled: () => setCancelDialogOpen(false),
-	});
-
 	const acceptGiftMutation = useMutation({
 		mutationFn: GiftsApi.accept,
 		onSuccess: async () => {
@@ -264,7 +221,7 @@ export function SubscriptionManagePage() {
 		typeof subscription?.currentTier.power === "number"
 			? subscription.currentTier.power
 			: (currentFullTier?.power ?? null);
-	const isFreeTier = currentTierPower === 0;
+	const isFreeTier = currentTierPower === 0 && !subscription?.currentGiftTier;
 	const nextBillingDate = formatDate(subscription?.nextPayment.date);
 	const giftUntilDate = formatDate(subscription?.currentGiftTier?.until);
 	const currentTierUntilDate = formatDate(subscription?.currentTier.until);
@@ -296,21 +253,10 @@ export function SubscriptionManagePage() {
 			: null;
 	const availableGiftSummary = getBestApplicableGift(availableGifts, activeAccessTierPower);
 
-	function handleChangePaymentMethod() {
-		if (addPaymentMethodMutation.isPending) return;
-		void addPaymentMethodMutation.mutateAsync();
-	}
-
 	function showTierDetails(tierId?: string | null) {
 		if (!tierId) return;
 		const tier = tiersById.get(tierId);
 		if (tier) setSelectedTier(tier);
-	}
-
-	function handleDeletePaymentMethod() {
-		if (!activePaymentMethod || deletePaymentMethodMutation.isPending) return;
-
-		void deletePaymentMethodMutation.mutateAsync();
 	}
 
 	function handleAcceptGift(gift: GiftListItemDto) {
@@ -353,12 +299,6 @@ export function SubscriptionManagePage() {
 					Назад к подписке
 				</Button>
 			</div>
-
-			{paymentMethodActionError && (
-				<div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
-					{paymentMethodActionError}
-				</div>
-			)}
 
 			{isLoading && (
 				<div className="flex min-h-[260px] items-center justify-center rounded-lg border border-dashed">
@@ -412,7 +352,8 @@ export function SubscriptionManagePage() {
 										<div className="mt-2 text-xl font-semibold leading-tight">{getTierName(activeAccessTier)}</div>
 										{subscription.currentGiftTier ? (
 											<p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-												Подарочная подписка{giftUntilDate ? ` до ${giftUntilDate}` : ""}
+												Подарочная подписка
+												{giftUntilDate ? ` до ${giftUntilDate}` : ""}
 											</p>
 										) : (
 											<p className="mt-1 text-sm leading-relaxed text-muted-foreground">
@@ -434,7 +375,8 @@ export function SubscriptionManagePage() {
 										<div className="mt-2 text-xl font-semibold leading-tight">{getTierName(displayedNextTier)}</div>
 										{subscription.currentGiftTier ? (
 											<p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-												После подарка;{displayedNextTierUntilDate ? ` до ${displayedNextTierUntilDate}` : ""}
+												После подарка;
+												{displayedNextTierUntilDate ? ` до ${displayedNextTierUntilDate}` : ""}
 											</p>
 										) : shouldShowNextBillingDate ? (
 											subscription.nextPayment.amount > 0 ? (
@@ -514,13 +456,16 @@ export function SubscriptionManagePage() {
 										<div>
 											<p className="text-sm text-muted-foreground">Способ оплаты</p>
 											<p className="text-lg font-semibold">{paymentMethodName}</p>
+											{activePaymentMethod && (isNextTierFree ? (
+												<p className="mt-1 text-sm text-muted-foreground">Автосписания отключены</p>
+											) : (
+												<p className="mt-1 text-sm text-muted-foreground">Автосписания включены</p>
+											))}
 											{activePaymentMethod?.problemsWithPaymentMethod && (
 												<p className="mt-1 text-sm text-destructive">Есть проблема с последним списанием.</p>
 											)}
 										</div>
-										<Button variant="outline" onClick={() => setPaymentDialogOpen(true)}>
-											{activePaymentMethod ? "Изменить" : "Добавить"}
-										</Button>
+										<PaymentMethodActions paymentMethod={activePaymentMethod} />
 									</div>
 								)}
 
@@ -561,37 +506,6 @@ export function SubscriptionManagePage() {
 				</div>
 			)}
 
-			<Dialog open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen}>
-				<DialogContent>
-					<DialogHeader>
-						<DialogTitle>Управление способом оплаты</DialogTitle>
-						<DialogDescription>
-							Можно добавить новую карту или удалить текущий способ оплаты. Уже оплаченный доступ сохранится до конца
-							периода.
-						</DialogDescription>
-					</DialogHeader>
-
-					<div className="rounded-lg border p-4">
-						<p className="text-sm text-muted-foreground">Текущий способ оплаты</p>
-						<p className="mt-1 text-lg font-semibold">{paymentMethodName}</p>
-					</div>
-
-					<DialogFooter>
-						<Button
-							variant="outline"
-							disabled={deletePaymentMethodMutation.isPending || !activePaymentMethod}
-							onClick={() => setCancelDialogOpen(true)}
-						>
-							Удалить карту
-						</Button>
-						<Button disabled={addPaymentMethodMutation.isPending} onClick={handleChangePaymentMethod}>
-							{addPaymentMethodMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-							{activePaymentMethod ? "Изменить карту" : "Добавить карту"}
-						</Button>
-					</DialogFooter>
-				</DialogContent>
-			</Dialog>
-
 			<Dialog open={Boolean(selectedTier)} onOpenChange={open => !open && setSelectedTier(null)}>
 				<DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
 					<DialogHeader>
@@ -615,15 +529,6 @@ export function SubscriptionManagePage() {
 					)}
 				</DialogContent>
 			</Dialog>
-
-			<ConfirmDeletionDialog
-				entityName="способ оплаты"
-				description="Сохранённый способ оплаты будет отвязан. Уже оплаченная подписка продолжит работать до конца периода."
-				open={cancelDialogOpen}
-				onOpenChange={setCancelDialogOpen}
-				onConfirm={handleDeletePaymentMethod}
-				pending={deletePaymentMethodMutation.isPending}
-			/>
 		</div>
 	);
 }

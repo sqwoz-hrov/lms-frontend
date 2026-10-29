@@ -291,7 +291,7 @@ export function ListSubscriptionTiersPage() {
 				}
 
 				toast.success("Оплата запущена", {
-					description: deferredPurchaseDescription ?? "Обновим подписку, когда платежный webhook применит новый тариф.",
+					description: deferredPurchaseDescription ?? "Обрабатываем платёж, эту страницу можно закрыть - мы уведомим вас когда оплата пройдёт",
 				});
 
 				if (target) {

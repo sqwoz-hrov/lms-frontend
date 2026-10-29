@@ -13,6 +13,7 @@ import { GiftsApi, type GiftListItemDto } from "@/api/giftsApi";
 import { SubscriptionsApi, type GetSubscriptionResponseDto } from "@/api/subscriptionsApi";
 import { SubscriptionTiersApi, type SubscriptionTierResponseDto } from "@/api/subscriptionTiersApi";
 import { MarkdownRenderer } from "@/components/markdown/MarkdownRenderer";
+import { PaymentMethodActions } from "@/components/subscriptions/PaymentMethodActions";
 import { GiftAvailabilityBanner } from "@/components/subscriptions/GiftAvailabilityBanner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -23,6 +24,7 @@ import {
 	LOWER_TIER_GIFT_MESSAGE,
 	canActivateGiftWithCurrentPower,
 	formatDate,
+	formatPaymentMethodName,
 	formatPrice,
 	formatSubscriptionPeriodPrice,
 	formatSubscriptionPrice,
@@ -131,7 +133,7 @@ export function SubscriptionPage() {
 		typeof subscription?.currentTier.power === "number"
 			? subscription.currentTier.power
 			: (currentFullTier?.power ?? null);
-	const isFreeTier = currentTierPower === 0;
+	const isFreeTier = currentTierPower === 0 && !subscription?.currentGiftTier;
 	const activeAccessTier = subscription?.currentGiftTier
 		? (giftFullTier ?? subscription.currentGiftTier)
 		: (currentFullTier ?? subscription?.currentTier);
@@ -148,6 +150,7 @@ export function SubscriptionPage() {
 		(typeof subscription?.nextTier.power === "number" && subscription.nextTier.power === 0);
 	const isNextTierPaid =
 		Boolean(subscription) && (nextFullTier ? nextFullTier.price_rubles > 0 : subscription.nextPayment.amount > 0);
+	const shouldShowUpgradeMessage = subscription?.currentGiftTier ? isNextTierFree : isCurrentAccessFree;
 	const shouldShowNextBillingDate = Boolean(nextBillingDate) && !(isCurrentAccessFree && isNextTierFree);
 	const hasActiveTierBenefits = Boolean(activeTierMarkdown || activeAccessTier?.permissions?.length);
 	const tierAfterGift =
@@ -286,24 +289,6 @@ export function SubscriptionPage() {
 				</div>
 			)}
 
-			{!isLoading && !hasLoadError && !paymentMethodError && !activePaymentMethod && isNextTierPaid && (
-				<div className="flex flex-col gap-3 rounded-lg border p-4 text-sm sm:flex-row sm:items-center sm:justify-between">
-					<div className="flex items-start gap-3">
-						<CreditCard className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-						<div className="space-y-1">
-							<p className="font-medium">Способ оплаты не привязан</p>
-							<p className="text-muted-foreground">
-								Добавьте способ оплаты, чтобы автопродление подписки сработало без ручных действий.
-							</p>
-						</div>
-					</div>
-					<Button size="sm" disabled={addPaymentMethodMutation.isPending} onClick={handleChangePaymentMethod}>
-						{addPaymentMethodMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-						Добавить способ оплаты
-					</Button>
-				</div>
-			)}
-
 			{!isLoading && !hasLoadError && !giftsLoading && availableGiftSummary.bestGift && (
 				<GiftAvailabilityBanner
 					gift={availableGiftSummary.bestGift}
@@ -318,15 +303,22 @@ export function SubscriptionPage() {
 				<section className="space-y-5">
 					<h1 className="text-3xl font-semibold tracking-normal">Сейчас вы не подписаны</h1>
 					<div className="max-w-4xl space-y-4 rounded-lg border p-6 text-base leading-relaxed text-foreground sm:p-8">
-						<p>Привяжите свою карту, чтобы начать пользоваться всеми плюшками платформы "Сквозь эйчаров" уже сейчас</p>
+						<p>
+							Выберите платный тариф, чтобы начать пользоваться всеми плюшками платформы "Сквозь эйчаров" уже сейчас
+						</p>
 						<p>Если вам просто посмотреть, воспользуйтесь пробным периодом или возьмите и отмените подписку</p>
 						<p>
 							Это безопасно: мы не храним ваши платёжные данные, а отменить подписку вы сможете в любой момент. Если
 							отмените, подписка будет действовать до конца оплаченного периода.
 						</p>
+						<Button size="lg" className="h-12 px-8 text-base" onClick={() => navigate("/subscription/manage")}>
+							Управлять подпиской
+						</Button>
 					</div>
 				</section>
 			)}
+
+
 
 			{!isLoading && !hasLoadError && subscription && !isFreeTier && (
 				<section className="space-y-5">
@@ -372,14 +364,44 @@ export function SubscriptionPage() {
 
 						<div className="space-y-5">
 							<p className="max-w-4xl text-base leading-relaxed text-foreground">
-								Если вам нужно изменить или отменить подписку, нажмите на большую кнопку ниже. Подписка останется с вами
-								до конца оплаченного периода.
+									<>
+										Если вам нужно изменить или отменить подписку, нажмите на большую кнопку ниже. Подписка останется с
+										вами до конца оплаченного периода. Отмена подписки прекращает автосписания с карты
+									</>
 							</p>
 							<Button size="lg" className="h-12 px-8 text-base" onClick={() => navigate("/subscription/manage")}>
 								Управлять подпиской
 							</Button>
 						</div>
+					</div>			
+
+				{!isLoading && !hasLoadError && !paymentMethodError && (
+				<div className="flex flex-col gap-3 rounded-lg border p-4 text-sm sm:flex-row sm:items-center sm:justify-between">
+					<div className="flex items-start gap-3">
+						<CreditCard className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+						<div className="space-y-1">
+							<p className="font-medium">{formatPaymentMethodName(activePaymentMethod)}</p>
+							<p className="text-muted-foreground">
+								{activePaymentMethod
+									? "Способ оплаты сохранён."
+									: isNextTierPaid
+										? "Добавьте способ оплаты, чтобы автопродление подписки сработало без ручных действий."
+										: "Добавьте способ оплаты, чтобы использовать его при оформлении платной подписки."}
+								{activePaymentMethod && (isNextTierFree  ? " Автосписания отключены" : " Автосписания включены") }
+							</p>
+						</div>
 					</div>
+					<PaymentMethodActions
+						paymentMethod={activePaymentMethod}
+						size="sm"
+						variant="default"
+						changeLabel="Изменить способ оплаты"
+						addLabel="Добавить способ оплаты"
+					/>
+				</div>
+			)}
+
+
 
 					{hasActiveTierBenefits && (
 						<div className="space-y-3 rounded-lg border p-6 sm:p-8">
